@@ -43,7 +43,7 @@ from astropy.time import Time
 
 from . import vector as vec
 
-__all__ = ['mjd2jd', 'jd2mjd', 'frameCheck', 
+__all__ = ['mjd2jd', 'jd2mjd', 'frameCheck', 'frameChange',
            'keplerian2cartesian', 'cartesian2keplerian',
            'cartesian2cometary','cometary2keplerian',
            'cometary2cartesian', 
@@ -143,6 +143,43 @@ def frameCheck(cart, frame):
                        
     return np.array(ecart)  
 
+def frameChange(cart, inframe, outframe):
+    """Transform coordinates into the desired frame of reference.
+    Currently only 'icrf' or 'ecliptic'.
+    
+    Parameters:
+    -----------
+    cart     ... Cartesian state vector (x,y,z,vx,vy,vz)
+    inframe  ... string, input frame of refrence
+    outframe ... string, output frame of refrence
+    
+    Returns:
+    --------
+    ecart ... Cartesian state vector in desired frame
+    """   
+    
+    if(inframe=='icrf' or inframe=='ecliptic'):
+        pass
+    else:
+        raise Exception('Error in frameChange: unknown input frame')
+        
+    if(outframe=='icrf' or outframe=='ecliptic'):
+        pass
+    else:
+        raise Exception('Error in frameChange: unknown output frame')
+    
+
+    if(inframe=='icrf' and outframe=='ecliptic'):
+        ecart=icrf2ecliptic(cart)
+            
+    elif(inframe=='ecliptic' and outframe=='icrf'):
+        ecart=ecliptic2icrf(cart)
+      
+    else:
+        ecart=cart
+                       
+    return ecart  
+
 
 def keplerian2cartesian(epoch, kep, frame='ecliptic', mu=cnst.GM):
     """Uses spiceypy to convert Keplerian orbital elements
@@ -150,14 +187,14 @@ def keplerian2cartesian(epoch, kep, frame='ecliptic', mu=cnst.GM):
 
     Parameters:
     -----------
-    epoch ... epoch of orbital elements [JD]
-    kep   ... orbital element array [a,e,inc(deg),peri/w(deg),node(deg),M(deg)]
-    frame ... Coordinate frame of Cartesian states: 'ecliptic', 'icrf'
-    mu    ... Gravitational parameter
+    epoch    ... epoch of orbital elements [JD]
+    kep      ... orbital element array [a,e,inc(deg),peri/w(deg),node(deg),M(deg)]
+    frame    ... coordinate frame of Cartesian state output: 'ecliptic', 'icrf'
+    mu       ... gravitational parameter
 
     Returns:
     --------
-    cart ... heliocentric ecliptic Cartesian state (x,y,z,vx,vy,vz).
+    cart ... heliocentric Cartesian state (x,y,z,vx,vy,vz).
 
     External dependencies:
     ----------------------
@@ -181,8 +218,10 @@ def keplerian2cartesian(epoch, kep, frame='ecliptic', mu=cnst.GM):
     cart = sp.conics(np.array([q, kep[1], np.deg2rad(kep[2]),
                                np.deg2rad(kep[4]), np.deg2rad(kep[3]),
                                np.deg2rad(kep[5]), 0, mu]), 0)
-                   
-    res = frameCheck(cart, frame)
+    
+    inframe='ecliptic'               
+    res = frameChange(cart, inframe, frame)
+    
     return res
 
 
@@ -193,9 +232,9 @@ def cartesian2keplerian(epoch, state, frame='ecliptic', mu=cnst.GM):
     Parameters:
     -----------
     epoch ... epoch of orbital elements [JD]
-    state ... Cartesian state (x,y,z,vx,vy,vz)
+    state ... cartesian state (x,y,z,vx,vy,vz)
     frame ... coordinate frame of Cartesian states: 'ecliptic', 'icrf'
-    mu ... Gravitational parameter
+    mu    ... gravitational parameter
 
     Returns:
     --------
@@ -311,7 +350,7 @@ def cartesian2cometary(epoch, state, frame='ecliptic', mu=cnst.GM):
     period = oscltx[10]
     # mean anomaly
     man = oscltx[5]
-    print(np.rad2deg(man))
+   
     # epoch of pericenter passage
     com_add(epoch-man/PIX2*period)
 
@@ -387,8 +426,10 @@ def cometary2cartesian(epoch, com, frame='ecliptic', mu=cnst.GM):
     cart = sp.conics(np.array([com[0], com[1], np.deg2rad(com[2]),
                      np.deg2rad(com[3]), np.deg2rad(com[4]),
                      np.deg2rad(kep[5]), 0, mu]), 0)
-            
-    res = frameCheck(cart, frame)
+    
+    inframe='ecliptic'
+    res = frameChange(cart, inframe, frame)
+    
     return res          
 
 ############################################
@@ -621,7 +662,7 @@ def coordinateTransform(M, x_in):
                 raise Exception('Error in coordinate_transform: \
                                  3D positions or 6D state vector required')               
     else:
-            print('x_in.shape',x_in.shape)
+            # print('x_in.shape',x_in.shape)
             if(x_in.shape[1] == 3):  
                 x_out = matmul(x_in[:,0:3],MT)   
             elif (x_in.shape[1] == 6):

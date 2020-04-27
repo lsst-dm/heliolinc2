@@ -42,6 +42,8 @@ from . import constants as cnst
 __all__ = ['discoverableObjects', 'clusterPurity', 'objectsInClusters',
            'correctPairs', 'observationsInCluster', 'observationsInArrows',
            'obs2heliocentricArrows',
+          'grab_jpl_orbits', 'grab_n_nights_of_JPL_data_in_field',
+          'grab_n_nights_of_JPL_data'
           ]
 
 
@@ -345,4 +347,101 @@ def obs2heliocentricArrows(df, r, drdt, tref, lttc=False, verbose=True):
 
     else:
         return x, v, t
+
+
+# UW epyc jpl_orbit_path="/data/epyc/data/solarsystem/jpl/fullDensity_3months/orbits.csv"
+
+def grab_jpl_orbits(jpl_orbit_path):
+    """Read orbits from Veres & Chesley dataset.
+    
+    Parameters:
+    -----------
+    jpl_orbit_path ... file path to orbit file
+    
+    Returns:
+    --------
+    orbits_df   ... Pandas dataframe with orbits
+    
+    """
+    orbits_df=pd.read_csv(jpl_orbit_path)
+    
+    return orbits_df    
+    
+    
+# UW epyc  jpl_data_path="/data/epyc/data/solarsystem/jpl/fullDensity_3months/jpl_fullDensity.db"
+
+def grab_JPL_data(database,nrows, query="""SELECT * FROM detections LIMIT """):
+    """Import JPL LSST Veres & Chesley dataset from local database
+    
+    Parameters:
+    -----------
+    database ... path to database
+    nrows ... number of rows 
+    
+    Returns:
+    --------
+    observations ... pandas dataframe containing observations from JPL database
+    """
+    con = sql.connect(database)
+    observations = pd.read_sql(query+str(nrows), con)
+    
+    return observations
+
+
+def grab_n_nights_of_JPL_data(database,tstart,tend):
+    """Import JPL LSST Veres & Chesley dataset from local database
+    
+    Parameters:
+    -----------
+    database ... path to database
+    tstart ... start night: number of nights since start of LSST survey (kraken2026) 
+    tend ... last night: number of nights since start 
+    
+    Returns:
+    --------
+    observations ... pandas dataframe containing observations from JPL database
+    """
+    t0=52390
+    
+    if (tstart>tend):
+        print('Start night must be before end night! ')
+    
+    else:
+        qnights="nn <= " + str(t0+tend) + " AND nn >= " + str(t0+tstart)
+        print(qnights)
+        con = sql.connect(database)
+        observations = pd.read_sql("""SELECT * FROM detections WHERE """+qnights, con)
+    
+    return observations
+
+
+def grab_n_nights_of_JPL_data_in_field(database, tstart, tend, ramin, ramax, decmin, decmax):
+    """Import JPL LSST Veres & Chesley dataset from local database
+    
+    Parameters:
+    -----------
+    database ... path to database
+    tstart ... start night: number of nights since start of LSST survey (kraken2026) 
+    tend ... last night: number of nights since start 
+    
+    Returns:
+    --------
+    observations ... pandas dataframe containing observations from JPL database
+    """
+    t0=52390
+    
+    if (tstart>tend):
+        print('Start night must be before end night! ')
+    
+    else:
+        qnights="nn <= " + str(t0+tend) + " AND nn >= " + str(t0+tstart)
+        print(qnights)
+        box=(" AND ra_deg >= " + str(ramin) + " AND ra_deg <= " +str(ramax) + 
+             " AND dec_deg >= " + str(decmin) + " AND dec_deg <= " + str(decmax))
+        
+        con = sql.connect(database)
+        observations = pd.read_sql("""SELECT * FROM detections WHERE """+qnights+box, con)
+    
+    return observations
+
 
