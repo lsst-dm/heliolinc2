@@ -44,6 +44,81 @@ COLUMN_MAPPING = {
     "epoch_mjd" : "time",
 }
 
+
+def df2difi(data_dir, fnobservations, dflinkages, fnlinkages,  
+            findability='tracklet', minobs=4, nobspernight=2, nnights=2, all_output=False, ):
+    """Convert observations and linkage dataframe to difi input and run difi.
+    
+    Parameters:
+    -----------
+    data_dir            ... path to data directory
+    fnobservations      ... file name of observations DataFrame (Veres & Chesley)
+    fnlinkages          ... file name of linkage DataFrame
+    dflinakges          ... linkage DataFrame
+    
+    Keyword Arguments:
+    ------------------
+    findability         ... difi findability criterion ('tracklet', 'minobs'). 
+                            'tracklet': MOPS like nobs>=nobsmin per night over at least nnights 
+                                        (requires correct minobs parameter: minobs = nobspernight)
+                            'minobs': an object is findable if it has at least minobs observations
+    minobs              ... minimum number of observations for an object to be findable
+    nobspernight        ... minimum number of observations per night for 'tracklet' mode
+    nnights             ... minimum number of unique nights for 'tracklet' mode
+    all_output          ... False: output of summary table only, True: entire difi output
+    
+    Returns:
+    --------
+    summary  ... difi summary DataFrame
+    
+    or if all_output = True
+    
+    observations, linkageMembers, allLinkages, allTruths, summary  ... entire difi output
+    
+    """
+    
+    dflinkages.to_csv(os.path.join(data_dir,fnlinkages), index=False)
+    
+    
+    #DATA_DIR = "./examples/data/"
+    # Read observations into a dataframe
+    observations = pd.read_csv(
+        os.path.join(data_dir, fnobservations), 
+        sep=",", 
+        dtype={
+            "obsId" : str,
+            "obj" : str,
+            "objId" : str,
+        },
+        index_col=False
+    )
+
+    # Read SSP linkages
+    linkages = pd.read_csv(
+        os.path.join(data_dir, fnlinkages),
+        sep=",", 
+        index_col=False
+    )
+    
+    # Run analysis
+    if(findability == 'minobs'):
+        [observations, linkageMembers, 
+         allLinkages, allTruths, summary] = analyzePerformanceMinObs(observations, linkages, minObs=minobs)
+    elif(findability =='tracklets'):
+        [observations, linkageMembers, 
+         allLinkages, allTruths, summary] =  analyzePerformance(observations, linkages, 
+                       sspFindability={"trackletMinObs":nobspernight, "trackMinNights":nnights},
+                       mopsFindability={"trackletMinObs":2, "trackMinNights":3}, minObs=minobs)
+    else:
+        raise ('Error in df2difi: findability criterion unknown.')
+       
+    if (all_output):
+        
+        return observations, linkageMembers, allLinkages, allTruths, summary
+    else:
+        return summary
+
+
 def _convertLinkagesToDifi(observations, linkages, columnMapping=COLUMN_MAPPING):
     ### Siegfried: you may want to remove this once you have cluster ids unique in your code
     linkages["clusterId"] = np.arange(0, len(linkages))
@@ -65,7 +140,8 @@ def _convertLinkagesToDifi(observations, linkages, columnMapping=COLUMN_MAPPING)
     ### END
     
     # Extract the columns we would want in the allLinkages dataframe
-    allLinkages = linkages[["clusterId", "r", "drdt", 'cluster_epoch', 'x_a', 'y_a', 'z_a','vx_a', 'vy_a', 'vz_a']]
+    #allLinkages = linkages[["clusterId", "r", "drdt", 'cluster_epoch', 'x_ecl', 'y_ecl', 'z_ecl','vx_ecl', 'vy_ecl', 'vz_ecl']]
+    allLinkages = linkages
     
     # Extract the columns we would want in the linkageMembers dataframe
     linkageMembers_temp = linkages[["clusterId", "obsId"]]
@@ -123,7 +199,7 @@ def calcFindableMOPS(observations,
     tracklet_nights_possible = designation_night_count[columnMapping["truth"]].value_counts()
     return tracklet_nights_possible.index[tracklet_nights_possible >= trackMinNights].values
 
-def analyzePerformance(observations, linkages, minObs=3, columnMapping=COLUMN_MAPPING):
+def analyzePerformanceMinObs(observations, linkages, minObs=3, columnMapping=COLUMN_MAPPING):
 
     # Convert data frames into the difi format
     observations, linkageMembers, allLinkages = _convertLinkagesToDifi(observations, linkages, columnMapping=columnMapping)
@@ -131,7 +207,7 @@ def analyzePerformance(observations, linkages, minObs=3, columnMapping=COLUMN_MA
     # Create the allTruths and preliminary summary dataframes, flag all objects with more 
     # than minObs observations as findable
     allTruths, summary = difi.analyzeObservations(observations,
-                                                  minObs=3,
+                                                  minObs=minObs,
                                                   classes="class",
                                                   columnMapping=columnMapping)
 
@@ -198,6 +274,93 @@ def analyzePerformance(observations, linkages, minObs=3, columnMapping=COLUMN_MA
     
     return observations, linkageMembers, allLinkages, allTruths, summary
 
+def analyzePerformance(observations, linkages, 
+                       sspFindability={"trackletMinObs":2, "trackMinNights":2},
+                       mopsFindability={"trackletMinObs":2, "trackMinNights":3}, minObs=4,
+                       columnMapping=COLUMN_MAPPING):
+
+    # Convert data frames into the difi format
+    observations, linkageMembers, allLinkages = _convertLinkagesToDifi(observations, linkages, columnMapping=columnMapping)
+    
+    # Create the allTruths and preliminary summary dataframes, flag all objects with more 
+    # than minObs observations as findable
+    allTruths, summary = difi.analyzeObservations(observations,
+                                                  minObs=minObs,
+                                                  classes="class",
+                                                  columnMapping=columnMapping)
+    
+    # Find the objects that have enough observations to make 2 tracklets of at least 2 detections
+    # on 3 unique nights
+    observations["nid"] = calcNight(observations[columnMapping["epoch_mjd"]])
+    findable_by_ssp = calcFindableMOPS(
+        observations, 
+        columnMapping=columnMapping,
+        **sspFindability
+    )
+    
+    allTruths["findable"] = np.zeros(len(allTruths), dtype=int)
+    allTruths.loc[allTruths[columnMapping["truth"]].isin(findable_by_ssp), "findable"] = 1
+
+    # Find the objects that have enough observations to make 3 tracklets of at least 2 detections
+    # on 3 unique nights
+    findable_by_mops = calcFindableMOPS(
+        observations, 
+        columnMapping=columnMapping,
+        **mopsFindability
+    )
+    
+    allTruths_mops = allTruths.copy()
+    allTruths_mops["findable"] = np.zeros(len(allTruths), dtype=int)
+    allTruths_mops.loc[allTruths_mops[columnMapping["truth"]].isin(findable_by_mops), "findable"] = 1
+    
+    # Analyze linkages with non-MOPS findability criterion
+    allLinkages, allTruths, summary = difi.analyzeLinkages(
+        observations, 
+        linkageMembers,  
+        allTruths=allTruths,
+        classes="class",
+        minObs=minObs, 
+        contaminationThreshold=0, 
+        verbose=False,
+        columnMapping=columnMapping
+    )
+    
+    # Analyze linkages with MOPS findability criterion
+    allLinkages_mops, allTruths_mops, summary_mops = difi.analyzeLinkages(
+        observations, 
+        linkageMembers,  
+        allTruths=allTruths_mops,
+        classes="class",
+        minObs=minObs, 
+        contaminationThreshold=0, 
+        verbose=False,
+        columnMapping=columnMapping
+    )
+    
+    # Merge results into a single summary dataframe
+    summary = summary.merge(
+    summary_mops[["class", "completeness", "findable", "findable_found",
+                  "findable_missed", "not_findable_found", "not_findable_missed"]], 
+        on="class", 
+        suffixes=("", "_mops")
+    )
+    summary = summary[[
+           'class', 'completeness', 'completeness_mops', 'findable', 'found', 'findable_found',
+           'findable_missed', 'not_findable_found', 'not_findable_missed',
+           'findable_mops', 'findable_found_mops', 'findable_missed_mops',
+           'not_findable_found_mops', 'not_findable_missed_mops',
+           'linkages', 'pure_linkages', 'pure_complete_linkages',
+           'partial_linkages', 'mixed_linkages', 'unique_in_pure',
+           'unique_in_pure_complete', 'unique_in_partial',
+           'unique_in_pure_and_partial', 'unique_in_pure_only',
+           'unique_in_partial_only', 'unique_in_mixed'
+    ]]
+    
+    # Merge allTruths into a single dataframe
+    allTruths = allTruths.merge(allTruths_mops[["obj", "findable"]], on=columnMapping["truth"], suffixes=("", "_mops"))
+    allTruths = allTruths[[columnMapping["truth"], 'num_obs', 'findable', 'findable_mops', 'found_pure', 'found_partial', 'found']]
+    
+    return observations, linkageMembers, allLinkages, allTruths, summary
 
 ### This is all that needs to be run
 

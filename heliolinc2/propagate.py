@@ -40,9 +40,10 @@ import spiceypy as sp
 
 # Constants such as the speed of light and GM
 from . import constants as cnst
+from . import transforms as tr
 
 
-__all__ = ['propagateState', 'propagate2body', 'propagateLinear']
+__all__ = ['propagateState', 'propagate2body', 'propagateLinear', 'stateFromOrbit']
 
 
 def propagateState(x, v, t, tp, n_jobs=1, propagator='linear'):
@@ -188,6 +189,56 @@ def propagateLinear(x, v, t, tp):
         
     return xp, v, dt
 
+
+def stateFromOrbit(orbital_elements, epochs, target_epoch, element_type='Cometary', propagator='2body', frame='icrf'):
+    """Calculate Cartesian state at a given target epoch from orbital elements
+    
+    Parameters:
+    -----------
+    orbital_elements  ... set (or sets) of orbital elements [n, 6]
+    epochs            ... reference epochs of orbital elements 
+    target_epoch      ... target epoch for propagation
+    
+    Keyword Arguments:
+    ------------------
+    element_type      ... type of orbital elements ('Cometary', 'Keplerian')
+    propagator        ... type of propagation used ('2body', 'linear')
+    frame             ... frame for Cartesian coordinates ('icrf', 'ecliptic')
+    
+    Returns:
+    --------
+    pstates           ... array of propagated Cartesian states (x,y,z,vx,vy,vz)
+    
+    External Libraries:
+    -------------------
+    heliolinc2 as hl
+    """
+    
+    pstate=[]
+    if(element_type == 'Cometary'):
+        ele2state = tr.cometary2cartesian
+    elif(element_type == 'Keplerian'):
+        ele2state = tr.keplerian2cartesian
+    else:
+        raise Exception('Error in stateFromOrbit: unknown element type')
+    
+    state=[]
+    for i in range(len(epochs)):
+        state.append(ele2state(epochs[i],orbital_elements[i,:], frame='ecliptic'))
+    
+    states=np.array(state)
+    pstate=propagateState(states[:,0:3], states[:,3:6], epochs, target_epoch, propagator=propagator)              
+   # print(pstate)        
+    psecl=np.hstack([pstate[0],pstate[1]])
+    
+    if(frame == 'icrf'):
+        pstates = tr.ecliptic2icrf(psecl)
+    elif(frame == 'ecliptic'):    
+        pstates = psecl
+    else:
+        raise Exception('Error in stateFromOrbit: specified frame unknown')
+
+    return pstates
 # def propagate2body(x, v, t, tp):
 #     """ Propagate states to the same time using spicepy's 2body propagation.
 

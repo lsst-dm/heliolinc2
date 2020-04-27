@@ -167,7 +167,7 @@ def selectTrackletsFromObsData(pairs, df, dt_min, dt_max, time_column_name):
 
 def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, v_max=1., eps=0,
                            lttc=False, filtering=True, verbose=False, 
-                           leafsize=16, balanced_tree=True, n_jobs=1):
+                           leafsize=16, balanced_tree=True, n_jobs=1, frame='ecliptic'):
     """Create tracklets/arrows from dataframe containing nightly RADEC observations
     and observer positions.
 
@@ -200,6 +200,7 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, v_max=1., eps=
                                instead of mean to calculate box centers, more robust but 
                                leads to longer tree build times
     n_jobs                 ... number of available processors for simultaneous cKDTree query
+    frame                  ... frame of reference for heliocentric arrows: 'icrf' or 'ecliptic'
 
     Returns:
     --------
@@ -216,8 +217,12 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, v_max=1., eps=
     xyz = tr.radec2icrfu(df['RA'], df['DEC'], deg=True)
 
     # Those are the line of sight (LOS) vectors
-    los = np.array([xyz[0], xyz[1], xyz[2]]).T
+    los_icrf = np.array([xyz[0], xyz[1], xyz[2]]).T
 
+    # Transform LOS vectors to frame of choice
+    inframe='icrf'
+    los = tr.frameChange(los_icrf, inframe, frame) 
+    
     # Use the position of the observer and the LOS to project the position of
     # the asteroid onto a heliocentric great circle with radius r
     observer = df[['x_obs', 'y_obs', 'z_obs']].values
@@ -300,10 +305,9 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, v_max=1., eps=
         xo = observer[goodpairs[:, 0]]
         dist = vc.norm(x-xo)
         xl = x.T-dist/cn.CAUPD*v.T
-        return xl.T, v, t, goodpairs
-
-    else:
-        return x, v, t, goodpairs
+        x = xl.T 
+ 
+    return x, v, t, goodpairs
 
 def observationsInCluster(df, pairs, cluster, garbage=False):
     """List observations in each cluster.
@@ -322,7 +326,7 @@ def observationsInCluster(df, pairs, cluster, garbage=False):
     if(garbage):
         unique_labels = np.unique(cluster.labels_)
     else:
-        unique_labels = np.unique(cluster.labels_)[1:]
+        unique_labels = np.unique(cluster.labels_)[0:]
     #number of clusters
     n_clusters = len(unique_labels)
     
@@ -365,7 +369,7 @@ def meanArrowStatesInClusters(xpvp, cluster, garbage=False, trim=25):
     if(garbage):
         unique_labels = np.unique(cluster.labels_)
     else:
-        unique_labels = np.unique(cluster.labels_)[1:]
+        unique_labels = np.unique(cluster.labels_)[0:]
     #number of clusters
     n_clusters = len(unique_labels)
          
@@ -373,18 +377,23 @@ def meanArrowStatesInClusters(xpvp, cluster, garbage=False, trim=25):
     mean_states_add=mean_states.append
     tmean=stats.trim_mean
     
+    var_states=[]
+    var_states_add=var_states.append
+    tvar=stats.tvar
+    
     #cluster contains 
     for u in unique_labels:
         idx = np.where(cluster.labels_ == u)[0]
         
         # trimmed mean state in this cluster
         mean_states_add(tmean(xpvp[idx,:], trim/100, axis=0))
-    
-    return np.array(mean_states), unique_labels  
+        # trimmed variance in this cluster
+        var_states_add(tvar(xpvp[idx,:], axis=0, ddof=1))
+    return np.array(mean_states), np.array(var_states), unique_labels  
 
     
 def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max, 
-               clustering_algorithm='dbscan', light_time=False, verbose=True, 
+               clustering_algorithm='dbscan', clustering_dimensions=6, light_time=False, verbose=True, 
                min_samples=6, n_jobs=1):
     """HelioLinC2 (Heliocentric Linking in Cartesian Coordinates) algorithm.
 
@@ -403,11 +412,12 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
     
     Keyword Arguments:
     ------------------
-    clustering_algorithm ... clustering_algorithm (currently either 'dbscan' or 'kdtree')
-    light_time           ... Light travel time correction
-    verbose              ... Print progress statements
-    min_samples          ... minimum number of samples for clustering with dbscan
-    n_jobs               ... number of processors used for 2body propagation, dbscan and KDTree query
+    clustering_algorithm  ... clustering_algorithm (currently either 'dbscan' or 'kdtree')
+    clustering_dimensions ... dimensions for clustering: 3 for position space, 6 for phase space
+    light_time            ... Light travel time correction
+    verbose               ... Print progress statements
+    min_samples           ... minimum number of samples for clustering with dbscan
+    n_jobs                ... number of processors used for 2body propagation, dbscan and KDTree query
     
     Returns:
     --------
@@ -415,16 +425,27 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
                              r, dr/dt, mean cluster state (ICRF)
     """
 
-    xar=[]
-    var=[]
-    tar=[]
-    obsids_night=[]
+    xar = []
+    var = []
+    tar = []
+    obsids_night = []
+    
+    xar_add = xar.append
+    var_add = var.append
+    tar_add = tar.append
+    obsids_night_add = obsids_night.append
 
     # the following two arrays are for testing purposes only
-    objid_night=[]
-    tobs_night=[]
+    objid_night = []
+    tobs_night = []
+    
+    objid_night_add =  objid_night.append
+    tobs_night_add = tobs_night.append
+    
+    vnorm=vc.norm
 
     df_grouped_by_night=dfobs.groupby('night')
+    nnights=len(df_grouped_by_night.groups)
     
     for n in df_grouped_by_night.groups.keys():
         if (verbose):
@@ -440,19 +461,20 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
          tarrow_night, 
          goodpairs_night]=makeHeliocentricArrows(df,r,drdt,tref,cr_obs,ct_min,
                                                      ct_max,v_max=1,lttc=light_time, eps=cr_obs,
-                                                     filtering=True, verbose=True, 
-                                                     leafsize=16, balanced_tree=False, n_jobs=n_jobs)
+                                                     filtering=True, verbose=False, 
+                                                     leafsize=16, balanced_tree=False, n_jobs=n_jobs,
+                                                     frame='ecliptic')
         # ADD TO PREVIOUS ARROWS
         if (len(xarrow_night)<1):
             if (verbose):
                 print('no data in night ',n)
         else:
-            xar.append(xarrow_night)
-            var.append(varrow_night)
-            tar.append(tarrow_night)
-            obsids_night.append(df['obsId'].values[goodpairs_night])
-            objid_night.append(df['objId'].values[goodpairs_night])
-            tobs_night.append(df['time'].values[goodpairs_night])
+            xar_add(xarrow_night)
+            var_add(varrow_night)
+            tar_add(tarrow_night)
+            obsids_night_add(df['obsId'].values[goodpairs_night])
+            objid_night_add(df['objId'].values[goodpairs_night])
+            tobs_night_add(df['time'].values[goodpairs_night])
 
 
     if (len(xar)<1):
@@ -462,8 +484,13 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
         xarrow=np.vstack(xar)
         varrow=np.vstack(var)
         tarrow=np.hstack(tar)
+        
 #       Which observations are in each arrow? -> obsids        
         obsids=np.vstack(obsids_night)
+    
+        if(verbose):
+            print('tarrow', tarrow)
+            print('obsids', obsids)
 
 #   # the following two arrays are for testing purposes only
         objids=np.vstack(objid_night)
@@ -478,10 +505,15 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
         [xp, vp, dt] = pr.propagateState(xarrow, varrow, tarrow, tprop,
                                          propagator='2body', n_jobs=n_jobs)
 
-        rnorm=(r/vc.norm(vp))
-        vpn=vp*np.array([rnorm,rnorm,rnorm]).T
-        xpvpn=np.hstack([xp,vpn])
         xpvp=np.hstack([xp,vp])
+#       # nomalize v vector to have approximately the same magnitude as xp to help with 6D clustering
+        if (clustering_dimensions==6):
+            vnormr=(r/vnorm(vp))
+            vpn=vp*np.array([vnormr,vnormr,vnormr]).T
+            xpvpn=np.hstack([xp,vpn])
+        
+        if (verbose):
+            print('Propagated arrows', xpvp)
         
 #       # CLUSTER WITH DBSCAN
         if (verbose):
@@ -489,17 +521,22 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
             
 #       # CLUSTER PROPAGATED STATES (COORDINATE SPACE (xp) OR PHASE SPACE (xpvp)               
         if(clustering_algorithm=='dbscan'):
-            db=cluster.DBSCAN(eps=cr_arrows, min_samples=min_samples, n_jobs=n_jobs).fit(xpvpn)
-
+            if (clustering_dimensions==6):
+                db=cluster.DBSCAN(eps=cr_arrows, min_samples=min_samples, n_jobs=n_jobs).fit(xpvpn)
+            elif (clustering_dimensions==3):
+                db=cluster.DBSCAN(eps=cr_arrows, min_samples=min_samples, n_jobs=n_jobs).fit(xp)
+            else:
+                raise Exception('Error in heliolinc2: only clustering in 3 or 6 dimensions supported.')
 #       # CONVERT CLUSTER INDICES TO OBSERVATION INDICES IN EACH CLUSTER
             try:
                 if (verbose):
                     print('Finding observations in clusters...')
-                obs_in_cluster, labels = observationsInCluster(dfobs, obsids, db, garbage=False)
-                obs_in_cluster_df=pd.DataFrame(zip(labels,obs_in_cluster),columns=['clusterId','obsId'])
+                [obs_in_cluster, labels] = observationsInCluster(dfobs, obsids, db, garbage=False)
+                obs_in_cluster_df=pd.DataFrame(zip(labels,obs_in_cluster), columns=['clusterId','obsId'])
                 if (verbose):
                     print('Calculating mean arrow states in clusters...')
-                mean_states, labels2 = meanArrowStatesInClusters(xpvp, db, garbage=False, trim=25)
+                [mean_states, var_states, labels2] = meanArrowStatesInClusters(xpvp, db, garbage=False, trim=25)    
+        
             except: 
                 raise Exception('Error in heliolinc2: Could not construct cluster dataframe.')
 
@@ -507,8 +544,10 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
 #       # CLUSTER WITH KDTree
             if (verbose):
                 print('Clustering arrows...')
-            tree = scsp.cKDTree(xp)
-            db = tree.query(xp, k=16, p=2, distance_upper_bound=cr_arrows, n_jobs=n_jobs)
+            tree = sc.cKDTree(xp)
+            # k, the number of neighbours to be returned should be nvisits to a field, but since we don't have that here
+            # we assume it is at most 2x per night which may be wrong for deep drilling fields
+            db = tree.query(xp, k=nnights*2, p=2, distance_upper_bound=cr_arrows, n_jobs=n_jobs)
 
             if (verbose):
                 print('Deduplicating observations in clusters...')
@@ -525,23 +564,34 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
             obs_in_cluster_df['clusterId']=obs_in_cluster_df.index.values
             obs_in_cluster_df=obs_in_cluster_df[['clusterId','obsId']]
 
+            mean_states=[]
+            var_states=[]
         else:
-            raise ('Error in heliolinc2: no valid clustering algorithm selected') 
+            raise Exception('Error in heliolinc2: no valid clustering algorithm selected') 
 
+    
         # Add heliocentric r, dr/dt, epoch and clipped mean states (ICRF) to pandas DataFrame
         obs_in_cluster_df['r'] = r
         obs_in_cluster_df['drdt'] = drdt
         obs_in_cluster_df['cluster_epoch'] = tprop
-        obs_in_cluster_df['x_a'] = mean_states[:,0]
-        obs_in_cluster_df['y_a'] = mean_states[:,1]
-        obs_in_cluster_df['z_a'] = mean_states[:,2]
-        obs_in_cluster_df['vx_a'] = mean_states[:,3]
-        obs_in_cluster_df['vy_a'] = mean_states[:,4]
-        obs_in_cluster_df['vz_a'] = mean_states[:,5]
-   
+        
+        if (len(mean_states) < 1):
+            obs_in_cluster_df[['x_ecl','y_ecl','z_ecl','vx_ecl',
+                               'vy_ecl','vz_ecl','var_pos','var_vel']] = pd.DataFrame([np.zeros(8)],                                                                                                            index=obs_in_cluster_df.index)
+        else:
+            obs_in_cluster_df['x_ecl'] = mean_states[:,0]
+            obs_in_cluster_df['y_ecl'] = mean_states[:,1]
+            obs_in_cluster_df['z_ecl'] = mean_states[:,2]
+            obs_in_cluster_df['vx_ecl'] = mean_states[:,3]
+            obs_in_cluster_df['vy_ecl'] = mean_states[:,4]
+            obs_in_cluster_df['vz_ecl'] = mean_states[:,5]
+            
+            obs_in_cluster_df['var_pos'] = vnorm(var_states[:,0:3])
+            obs_in_cluster_df['var_vel'] = vnorm(var_states[:,3:6])
+            
         return obs_in_cluster_df
     
-
+    
 def deduplicateClusters(cdf):    
     """Deduplicate clusters produced by helioLinC2 
     based on similar observations (r,rdot are discarded)
@@ -554,10 +604,14 @@ def deduplicateClusters(cdf):
     --------
     cdf2     ... deduplicated Pandas DataFrame 
     """
-     
-    cdf2=(cdf.iloc[cdf.astype(str).drop_duplicates(
-                   subset='obsId',keep="first").index]).reset_index(drop=True)        
-    return cdf2
+   
+#   cdf2=(cdf.iloc[cdf.astype(str).drop_duplicates(
+#                    subset='obsId',keep="first").index]).reset_index(drop=True)    
+
+    cdf['clusterObs'] = cdf['obsId'].astype(str) 
+    cdf.sort_values(by=['clusterObs','var_pos','var_vel'],inplace=True)
+    cdf.drop_duplicates(subset='clusterObs',keep="first",ignore_index=True, inplace=True)
+    return cdf.drop(columns=['clusterObs'])
         
 def collapseClusterSubsets(cdf):
     """Merge clusters that are subsets of each other 
