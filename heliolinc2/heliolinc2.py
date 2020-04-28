@@ -326,7 +326,7 @@ def observationsInCluster(df, pairs, cluster, garbage=False):
     if(garbage):
         unique_labels = np.unique(cluster.labels_)
     else:
-        unique_labels = np.unique(cluster.labels_)[0:]
+        unique_labels = np.unique(cluster.labels_)[1:]
     #number of clusters
     n_clusters = len(unique_labels)
     
@@ -369,7 +369,7 @@ def meanArrowStatesInClusters(xpvp, cluster, garbage=False, trim=25):
     if(garbage):
         unique_labels = np.unique(cluster.labels_)
     else:
-        unique_labels = np.unique(cluster.labels_)[0:]
+        unique_labels = np.unique(cluster.labels_)[1:]
     #number of clusters
     n_clusters = len(unique_labels)
          
