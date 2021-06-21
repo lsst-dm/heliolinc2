@@ -71,40 +71,122 @@ from . import propagate as pr
 # Ephemeris generator
 from . import ephemeris as ephem
 
+# Utility functions
+from . import utility as ut
 
 
-__all__ = [ 'heliolinc2','lsstNight',
+__all__ = [ 'heliolinc2','obs2heliolinc',
            'selectTrackletsFromObsData', 'cullSameTimePairs',
            'makeHeliocentricArrows', 'observationsInCluster', 
-           'meanArrowStatesInClusters',
+           'meanArrowStatesInClusters','observationsInArrows',
            'collapseClusterSubsets', 'deduplicateClusters']
 
 
 ############################################
-# AUXLIARY FUNCTIONS
+# MODULE SPECIFIC EXCEPTION
 ###########################################
 
-def lsstNight(expMJD, minexpMJD):
-    """Calculate the night for a given observation epoch and a survey start date.
-    
-    Parameters:
-    -----------
-    expMJD ... epoch of observation / exposure [modified Julian date, MJD]
-    minexpMJD ... start date of survey [modified Julian date, MJD]
-    
-    Returns:
-    --------
-    night ... the night of a given observation epoch with respect to the survey start date.
-    
-    """
-    local_midnight = 0.16
-    const = minexpMJD + local_midnight - 0.5
-    night = np.floor(expMJD - const)
-    return night
+class Error(Exception):
+    """HelioLinC3D module specific exception."""
+    pass
+
 
 ############################################
 # OBSERVATIONS, TRACKLETS AND ARROWS
 ###########################################
+
+
+def obs2heliolinc(df, uniqueObsId=False, uniqueObsIdName="obsId", 
+                  timeName="FieldMJD", raName="AstRA(deg)", 
+                  decName="AstDec(deg)", observerLocation='I11',
+                  observerEphemerisDt='1h', observer_xyz=[], 
+                  observer_vxyz=[]):
+    
+    """Converts observations in pandas DataFrame to HelioLinC3D ingestable format.
+    
+    Parameters:
+    ------------
+    df                 ... pandas DataFrame containing observations 
+                        
+    uniqueObsId        ... True/False: If a unique observation identifier 
+                           is present in the dataframe use that, 
+                           otherwise create that here.
+    uniqueObsIdName    ... what is the name of the unique observation identifier?
+    fieldIdName        ... name of observed field identifier
+    timeName           ... name of time identifier column
+    raName             ... name of Right Ascension column
+    decName            ... name of Declination column
+    observerLocation   ... Observer location Minor Planet Center code (e.g. 'I11')
+    observerEphemerisDt... Sampling rate for observer heliocentric ephemeris query (e.g. '1h')
+    observer_xyz       ... numpy array, heliocentric observer locations at observation epochs 
+                           in ICRF [au] if known. If empty, states will be retrieved
+                           from JPL horizons online.
+    observer_vxyz      ... numpy array, heliocentric observer velocity states in ICRF [au/day]. 
+                           If empty, states will be retrieved from JPL horizons online.
+                  
+                           
+                           
+    """
+    required_input_columns=['time','RA','DEC']
+                      
+    required_output_columns=['obsId','obsName','time','RA','DEC',
+                      'x_obs','y_obs','z_obs',
+                     'vx_obs','vy_obs','vz_obs']
+
+      
+    # Create a copy with only required inputs
+    df2 = df[[timeName,raName,decName]]
+     
+    # print(df2)    
+    # Rename columns of observations DataFrame to work with HelioLinC3D
+    column_mapping = {timeName:"time",raName:"RA", decName:"DEC"}    
+    df2.rename(columns = column_mapping, inplace=True)
+  
+    # Sort by observation time
+    # df2.sort_values(by=['time','RA'], inplace=True)
+    
+    df2.reset_index(inplace=True, drop=False)
+    
+    # Create observation ID         
+    df2['obsId'] = df2.index
+    
+    # print(df2)
+    # If a unique observation Identifier is present in the dataframe use that
+    if (uniqueObsId):
+        df2['obsName'] = df[uniqueObsIdName].values.astype(str)
+    # Otherwise create your own
+    else:    
+        df2['obsName'] = df2['obsId'].values.astype(str)
+    
+    
+    df2['night']=(ut.lsstNight(df2['time'],df2['time'].min())).astype(int)
+  
+    # if states of observatory at observation epochs are not provided,
+    # download them from JPL Horizons
+    if not observer_xyz:
+  
+        # Epochs of observation
+        obs_epochs=tr.mjd2jd(df2['time'].values)
+        # Grab
+        [observer_xyz, observer_vxyz]=ephem.getObserverStates(obs_epochs,
+                                                          observerLocation,
+                                                          observerEphemerisDt)
+    # Add observer states to observations DataFrame
+    df2['x_obs']=observer_xyz[:,0]
+    df2['y_obs']=observer_xyz[:,1]
+    df2['z_obs']=observer_xyz[:,2]
+    df2['vx_obs']=observer_vxyz[:,0]
+    df2['vy_obs']=observer_vxyz[:,1]
+    df2['vz_obs']=observer_vxyz[:,2]
+    
+    
+    # Check if all required columns are present
+    for col in required_output_columns:
+           if col not in df2.columns:
+                raise Exception("Error in obs2heliolinc: required columns not present.")
+    
+    return df2
+
 
 def cullSameTimePairs(pairs, df, dt_min, dt_max, time_column_name):
     """Cull all observation pairs that occur at the same time.
@@ -167,7 +249,8 @@ def selectTrackletsFromObsData(pairs, df, dt_min, dt_max, time_column_name):
 
 def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, v_max=1., eps=0,
                            lttc=False, filtering=True, verbose=False, 
-                           leafsize=16, balanced_tree=True, n_jobs=1, frame='ecliptic'):
+                           leafsize=16, balanced_tree=True, n_jobs=1, frame='ecliptic', 
+                           GM=cn.GM):
     """Create tracklets/arrows from dataframe containing nightly RADEC observations
     and observer positions.
 
@@ -201,6 +284,7 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, v_max=1., eps=
                                leads to longer tree build times
     n_jobs                 ... number of available processors for simultaneous cKDTree query
     frame                  ... frame of reference for heliocentric arrows: 'icrf' or 'ecliptic'
+    GM                     ... gravitational constant * mass for central body (e.g. gaussk**2*M_sun)                    
 
     Returns:
     --------
@@ -230,7 +314,7 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, v_max=1., eps=
     # Calculate how much the heliocentric distance changes
     # during the obsevations based on assumed dr/dt
     dt = tref-df['time'].values
-    dr = drdt*dt
+    dr = (drdt-GM/(r*r)*dt/2)*dt
     r_plus_dr = r+dr
 
     # Heliocentric postions of the observed asteroids
@@ -309,87 +393,7 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, v_max=1., eps=
  
     return x, v, t, goodpairs
 
-def observationsInCluster(df, pairs, cluster, garbage=False):
-    """List observations in each cluster.
-    
-    Parameters:
-    -----------
-    df      ... pandas dataframe with observations
-    pairs   ... list of pairs of observations [obsid1,obsid2] linked into arrows
-    cluster ... output of clustering algorithm (sklearn.cluster)
-    
-    Returns:
-    --------
-    obs_in_cluster ... list of observations in each cluster
-    """
-    #cluster names (beware: -1 is the cluster of all the leftovers)
-    if(garbage):
-        unique_labels = np.unique(cluster.labels_)
-    else:
-        unique_labels = np.unique(cluster.labels_)[1:]
-    #number of clusters
-    n_clusters = len(unique_labels)
-    
-    #which objects do observations in pairs (tracklets) belong to
-    p = np.array(pairs)              
-    
-    obs_in_cluster=[]
-    obs_in_cluster_add=obs_in_cluster.append
-    
-    #cluster contains 
-    for u in unique_labels:
-        #which indices in pair array appear in a given cluster?
-        idx = np.where(cluster.labels_ == u)[0]
-        
-        #which observations are in this cluster
-        obs_in_cluster_add(np.unique(p[idx].flatten()))
-        
-    return obs_in_cluster, unique_labels  
 
-def meanArrowStatesInClusters(xpvp, cluster, garbage=False, trim=25):
-    """Calculate mean propagated state in each cluster.
-    
-    Parameters:
-    -----------
-    xpvp      ... array containing states for each cluster
-    cluster   ... output of clustering algorithm (sklearn.cluster)
-    
-    Keyword Arguments:
-    ------------------
-    garbage   ... return results for garbage cluster in dbscan (usually index 0)
-    trim      ... cutoff percentage for trimmed mean, 
-                  25 would slices off ‘leftmost’ and ‘rightmost’ 25% of scores.
-    
-    Returns:
-    --------
-    mean_state     ... trimmed mean state in each cluster
-    unique_labels  ... cluster labels
-    """
-    #cluster names (beware: -1 is the cluster of all the leftovers)
-    if(garbage):
-        unique_labels = np.unique(cluster.labels_)
-    else:
-        unique_labels = np.unique(cluster.labels_)[1:]
-    #number of clusters
-    n_clusters = len(unique_labels)
-         
-    mean_states=[]
-    mean_states_add=mean_states.append
-    tmean=stats.trim_mean
-    
-    var_states=[]
-    var_states_add=var_states.append
-    tvar=stats.tvar
-    
-    #cluster contains 
-    for u in unique_labels:
-        idx = np.where(cluster.labels_ == u)[0]
-        
-        # trimmed mean state in this cluster
-        mean_states_add(tmean(xpvp[idx,:], trim/100, axis=0))
-        # trimmed variance in this cluster
-        var_states_add(tvar(xpvp[idx,:], axis=0, ddof=1))
-    return np.array(mean_states), np.array(var_states), unique_labels  
 
     
 def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max, 
@@ -399,7 +403,7 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
 
     Parameters:
     -----------
-    dfobs     ... Pandas DataFrame containing object ID (objId), observation ID (obsId),
+    dfobs     ... Pandas DataFrame containing observation ID (obsId),
                   time, night, RA [deg], DEC[deg], observer ICRF x,y,z [au] 
 
 
@@ -436,11 +440,11 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
     obsids_night_add = obsids_night.append
 
     # the following two arrays are for testing purposes only
-    objid_night = []
-    tobs_night = []
+    # objid_night = []
+    # tobs_night = []
     
-    objid_night_add =  objid_night.append
-    tobs_night_add = tobs_night.append
+    # objid_night_add =  objid_night.append
+    # tobs_night_add = tobs_night.append
     
     vnorm=vc.norm
 
@@ -473,8 +477,8 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
             var_add(varrow_night)
             tar_add(tarrow_night)
             obsids_night_add(df['obsId'].values[goodpairs_night])
-            objid_night_add(df['objId'].values[goodpairs_night])
-            tobs_night_add(df['time'].values[goodpairs_night])
+            #objid_night_add(df['objId'].values[goodpairs_night])
+            #tobs_night_add(df['time'].values[goodpairs_night])
 
 
     if (len(xar)<1):
@@ -493,8 +497,8 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
             print('obsids', obsids)
 
 #   # the following two arrays are for testing purposes only
-        objids=np.vstack(objid_night)
-        tobs=np.vstack(tobs_night)
+        #objids=np.vstack(objid_night)
+        #tobs=np.vstack(tobs_night)
 
 #   # PROPAGATE ARROWS TO COMMON EPOCH
         if (verbose):
@@ -604,9 +608,9 @@ def deduplicateClusters(cdf):
     --------
     cdf2     ... deduplicated Pandas DataFrame 
     """
-   
+    
 #   cdf2=(cdf.iloc[cdf.astype(str).drop_duplicates(
-#                    subset='obsId',keep="first").index]).reset_index(drop=True)    
+#         subset='obsId',keep="first").index]).reset_index(drop=True)    
 
     cdf['clusterObs'] = cdf['obsId'].astype(str) 
     cdf.sort_values(by=['clusterObs','var_pos','var_vel'],inplace=True)
@@ -677,20 +681,90 @@ def collapseClusterSubsets(cdf):
     return cdf2, subset_clusters, subset_cluster_ids 
 
 
-def df2difi(df,index_name,value_name):
-    """Map pandas dataframe with lists of values to THOR difi format"""
-
-    difi=df[value_name].apply(pd.Series) \
-    .merge(df, right_index = True, left_index = True) \
-    .drop([value_name], axis = 1) \
-    .melt(id_vars = [index_name], value_name = value_name) \
-    .drop("variable", axis = 1) \
-    .dropna() \
-    .sort_values(by=[index_name]) \
-    .astype('int') \
-    .reset_index(drop=True)
+def meanArrowStatesInClusters(xpvp, cluster, garbage=False, trim=25):
+    """Calculate mean propagated state in each cluster.
     
-    return difi
+    Parameters:
+    -----------
+    xpvp      ... array containing states for each cluster
+    cluster   ... output of clustering algorithm (sklearn.cluster)
+    
+    Keyword Arguments:
+    ------------------
+    garbage   ... return results for garbage cluster in dbscan (usually index 0)
+    trim      ... cutoff percentage for trimmed mean, 
+                  25 would slices off ‘leftmost’ and ‘rightmost’ 25% of scores.
+    
+    Returns:
+    --------
+    mean_state     ... trimmed mean state in each cluster
+    unique_labels  ... cluster labels
+    """
+    #cluster names (beware: -1 is the cluster of all the leftovers)
+    if(garbage):
+        unique_labels = np.unique(cluster.labels_)
+    else:
+        unique_labels = np.unique(cluster.labels_)[1:]
+    #number of clusters
+    n_clusters = len(unique_labels)
+         
+    mean_states=[]
+    mean_states_add=mean_states.append
+    tmean=stats.trim_mean
+    
+    var_states=[]
+    var_states_add=var_states.append
+    tvar=stats.tvar
+    
+    #cluster contains 
+    for u in unique_labels:
+        idx = np.where(cluster.labels_ == u)[0]
+        
+        # trimmed mean state in this cluster
+        mean_states_add(tmean(xpvp[idx,:], trim/100, axis=0))
+        # trimmed variance in this cluster
+        var_states_add(tvar(xpvp[idx,:], axis=0, ddof=1))
+    return np.array(mean_states), np.array(var_states), unique_labels  
+
+
+def observationsInCluster(df, pairs, cluster, garbage=False):
+    """List observations in each cluster.
+    
+    Parameters:
+    -----------
+    df      ... pandas dataframe with observations
+    pairs   ... list of pairs of observations [obsid1,obsid2] linked into arrows
+    cluster ... output of clustering algorithm (sklearn.cluster)
+    
+    Returns:
+    --------
+    obs_in_cluster ... list of observations in each cluster
+    """
+    #cluster names (beware: -1 is the cluster of all the leftovers)
+    if(garbage):
+        unique_labels = np.unique(cluster.labels_)
+    else:
+        unique_labels = np.unique(cluster.labels_)[1:]
+    #number of clusters
+    n_clusters = len(unique_labels)
+    
+    #which objects do observations in pairs (tracklets) belong to
+    p = np.array(pairs)              
+    
+    obs_in_cluster=[]
+    obs_in_cluster_add=obs_in_cluster.append
+    
+    #cluster contains 
+    for u in unique_labels:
+        #which indices in pair array appear in a given cluster?
+        idx = np.where(cluster.labels_ == u)[0]
+        
+        #which observations are in this cluster
+        obs_in_cluster_add(np.unique(p[idx].flatten()))
+        
+    return obs_in_cluster, unique_labels  
+
+
 
 def observationsInArrows(df, goodpairs, *args, **kwargs):
     """Find which observations go into an arrow.
