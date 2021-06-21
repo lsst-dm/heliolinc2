@@ -39,9 +39,11 @@ from scipy.interpolate import InterpolatedUnivariateSpline as ius
 
 au=149597870.700
 
-data2['re_au']=data2['AstRange(km)']/au
+# data2['re_au']=data2['AstRange(km)']/au
 
-data2['rs_au']=np.sqrt(data2['Ast-Sun(J2000x)(km)']**2+data2['Ast-Sun(J2000y)(km)']**2+data2['Ast-Sun(J2000z)(km)']**2)/149597870.700
+# data2['rs_au']=np.sqrt(data2['Ast-Sun(J2000x)(km)']**2+
+#                        data2['Ast-Sun(J2000y)(km)']**2+
+#                        data2['Ast-Sun(J2000z)(km)']**2)/149597870.700
 
 ############################################
 # MODULE SPECIFIC EXCEPTION
@@ -56,8 +58,38 @@ class Error(Exception):
 # Functions
 ###########################################
 
-__all__ = ['xyz2r', 'derivativesFromSpline']
+__all__ = ['selectObservationSubset','xyz2r', 'derivativesFromSpline']
 
+def selectObservationSubset(df, RAmin=0, RAmax=360, DECmin=-90, DECmax=90,
+                            timemin=0,timemax=16,
+                            RAName='RA',DECName='DEC',timeName='time'):
+    """Select a subset of observations in a pandas DataFrame.
+    
+    Parameters:
+    -----------
+    df           ... pandas DataFrame containing the observations
+    RAmin        ... minimum Right Ascension
+    RAmax        ... maximum Right Ascension
+    DECmin       ... minimum Declination
+    DECmax       ... maximum Declination
+    timemin      ... minimum time 
+    timemax      ... maximum time
+    RAName       ... string, designation of Right Ascension column
+    DECName      ... string, designation of Declination column
+    timeName     ... string, designation of time column
+    
+    Returns:
+    --------
+    dfout        ... filtered DataFrame
+    """
+        
+    dfout = df[(df[RAName] >= RAmin) & (df[RAName] <= RAmax) 
+               & (df[DECName] >= DECmin) 
+               & (df[DECName] <= DECmax) 
+               & (df[timeName]>= timemin) 
+               & (df[timeName] <= timemax)].reset_index(drop=True)
+
+    return dfout
 
 def xyz2r(df, xName='Ast-Sun(J2000x)(km)', 
           yName='Ast-Sun(J2000y)(km)', 
@@ -76,7 +108,7 @@ def xyz2r(df, xName='Ast-Sun(J2000x)(km)',
     -------- 
     r        ... numpy array, Euclidean distance
     """
-    r=np.sqrt(df[xName]**2+df[yName]**2+df[zName)
+    r=np.sqrt(df[xName]**2+df[yName]**2+df[zName])
 
     return r                                       
                                            
