@@ -123,7 +123,7 @@ def runDifi(observationdf, linkingdf, obsIdName='obsId', linkageIdName='cluster_
             objIdName='obj', nightName='night', timeName='time',
             findability='tracklet',  linkage_min_obs=2, max_obs_separation=1.5/24, 
             min_linkage_nights=3, 
-            metric="nightly_linkages"):
+            metric="nightly_linkages", classes=None):
     
     """Convert observations and linkage dataframe to difi input and run difi.
     
@@ -138,7 +138,7 @@ def runDifi(observationdf, linkingdf, obsIdName='obsId', linkageIdName='cluster_
     max_obs_separation
     min_linkage_nights
     metric
-    column_mapping
+    classes
 
     
     Returns:
@@ -160,6 +160,8 @@ def runDifi(observationdf, linkingdf, obsIdName='obsId', linkageIdName='cluster_
     column_mapping["truth"] = objIdName
     column_mapping["night"] = nightName
     column_mapping["time"] = timeName
+    
+    
     # difi column name : data column name
 #     "linkage_id" : "cluster_Id",
 #     "obs_id" : "obs_Id",
@@ -190,6 +192,7 @@ def runDifi(observationdf, linkingdf, obsIdName='obsId', linkageIdName='cluster_
         observationdf, 
         ldifi, 
         all_truths=all_truths,
+        classes=classes,
         min_obs=6, 
         contamination_percentage=20, 
         column_mapping=column_mapping)
