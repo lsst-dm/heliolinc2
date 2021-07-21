@@ -398,7 +398,7 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, v_max=1., eps=
     
 def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max, 
                clustering_algorithm='dbscan', clustering_dimensions=6, light_time=False, verbose=True, 
-               min_samples=6, n_jobs=1):
+               min_samples=6, n_jobs=1, mean_state_variance_limit=0):
     """HelioLinC2 (Heliocentric Linking in Cartesian Coordinates) algorithm.
 
     Parameters:
@@ -413,15 +413,18 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
     cr_arrows ... clustering radius for propagated arrows [au]
     ct_min    ... minimum timespan between observations to allow for trackelt making [days]
     ct_max    ... maximum timespan between observations to allow for tracklet making [days]
+
     
     Keyword Arguments:
     ------------------
-    clustering_algorithm  ... clustering_algorithm (currently either 'dbscan' or 'kdtree')
-    clustering_dimensions ... dimensions for clustering: 3 for position space, 6 for phase space
-    light_time            ... Light travel time correction
-    verbose               ... Print progress statements
-    min_samples           ... minimum number of samples for clustering with dbscan
-    n_jobs                ... number of processors used for 2body propagation, dbscan and KDTree query
+    clustering_algorithm     ... clustering_algorithm (currently either 'dbscan' or 'kdtree')
+    clustering_dimensions    ... dimensions for clustering: 3 for position space, 6 for phase space
+    light_time               ... Light travel time correction
+    verbose                  ... Print progress statements
+    min_samples              ... minimum number of samples for clustering with dbscan
+    n_jobs                   ... number of processors used for 2body propagation, dbscan and KDTree query
+    mean_state_variance_limit... mean_state filtering for variance (e.g. 1e-7) 
+                                 increases purity but decreases completeness 
     
     Returns:
     --------
@@ -530,48 +533,50 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
             elif (clustering_dimensions==3):
                 db=cluster.DBSCAN(eps=cr_arrows, min_samples=min_samples, n_jobs=n_jobs).fit(xp)
             else:
-                raise Exception('Error in heliolinc2: only clustering in 3 or 6 dimensions supported.')
+                raise Exception('Error: only clustering in 3 or 6 dimensions supported.')
 #       # CONVERT CLUSTER INDICES TO OBSERVATION INDICES IN EACH CLUSTER
             try:
+                if (verbose):
+                    print('Calculating mean arrow states in clusters...')
+                [mean_states, var_states, labels2] = meanArrowStatesInClusters(xpvp, db, garbage=False, trim=25) 
+                
                 if (verbose):
                     print('Finding observations in clusters...')
                 [obs_in_cluster, labels] = observationsInCluster(dfobs, obsids, db, garbage=False)
                 obs_in_cluster_df=pd.DataFrame(zip(labels,obs_in_cluster), columns=['clusterId','obsId'])
-                if (verbose):
-                    print('Calculating mean arrow states in clusters...')
-                [mean_states, var_states, labels2] = meanArrowStatesInClusters(xpvp, db, garbage=False, trim=25)    
+   
         
             except: 
-                raise Exception('Error in heliolinc2: Could not construct cluster dataframe.')
+                raise Exception('Error: Could not construct cluster dataframe.')
 
-        elif (clustering_algorithm=='kdtree'):
-#       # CLUSTER WITH KDTree
-            if (verbose):
-                print('Clustering arrows...')
-            tree = sc.cKDTree(xp)
-            # k, the number of neighbours to be returned should be nvisits to a field, but since we don't have that here
-            # we assume it is at most 2x per night which may be wrong for deep drilling fields
-            db = tree.query(xp, k=nnights*2, p=2, distance_upper_bound=cr_arrows, n_jobs=n_jobs)
+#         elif (clustering_algorithm=='kdtree'):
+# #       # CLUSTER WITH KDTree
+#             if (verbose):
+#                 print('Clustering arrows...')
+#             tree = sc.cKDTree(xp)
+#             # k, the number of neighbours to be returned should be nvisits to a field, but since we don't have that here
+#             # we assume it is at most 2x per night which may be wrong for deep drilling fields
+#             db = tree.query(xp, k=nnights*2, p=2, distance_upper_bound=cr_arrows, n_jobs=n_jobs)
 
-            if (verbose):
-                print('Deduplicating observations in clusters...')
-            obs = []
-            obs_app = obs.append
-            arrow_idx = np.array(db,dtype="int64")[1]
-            nan_idx = arrow_idx.shape[0]
-            for i in arrow_idx:
-                entries = i[i<nan_idx]
-                if(len(entries)) > 1:
-                     obs_app([np.unique(np.ravel(obsids[entries]))])
+#             if (verbose):
+#                 print('Deduplicating observations in clusters...')
+#             obs = []
+#             obs_app = obs.append
+#             arrow_idx = np.array(db,dtype="int64")[1]
+#             nan_idx = arrow_idx.shape[0]
+#             for i in arrow_idx:
+#                 entries = i[i<nan_idx]
+#                 if(len(entries)) > 1:
+#                      obs_app([np.unique(np.ravel(obsids[entries]))])
 
-            obs_in_cluster_df = pd.DataFrame(obs,columns=['obsId'])
-            obs_in_cluster_df['clusterId']=obs_in_cluster_df.index.values
-            obs_in_cluster_df=obs_in_cluster_df[['clusterId','obsId']]
+#             obs_in_cluster_df = pd.DataFrame(obs,columns=['obsId'])
+#             obs_in_cluster_df['clusterId']=obs_in_cluster_df.index.values
+#             obs_in_cluster_df=obs_in_cluster_df[['clusterId','obsId']]
 
-            mean_states=[]
-            var_states=[]
+#             mean_states=[]
+#             var_states=[]
         else:
-            raise Exception('Error in heliolinc2: no valid clustering algorithm selected') 
+            raise Exception('Error: no valid clustering algorithm selected') 
 
     
         # Add heliocentric r, dr/dt, epoch and clipped mean states (ICRF) to pandas DataFrame
@@ -592,7 +597,13 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
             
             obs_in_cluster_df['var_pos'] = vnorm(var_states[:,0:3])
             obs_in_cluster_df['var_vel'] = vnorm(var_states[:,3:6])
-            
+        
+        if (mean_state_variance_limit>0):
+            if (verbose):
+                print('Filtering clusters for mean state variance...')
+            obs_in_cluster_df = obs_in_cluster_df[
+                                (obs_in_cluster_df['var_pos']<=mean_state_variance_limit)].reset_index(drop=True)  
+        
         return obs_in_cluster_df
     
     
