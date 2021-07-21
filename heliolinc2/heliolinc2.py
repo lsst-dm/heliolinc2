@@ -251,10 +251,7 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, v_max=1., eps=
                            lttc=False, filtering=True, verbose=False, 
                            leafsize=16, balanced_tree=True, n_jobs=1, frame='ecliptic', 
                            GM=cn.GM):
-<<<<<<< HEAD
-=======
 
->>>>>>> 072b56ecaedd85274c273ecf041ce5eb4c8efdaa
     """Create tracklets/arrows from dataframe containing nightly RADEC observations
     and observer positions.
 
@@ -289,10 +286,7 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, v_max=1., eps=
     n_jobs                 ... number of available processors for simultaneous cKDTree query
     frame                  ... frame of reference for heliocentric arrows: 'icrf' or 'ecliptic'
     GM                     ... gravitational constant * mass for central body (e.g. gaussk**2*M_sun)                    
-<<<<<<< HEAD
-=======
 
->>>>>>> 072b56ecaedd85274c273ecf041ce5eb4c8efdaa
 
     Returns:
     --------
@@ -401,19 +395,12 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, v_max=1., eps=
  
     return x, v, t, goodpairs
 
-<<<<<<< HEAD
 
-
-=======
->>>>>>> 072b56ecaedd85274c273ecf041ce5eb4c8efdaa
     
 def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max, 
                clustering_algorithm='dbscan', clustering_dimensions=6, light_time=False, verbose=True, 
                min_samples=6, n_jobs=1, mean_state_variance_limit=0):
-<<<<<<< HEAD
-=======
 
->>>>>>> 072b56ecaedd85274c273ecf041ce5eb4c8efdaa
     """HelioLinC2 (Heliocentric Linking in Cartesian Coordinates) algorithm.
 
     Parameters:
@@ -440,11 +427,7 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
     n_jobs                   ... number of processors used for 2body propagation, dbscan and KDTree query
     mean_state_variance_limit... mean_state filtering for variance (e.g. 1e-7) 
                                  increases purity but decreases completeness 
-<<<<<<< HEAD
-    
-=======
-                                 
->>>>>>> 072b56ecaedd85274c273ecf041ce5eb4c8efdaa
+
     Returns:
     --------
     obs_in_cluster_df    ... Pandas DataFrame containing linked observation clusters (no prereduction), 
@@ -462,10 +445,7 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
     obsids_night_add = obsids_night.append
 
     # the following two arrays are for testing purposes only
-<<<<<<< HEAD
-=======
 
->>>>>>> 072b56ecaedd85274c273ecf041ce5eb4c8efdaa
     # objid_night = []
     # tobs_night = []
     
@@ -503,11 +483,6 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
             var_add(varrow_night)
             tar_add(tarrow_night)
             obsids_night_add(df['obsId'].values[goodpairs_night])
-<<<<<<< HEAD
-            #objid_night_add(df['objId'].values[goodpairs_night])
-            #tobs_night_add(df['time'].values[goodpairs_night])
-=======
->>>>>>> 072b56ecaedd85274c273ecf041ce5eb4c8efdaa
 
             #objid_night_add(df['objId'].values[goodpairs_night])
             #tobs_night_add(df['time'].values[goodpairs_night])
@@ -605,10 +580,7 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
 #             var_states=[]
         else:
             raise Exception('Error: no valid clustering algorithm selected') 
-<<<<<<< HEAD
 
-=======
->>>>>>> 072b56ecaedd85274c273ecf041ce5eb4c8efdaa
     
         # Add heliocentric r, dr/dt, epoch and clipped mean states (ICRF) to pandas DataFrame
         obs_in_cluster_df['r'] = r
@@ -634,11 +606,7 @@ def heliolinc2(dfobs, r, drdt, cr_obs, cr_arrows, ct_min, ct_max,
                 print('Filtering clusters for mean state variance...')
             obs_in_cluster_df = obs_in_cluster_df[
                                 (obs_in_cluster_df['var_pos']<=mean_state_variance_limit)].reset_index(drop=True)  
-<<<<<<< HEAD
-        
-=======
 
->>>>>>> 072b56ecaedd85274c273ecf041ce5eb4c8efdaa
         return obs_in_cluster_df
     
     
@@ -657,10 +625,6 @@ def deduplicateClusters(cdf):
     
 #   cdf2=(cdf.iloc[cdf.astype(str).drop_duplicates(
 #         subset='obsId',keep="first").index]).reset_index(drop=True)    
-<<<<<<< HEAD
-=======
-
->>>>>>> 072b56ecaedd85274c273ecf041ce5eb4c8efdaa
 
     cdf['clusterObs'] = cdf['obsId'].astype(str) 
     cdf.sort_values(by=['clusterObs','var_pos','var_vel'],inplace=True)
@@ -785,7 +749,6 @@ def observationsInCluster(df, pairs, cluster, garbage=False):
     df      ... pandas dataframe with observations
     pairs   ... list of pairs of observations [obsid1,obsid2] linked into arrows
     cluster ... output of clustering algorithm (sklearn.cluster)
-<<<<<<< HEAD
     
     Returns:
     --------
@@ -802,24 +765,7 @@ def observationsInCluster(df, pairs, cluster, garbage=False):
     #which objects do observations in pairs (tracklets) belong to
     p = np.array(pairs)              
     
-=======
-    
-    Returns:
-    --------
-    obs_in_cluster ... list of observations in each cluster
-    """
-    #cluster names (beware: -1 is the cluster of all the leftovers)
-    if(garbage):
-        unique_labels = np.unique(cluster.labels_)
-    else:
-        unique_labels = np.unique(cluster.labels_)[1:]
-    #number of clusters
-    n_clusters = len(unique_labels)
-    
-    #which objects do observations in pairs (tracklets) belong to
-    p = np.array(pairs)              
-    
->>>>>>> 072b56ecaedd85274c273ecf041ce5eb4c8efdaa
+
     obs_in_cluster=[]
     obs_in_cluster_add=obs_in_cluster.append
     

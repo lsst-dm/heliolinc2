@@ -163,10 +163,7 @@ def runDifi(observationdf, linkingdf, obsIdName='obsId', linkageIdName='cluster_
     
     
     # difi column name : data column name
-<<<<<<< HEAD
-=======
 
->>>>>>> 072b56ecaedd85274c273ecf041ce5eb4c8efdaa
 #     "linkage_id" : "cluster_Id",
 #     "obs_id" : "obs_Id",
 #     "truth" : "obj",
@@ -491,10 +488,6 @@ class Error(Exception):
 #     .reset_index(drop=True)
     
 #     return difi
-<<<<<<< HEAD
-=======
-  
->>>>>>> 072b56ecaedd85274c273ecf041ce5eb4c8efdaa
 
 ### This is all that needs to be run
 
