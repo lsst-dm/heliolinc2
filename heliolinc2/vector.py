@@ -168,7 +168,7 @@ def rotateVector(angle, axis, vector, deg=True):
 
 def sphereLineIntercept(l, o, r):
     """Calculate intercept point between line y = l.x + o
-       and a sphere around the center of origin of the
+       and a sphere of radius r around the center of origin of the
        coordinate system: c=0
 
        Parameters:

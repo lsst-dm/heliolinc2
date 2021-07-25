@@ -48,8 +48,8 @@ __all__ = ['mjd2jd', 'jd2mjd', 'frameCheck', 'frameChange',
            'cartesian2cometary','cometary2keplerian',
            'cometary2cartesian', 
            'radec2heliocentric', 'radec2icrfu',
-           'icrf2ecliptic',
-           'ecliptic2icrf','coordinateTransform']
+           'icrf2ecliptic','icrf2radec','radec2icrf',
+           'ecliptic2icrf','ecliptic2radec','coordinateTransform']
 
 ############################################
 # MODULE VARIABLES FROM CONSTANTS
@@ -69,8 +69,19 @@ ECL2ICRF = np.array([[1., 0., 0.],
 
 PIX2 = np.pi*2.
 
-multiply = np.multiply
+array = np.array
+arcsin=np.arcsin
+arctan2=np.arctan2
+cos = np.cos
+deg2rad = np.deg2rad
 divide = np.divide
+matmul = np.matmul
+modulo=np.mod
+multiply = np.multiply
+norm=np.linalg.norm
+rad2deg = np.rad2deg
+sin = np.sin
+sqrt = np.sqrt
 
 ############################################
 # MODULE SPECIFIC EXCEPTION
@@ -267,7 +278,7 @@ def cartesian2keplerian(epoch, state, frame='ecliptic', mu=cnst.GM):
 
     estate = frameCheck(state, frame)                
                    
-    oscelt = sp.oscelt(np.array(estate), epoch, mu)
+    oscelt = sp.oscelt(array(estate), epoch, mu)
 
     kep = []
     # semimajor axis a from q
@@ -275,13 +286,13 @@ def cartesian2keplerian(epoch, state, frame='ecliptic', mu=cnst.GM):
     # eccentricity
     kep.append(oscelt[1])
     # inclination
-    kep.append(np.rad2deg(oscelt[2]))
+    kep.append(rad2deg(oscelt[2]))
     # w: argument of pericenter
-    kep.append(np.rad2deg(oscelt[4]))
+    kep.append(rad2deg(oscelt[4]))
     # node
-    kep.append(np.rad2deg(oscelt[3]))
+    kep.append(rad2deg(oscelt[3]))
     # mean anomaly
-    kep.append(np.rad2deg(oscelt[5]))
+    kep.append(rad2deg(oscelt[5]))
 
     return kep, epoch
 
@@ -341,11 +352,11 @@ def cartesian2cometary(epoch, state, frame='ecliptic', mu=cnst.GM):
     # eccentricity
     com_add(oscltx[1])
     # inclination
-    com_add(np.rad2deg(oscltx[2]))
+    com_add(rad2deg(oscltx[2]))
     # node
-    com_add(np.rad2deg(oscltx[3]))
+    com_add(rad2deg(oscltx[3]))
     # w: argument of pericenter
-    com_add(np.rad2deg(oscltx[4]))
+    com_add(rad2deg(oscltx[4]))
     # period
     period = oscltx[10]
     # mean anomaly
@@ -378,14 +389,14 @@ def cometary2keplerian(epoch, elements, mu=cnst.GM):
     
     a = ele[0] / (1. - ele[1])
     
-    M = np.sqrt(mu/a**3)*(epoch - ele[5])
+    M = sqrt(mu/a**3)*(epoch - ele[5])
     while(M < 0):
         M = M+PIX2
     while(M > PIX2):
         M = M-PIX2
 
     # a, e, i, w, node, M
-    kep = [a, ele[1], ele[2], ele[4], ele[3], np.rad2deg(M)]
+    kep = [a, ele[1], ele[2], ele[4], ele[3], rad2deg(M)]
 
     return kep, epoch
 
@@ -461,7 +472,7 @@ def radec2heliocentric(tref, epoch, ra, dec, r=1, drdt=0, deg=True, frame='eclip
     xyz = radec2icrfu(ra, dec, deg)
 
     # Those are the line of sight (LOS) vectors
-    los = np.array([xyz[0], xyz[1], xyz[2]]).T
+    los = array([xyz[0], xyz[1], xyz[2]]).T
 
     # Calculate how much the heliocentric distance changes
     # during the obsevations based on assumed dr/dt
@@ -540,16 +551,16 @@ def radec2icrfu(ra, dec, deg=True):
     """
     
     if(deg):
-        a = np.deg2rad(ra)
-        d = np.deg2rad(dec)
+        a = deg2rad(ra)
+        d = deg2rad(dec)
     else:
-        a = np.array(ra)
-        d = np.array(dec)
+        a = array(ra)
+        d = array(dec)
        
-    cosd = np.cos(d)
-    x = cosd*np.cos(a)
-    y = cosd*np.sin(a)
-    z = np.sin(d)
+    cosd = cos(d)
+    x = cosd*cos(a)
+    y = cosd*sin(a)
+    z = sin(d)
 
     return np.array([x, y, z])
 
@@ -636,6 +647,107 @@ def ecliptic2icrf(x_ecl):
     x_icrf = coordinateTransform(M, x_ecl)
     return x_icrf
 
+
+def ecliptic2radec(x_ecl):
+    """Convert vector in ecliptic coordinate system 
+    to right ascension and declination.
+    
+    Parameters:
+    -----------
+    x_ecl     ... 1D or 2D numpy array, position/state vectors in ecliptic coordinate system
+ 
+    Returns:
+    --------
+    ra, dec    ... 1D or 2D numpy array, Right Ascension and declination [deg] 
+    
+    External:
+    ---------
+    numpy
+    coordinate_transform
+    """
+    # tranfromation matrix ecliptic to ICRF coordinate system
+    M = ECL2ICRF                   
+    x_icrf = coordinateTransform(M, x_ecl)
+    ra,dec = icrf2radec(x_icrf[:,0],x_icrf[:,1],x_icrf[:,2], deg=True)
+    
+    return ra, dec
+
+
+def icrf2radec(x, y, z, deg=True):
+    """Convert ICRF xyz to Right Ascension and Declination.
+    Geometric states on unit sphere, no light travel time/aberration correction.
+    
+    Parameters:
+    -----------
+    x,y,z ... 3D vector of unit length (ICRF)
+    deg ... True: angles in degrees, False: angles in radians
+    
+    Returns:
+    --------
+    ra ... Right Ascension [deg]
+    dec ... Declination [deg]
+    """
+    
+#     norm=np.linalg.norm
+#     array=np.array
+#     arctan2=np.arctan2
+#     arcsin=np.arcsin
+#     rad2deg=np.rad2deg
+#     modulo=np.mod
+#     pix2=2.*np.pi
+    
+    pos=array([x,y,z])
+    if(pos.ndim>1):
+        r=norm(pos,axis=0)
+    else:
+        r=norm(pos)
+    
+    xu=x/r
+    yu=y/r
+    zu=z/r
+    
+    phi=arctan2(yu,xu)
+    delta=arcsin(zu)
+    
+    if(deg):
+        ra = modulo(rad2deg(phi)+360,360)
+        dec = rad2deg(delta)
+    else:
+        ra = modulo(phi+PIX2,PIX2)
+        dec = delta
+        
+    return ra, dec
+
+
+def radec2icrf(ra, dec, deg=True):
+    """Convert Right Ascension and Declination to ICRF xyz unit vector.
+    Geometric states on unit sphere, no light travel time/aberration correction.
+    Parameters:
+    -----------
+    ra ... Right Ascension [deg]
+    dec ... Declination [deg]
+    deg ... True: angles in degrees, False: angles in radians
+    
+    Returns:
+    --------
+    x,y,z ... 3D vector of unit length (ICRF)
+    """
+    
+    if(deg):
+        a = deg2rad(ra)
+        d = deg2rad(dec)
+    else:
+        a = array(ra)
+        d = array(dec)
+       
+    cosd = cos(d)
+    x = cosd*cos(a)
+    y = cosd*sin(a)
+    z = sin(d)
+
+    return array([x, y, z])   
+
+
 def coordinateTransform(M, x_in):
     """Convert 3D and 6D vectors or array of vectors between coordinates frames by multiplying with 
     a transformation function M. 
@@ -650,7 +762,7 @@ def coordinateTransform(M, x_in):
     --------
     x_out    ... 1D or 2D numpy array, 3 or 6 entries per row (transformed positions / states) 
     """
-    matmul=np.matmul
+#     matmul=np.matmul
     MT=M.T
     
     if(x_in.ndim == 1):      

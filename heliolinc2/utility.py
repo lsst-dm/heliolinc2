@@ -52,5 +52,5 @@ def lsstNight(expMJD, minexpMJD=0, local_midnight=0.166):
     
     """
     const = minexpMJD + local_midnight - 0.5
-    night = np.floor(expMJD - const)
+    night = np.floor(expMJD - const).astype(int)
     return night

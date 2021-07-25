@@ -55,7 +55,7 @@ from . import transforms as tr
 from . import propagate as pr
 
 
-__all__ = ['getObserverStates', 'observerStatesFromHorizons', 
+__all__ = ['getObserverStates', 'getObserverInterpolant', 
            'getTargetStates', 'targetStatesFromHorizons',
            'icrf2ephemeris', 
            'topocentric2ephemeris', 'state2ephemeris', 'radecResiduals']
@@ -76,7 +76,7 @@ class Error(Exception):
 # OBSERVER STATES 
 ###########################################
 
-def getObserverStates(observation_epochs,observer_location='I11',ephemeris_dt='1h'):
+def getObserverStates(observation_epochs,origin='SSB',observer_location='I11',ephemeris_dt='1h',frame='ecliptic'):
     """Produce sun-observer state vectors at observation epochs.
     
     Parameters:
@@ -109,80 +109,129 @@ def getObserverStates(observation_epochs,observer_location='I11',ephemeris_dt='1
     tmax = np.max(observation_epochs)
     
     #Start and stop times of the survey
-    tstart = 'JD'+str(tmin-1.)
-    tstop = 'JD'+str(tmax+1.)
+    tstart = tmin-1.
+    tstop = tmax+1.
 
     epochs = np.unique(observation_epochs)
 
-
-    [observer_jd,observer_xyz,observer_vxyz] = observerStatesFromHorizons(observation_epochs,
-                                                                          observer_location,
-                                                                          tstart,tstop, ephemeris_dt)
+    ir = getObserverInterpolant(tstart,tstop,origin=origin,
+                                observer_location=observer_location,
+                                ephemeris_dt=ephemeris_dt, frame=frame)
     
     # Interpolate heliocentric observer positions to the actual observation epochs
-    ir = spi.CubicHermiteSpline(observer_jd, observer_xyz.T,observer_vxyz.T, axis=1, extrapolate=None)
-    observer_positions = ir(observation_epochs).T
+    observer_positions = ir(observation_epochs)
     # Interpolate heliocentric observer velocities to the actual observation epochs
-    dirdt=ir.derivative(nu=1)
-    observer_velocities = dirdt(observation_epochs).T
+    observer_velocities = ir.derivative(nu=1)(observation_epochs)
     
-    return observer_positions, observer_velocities
+    return observer_positions.T, observer_velocities.T
 
-def observerStatesFromHorizons(epochs_of_observation, observer_location,
-                                tstart, tstop, ephemeris_dt='1h', coordinate_center='@0', frame='ecliptic'):
-    """Query JPL Horizons via astroquery to get sun-observer state vectors.
+
+def getObserverInterpolant(tmin,tmax,origin='SSB',observer_location='I11',ephemeris_dt='1h', frame='ecliptic'):
+    """Produce sun-observer state vectors at observation epochs.
     
     Parameters:
     -----------
-    epochs_of_observation  ... Epochs of observation [JD]
-    observer_location      ... JPL Horizons identifyer of observer location, e.g. 'I11'
-    tstart                 ... start time for ephemeris in Horizons format, e.g. 'JD2456789.5'
-    tstop                  ... end time for ephemeris in Horizons format, e.g. 'JD2456799.5'
-    ephemeris_dt           ... Time step for ephemeris query. 
-                               Typically 1h since the actual times will be interpolated later.
-    coordinate_center      ... JPL Horizons identifyer of coordinate location, e.g. 'Sun'                           
+    tmin,tmax                  ... float, float, start and stop time for interpolant [MJD] 
+    origin                     ... str, origin of the coordinate system (e.g. 'Sun' or 'SSB' =Solar System Barycenter)
+    observer_location          ... str, Horizons identifyer of observer location, e.g. 'I11'
+    ephemeris_dt               ... float, Time step for ephemeris query. 
+                                   Typically 1h since the actual times will be interpolated later.
+    frame                      ... str, Coordinate system reference frame: 'ecliptic' or 'ICRF'
     
     Returns:
     --------
-    observer_xyz       ... Heliocentric observer positions at gridded epochs in [au].
-    observer_vxyz      ... Heliocentric observer velocities at gridded epochs in [au].
-    observer_jd        ... Gridded ephemeris epochs (JD / TDB)
+    ipos                       ...  scipy interpolnt [au] Heliocentric observer position interpolant 
+                                    as function of time [MJD].
+                                    velocities can be interpolated via ipos.derivative(nu=1)
+   
     
     External Function Requirements:
     -------------------------------
-    # External API's
-    from astroquery.jplhorizons import Horizons
+
+    # Interpolation
+    import scipy.interpolate as spi
+    
+    # time transform
+    mjd2jd                         ... change modified Julian date to Julian date, timescale TDB)
+    
+    # NASA JPL HORIZONS API call wrapper
+    observerStatesFromHorizons  ... Wrapper function for JPL Horizons state query via astropy
+    
     """
+    
+    tminjd = tr.mjd2jd(tmin)
+    tmaxjd = tr.mjd2jd(tmax)
+    
+    #Start and stop times of the survey
+    tstart = 'JD'+str(tminjd-1.)
+    tstop = 'JD'+str(tmaxjd+1.)
+    
     try:
         # Get observer locations (caution: choose the right plane of reference and direction of the vectors!)
         # check query by copy/pasting the output of print(observer_sun.uri) into a webbrowser if there are problems.
-        observer_sun = Horizons(id='Sun', location=observer_location, id_type='majorbody',
-                      epochs = {'start':tstart, 'stop':tstop,
-                      'step':ephemeris_dt})
-
-        xyz = observer_sun.vectors()['x','y','z']
-        vxyz = (observer_sun.vectors())['vx','vy','vz']
-        jd = (observer_sun.vectors())['datetime_jd']
+    
         
-        #We need the sun-observer vector not the observer-sun vector
-
+        if(origin == 'SSB' or origin == '@0'):
         
-        if(frame=='ecliptic'):
-            observer_xyz = (-1)*np.array([xyz['x'],xyz['y'],xyz['z']]).astype('float').T
-            observer_vxyz =(-1)*np.array([vxyz['vx'],vxyz['vy'],vxyz['vz']]).astype('float').T
-        elif(frame=='icrf'):
-            observer_xyz = (-1)*tr.ecliptic2icrf(np.array([xyz['x'],xyz['y'],xyz['z']]).astype('float').T)
-            observer_vxyz =(-1)*tr.ecliptic2icrf(np.array([vxyz['vx'],vxyz['vy'],vxyz['vz']]).astype('float').T)
+            observer_origin = Horizons(id='Sun', location=observer_location, id_type='majorbody', 
+                          epochs = {'start':tstart, 'stop':tstop,
+                          'step':ephemeris_dt})
+
+            origin_barycenter = Horizons(id='Sun', location='@0', id_type='majorbody', 
+                          epochs = {'start':tstart, 'stop':tstop,
+                          'step':ephemeris_dt})
+
+
+            if(frame == 'ecliptic'):
+                oo = observer_origin.vectors(refplane='ecliptic')  
+                ob = origin_barycenter.vectors(refplane='ecliptic')
+                
+            elif(frame == 'ICRF' or frame == 'J2000' or frame == 'earth' or frame == 'icrf'):
+                oo = observer_origin.vectors(refplane='earth')  
+                ob = origin_barycenter.vectors(refplane='earth')   
+            else:
+                raise Exception('Error: requested frame unknown.')
+            
+            observer_xyz = (-1)*(np.array([oo['x'],oo['y'],oo['z']]).astype('float') +
+                                 np.array([ob['x'],ob['y'],ob['z']]).astype('float'))
+            
+            observer_vxyz =(-1)*(np.array([oo['vx'],oo['vy'],oo['vz']]).astype('float') +
+                                 np.array([ob['vx'],ob['vy'],ob['vz']]).astype('float'))
+            
+            observer_jd = np.array(oo['datetime_jd']).astype('float')
+        
         else:
-            raise Exception('Error in observerStatesFromHorizons: requested frame unknown.')
+            
+            observer_origin = Horizons(id=origin, location=observer_location, id_type='majorbody', 
+                          epochs = {'start':tstart, 'stop':tstop,
+                          'step':ephemeris_dt})
+
+            if(frame == 'ecliptic'):
+                obs = observer_origin.vectors(refplane='ecliptic') 
+            elif(frame == 'ICRF' or frame == 'J2000' or frame == 'earth' or frame == 'icrf'):
+                obs = observer_orignin.vectors(refplane='earth') 
+            else:
+                raise Exception('Error: requested frame unknown.')
         
-        observer_jd = np.array(jd).astype('float')
+                    #We need the sun-observer vector not the observer-sun vector
+            observer_xyz = (-1)*np.array([obs['x'],obs['y'],obs['z']]).astype('float')
+            observer_vxyz =(-1)*np.array([obs['vx'],obs['vy'],obs['vz']]).astype('float')
+            observer_jd = np.array(obs['datetime_jd']).astype('float')
         
     except:
-        print("Error in observerStatesFromHorizons: potential online ephemeris query failure.")
+        print("Error: potential online ephemeris query failure. Make sure internet connectivity is available.")
         raise
         
-    return observer_jd, observer_xyz, observer_vxyz
+    
+    observer_mjd = tr.jd2mjd(observer_jd)
+        
+    # Interpolate heliocentric observer positions to the actual observation epochs
+    ipos = spi.CubicHermiteSpline(observer_mjd, observer_xyz,observer_vxyz, axis=1, extrapolate=None)
+    
+    # Interpolate heliocentric observer velocities to the actual observation epochs
+    # ivel=ipos.derivative(nu=1)
+    
+    return ipos
 
 
 def getTargetStates(observation_epochs,target_id='Duende', observer_id='I11', ephemeris_dt='1h', frame='ecliptic'):
@@ -216,8 +265,8 @@ def getTargetStates(observation_epochs,target_id='Duende', observer_id='I11', ep
     
     """
 
-    tmin = np.min(observation_epochs)
-    tmax = np.max(observation_epochs)
+    tmin = tr.mjd2jd(np.min(observation_epochs))
+    tmax = tr.mjd2jd(np.max(observation_epochs))
     
     #Start and stop times of the survey
     tstart = 'JD'+str(tmin-1.)
@@ -225,12 +274,11 @@ def getTargetStates(observation_epochs,target_id='Duende', observer_id='I11', ep
 
     epochs = np.unique(observation_epochs)
 
-
-    [target_jd,target_xyz,target_vxyz] = targetStatesFromHorizons(target_id, observer_id,
+    [target_mjd,target_xyz,target_vxyz] = targetStatesFromHorizons(target_id, observer_id,
                                                                   tstart,tstop, ephemeris_dt)
-        
+      
     # Interpolate heliocentric observer positions to the actual observation epochs
-    ir = spi.CubicHermiteSpline(target_jd, target_xyz, target_vxyz, axis=1, extrapolate=None)
+    ir = spi.CubicHermiteSpline(target_mjd, target_xyz, target_vxyz, axis=1, extrapolate=None)
     target_positions = ir(observation_epochs).T
     # Interpolate heliocentric observer velocities to the actual observation epochs
     dirdt=ir.derivative(nu=1)
@@ -269,27 +317,29 @@ def targetStatesFromHorizons(target_id, observer_id,
         obs2target = Horizons(id=target_id, location=observer_id,
                       epochs = {'start':tstart, 'stop':tstop,
                       'step':ephemeris_dt})
-
-        xyz = obs2target.vectors()['x','y','z']
-        vxyz = (obs2target.vectors())['vx','vy','vz']
-        jd = (obs2target.vectors())['datetime_jd']
         
-        if(frame=='ecliptic'):
-            target_xyz = np.array([xyz['x'],xyz['y'],xyz['z']]).astype('float').T
-            target_vxyz = np.array([vxyz['vx'],vxyz['vy'],vxyz['vz']]).astype('float').T
-        elif(frame=='icrf'):
-            target_xyz = tr.ecliptic2icrf(np.array([xyz['x'],xyz['y'],xyz['z']]).astype('float').T)
-            target_vxyz = tr.ecliptic2icrf(np.array([vxyz['vx'],vxyz['vy'],vxyz['vz']]).astype('float').T)
+        
+        if(frame == 'ecliptic'):
+            vec = obs2target.vectors(refplane='ecliptic') 
+        elif(frame == 'ICRF' or frame == 'J2000' or frame == 'earth' or frame == 'icrf'):
+            vec = obs2target.vectors(refplane='earth') 
         else:
-            raise Exception('Error in targetStatesFromHorizons: requested frame unknown.')
+            raise Exception('Error: requested frame unknown.')
         
-        target_jd = np.array(jd).astype('float')
+        
+        target_jd = np.array(vec['datetime_jd']).astype('float')
+        
+        #We need the sun-observer vector not the observer-sun vector
+        target_xyz = np.array([vec['x'],vec['y'],vec['z']]).astype('float')
+        target_vxyz = np.array([vec['vx'],vec['vy'],vec['vz']]).astype('float')
         
     except:
-        print("Error in targetStatesFromHorizons: potential online ephemeris query failure.")
+        print("Error: potential online ephemeris query failure. Make sure internet connectivity is available.")
         raise
+          
+    target_mjd = tr.jd2mjd(target_jd)
         
-    return target_jd, target_xyz, target_vxyz
+    return target_mjd, target_xyz, target_vxyz
 
 
 def targetEphemerisFromHorizons(target_id, observer_location, 
