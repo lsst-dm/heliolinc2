@@ -824,8 +824,8 @@ def makeArrowsFromTrails(df, r, drdt, tref, observerInterpolant, dt = 0.01, v_ma
 
     # Calculate how much the heliocentric distance changes
     # during the obsevations based on assumed dr/dt    
-    dt0 = tref-df['time'].values-dt
-    dt1 = tref-df['time'].values+dt
+    dt0 = df['time'].values-tref-dt
+    dt1 = df['time'].values-tref+dt
     
     dr0 = (drdt-GM/(r*r)*dt0/2)*dt0
     dr1 = (drdt-GM/(r*r)*dt1/2)*dt1
@@ -850,7 +850,7 @@ def makeArrowsFromTrails(df, r, drdt, tref, observerInterpolant, dt = 0.01, v_ma
     va = []
     vapp = va.append
     dta = 2*dt
-    dx = posu0-posu1
+    dx = posu1-posu0
     
     for d in range(0,3):
         vapp(np.divide(dx[:,d],dta))
