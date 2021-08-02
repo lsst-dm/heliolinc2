@@ -7,5 +7,5 @@ from .filterclusters import *
 from .heliolinc2 import *
 from .performancecheck import *
 from .plot import *
-from .difi_analysis import *
 from .pandas_utils import *
+# from .difi_analysis import *

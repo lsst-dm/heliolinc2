@@ -343,7 +343,7 @@ def targetStatesFromHorizons(target_id, observer_id,
 
 
 def targetEphemerisFromHorizons(target_id, observer_location, 
-                                tstart, tstop, ephemeris_dt='1h'):
+                                tstart, tstop, ephemeris_dt='12h'):
     """Query JPL Horizons via astroquery to get sun-observer state vectors.
     
     Parameters:
@@ -521,8 +521,10 @@ def icrf2ephemeris(epoch, state, timescale_epoch='utc',
         
         
         #rdot = np.tensordot(rn[:,0:3],state[:,3:6],axes=1)
+#         rdot = vec.dot2D(rn,state,
+#                           array([0,1,2],dtype='Int32'),array([3,4,5],dtype='Int32'))
         rdot = vec.dot2D(rn,state,
-                          array([0,1,2],dtype='Int32'),array([3,4,5],dtype='Int32'))
+                         array([0,1,2]),array([3,4,5]))
         
         RA = mod(np.arctan2(rn[:,1],rn[:,0])+PIX2, PIX2)
         DEC = arcsin(rn[:,2])

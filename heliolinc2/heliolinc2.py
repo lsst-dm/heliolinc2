@@ -56,6 +56,10 @@ import sklearn.cluster as cluster
 # Trimmed mean
 from scipy import stats
 
+
+# Time transforms
+from astropy.time import Time
+
 # Accelerated vector operations
 from . import vector as vc
 
@@ -96,9 +100,9 @@ class Error(Exception):
 ###########################################
 
 def heliolinc2(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(), dftrails=pd.DataFrame(),
-               observer_location='I11', origin='SSB', 
-               trail_dt=0.01, v_max=1, clustering_dimensions=6, light_time=False, 
-               verbose=True, min_samples=6, n_jobs=1, mean_state_variance_limit=0):
+               observer_interpolant=[],observer_location='I11', origin='SSB', ephemeris_dt='1h',
+               trail_dt=0.01, v_max=1, clustering_dimensions=6, light_time=True, 
+               verbose=False, min_samples=3, n_jobs=1, mean_state_variance_limit=1):
 
     """HelioLinC2 (Heliocentric Linking in Cartesian Coordinates) algorithm.
 
@@ -119,8 +123,12 @@ def heliolinc2(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(),
     
     Keyword Arguments:
     ------------------
+    observer_interpolant     ... scipy.interpolate object, time interpolant for observer ecliptic xyz positions 
+                                 (and their derivatives) wrt origin. If not provided, 
+                                 heliolinc will generate one through online query to JPL Horizons.
     observer_location        ... Minor Planet Center observatory code for obsever location (e.g. I11)
     origin                   ... Coordinate origin for propagation, e.g. 'Sun' or 'SSB' : Solar System Barycenter
+    ephemeris_dt             ... observer ephemeris query timestep
     trail_dt                 ... [days] time step for transforming RADEC +- RADEC_vel*dt into trail RADEC start and endpoint   
     v_max                    ... [au/day] maximum allowable arrow velocity
     clustering_dimensions    ... dimensions for clustering: 3 for position space, 6 for phase space
@@ -174,10 +182,14 @@ def heliolinc2(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(),
     #tmin = min(dfobs['time'].min(),dftrails['time'].min())
     #tmax = max(dfobs['time'].max(),dftrails['time'].max())
                              
-    # generate interpolating functions for observer heliocentric positions and velocities as function of time [MJD]                          
-    observerInterpolant = ephem.getObserverInterpolant(tmin,tmax, origin='SSB',
+    # generate interpolating functions for observer heliocentric positions and velocities as function of time [MJD]  
+    
+    if(observer_interpolant):
+            observerInterpolant = observer_interpolant
+    else:
+            observerInterpolant = ephem.getObserverInterpolant(tmin,tmax, origin='SSB',
                                                        observer_location=observer_location,
-                                                       ephemeris_dt='1h',frame='ecliptic')
+                                                       ephemeris_dt=ephemeris_dt,frame='ecliptic')
 
     # the following two arrays are for testing purposes only
 
@@ -225,6 +237,7 @@ def heliolinc2(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(),
                 
     if (not notrails):
         trail_nights = unique(dftrails['night'].values)
+        print('trail_nights',trail_nights)
         
         for n in trail_nights:                    
         # GENERATE HELIOCENTRIC ARROWS FROM TOPOCENTRIC TRAILS 
@@ -474,53 +487,67 @@ def observationsInCluster(pairs, trails, cluster, garbage=False):
 # OBSERVATIONS, TRACKLETS AND ARROWS
 ###########################################
     
-def obs2heliolinc(df, uniqueObsId=False, uniqueObsIdName="obsId", 
-                  timeName="FieldMJD", raName="AstRA(deg)", 
-                  decName="AstDec(deg)", observerLocation='I11',
-                  observerEphemerisDt='1h', observer_xyz=[], 
-                  observer_vxyz=[]):
+def obs2heliolinc(df, required_input_columns={'obsName':'obsName','time':'FieldMJD',
+                                              'RA':'AstRA(deg)','DEC':'AstDec(deg)'},
+                 required_output_columns={'obsName':'obsName','time':'time',
+                                          'RA':'RA','DEC':'DEC','obsId':'obsId'}):
     
     """Converts observations in pandas DataFrame to HelioLinC3D ingestable format.
     
     Parameters:
     ------------
-    df                 ... pandas DataFrame containing observations 
-                        
-    uniqueObsId        ... True/False: If a unique observation identifier 
-                           is present in the dataframe use that, 
-                           otherwise create that here.
-    uniqueObsIdName    ... what is the name of the unique observation identifier?
-    fieldIdName        ... name of observed field identifier
-    timeName           ... name of time identifier column
-    raName             ... name of Right Ascension column
-    decName            ... name of Declination column
-    observerLocation   ... Observer location Minor Planet Center code (e.g. 'I11')
-    observerEphemerisDt... Sampling rate for observer heliocentric ephemeris query (e.g. '1h')
-    observer_xyz       ... numpy array, heliocentric observer locations at observation epochs 
-                           in ICRF [au] if known. If empty, states will be retrieved
-                           from JPL horizons online.
-    observer_vxyz      ... numpy array, heliocentric observer velocity states in ICRF [au/day]. 
-                           If empty, states will be retrieved from JPL horizons online.
-                  
-                           
-                           
-    """
-    required_input_columns=['time','RA','DEC']
+    df                     ... pandas DataFrame containing observations with time in UTC MJD 
+    required_input_columns ... dictionary, input columns that must be present in input pandas DataFrame
     
-    required_output_columns=['obsId','obsName','time','RA','DEC']
+                               obsName: str, name of observation
+                               FieldMJD: float, UTC time of observation [MJD]
+                               AstRA(deg): astrometric Right Ascension [deg] 
+                               AstDec(deg): astrometric Declination [deg]                             
+                              
+    required_output_columns ... dictionary, output columns necessary for HelioLinC3D:
+    
+                                obsId: int, unique observation index
+                                obsName: str, name of observation
+                                time: float, TDB time of observation [MJD]
+                                RA: astrometric Right Ascension [deg] 
+                                DEC: astrometric Declination [deg]
+                           
+    Returns:
+    --------
+    df2                ... pandas DataFrame containing required output columns as well as time in TDB MJD
+    
+    
+    Remarks:
+    --------
+    Input timescale is UTC and format is Modified Julian Date (MJD).
+    Input astrometry is not corrected for aberration and light travel time. 
+    This will be done later in the program.
+    
+    """
+
                       
 #     required_output_columns=['obsId','obsName','time','RA','DEC',
 #                       'x_obs','y_obs','z_obs',
 #                      'vx_obs','vy_obs','vz_obs']
 
-      
+    for col in required_input_columns.values:
+        if col not in df2.columns:
+            raise Exception("Error in obs2heliolinc: required input column not present:",col)
+                
+    
+    icols = [required_input_columns[r] for r in required_input_columns]
+    ocols = [required_output_columns[r] for r in required_output_columns]
+    
     # Create a copy with only required inputs
-    df2 = df[[timeName,raName,decName]]
-     
-    # print(df2)    
+    df2 = df[icols]
+    
     # Rename columns of observations DataFrame to work with HelioLinC3D
-    column_mapping = {timeName:"time",raName:"RA", decName:"DEC"}    
-    df2.rename(columns = column_mapping, inplace=True)
+    column_mapping = dict(zip(icols,icols2))  
+    df2.rename(columns = column_mapping, inplace=True) 
+    
+    # Transform time from UTC to TDB
+    df2['time'] = Time(df2['time'].values,scale='utc',format='mjd').tdb.mjd
+  
   
     # Sort by observation time
     # df2.sort_values(by=['time','RA'], inplace=True)
@@ -537,17 +564,16 @@ def obs2heliolinc(df, uniqueObsId=False, uniqueObsIdName="obsId",
     # Otherwise create your own
     else:    
         df2['obsName'] = df2['obsId'].values.astype(str)
-    
-    
+      
     df2['night']=(ut.lsstNight(df2['time'],df2['time'].min())).astype(int)
-    
     
     # Check if all required columns are present
     for col in required_output_columns:
            if col not in df2.columns:
                 raise Exception("Error in obs2heliolinc: required columns not present.")
+               
     
-    return df2
+    return df2, observerInterpolant
 
 
 def cullSameTimePairs(pairs, df, dt_min, dt_max, time_column_name):
@@ -658,6 +684,12 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, observerInterp
     goodpairs ... index pairs of observations that go into each tracklet/arrow
     """
     
+    sqrt = np.sqrt
+    array = np.array
+    divide = np.divide
+    where = np.where
+    take = np.take
+    
     goodpairs=[]
     paris=[]
 
@@ -665,7 +697,7 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, observerInterp
     xyz = tr.radec2icrfu(df['RA'], df['DEC'], deg=True)
 
     # Those are the line of sight (LOS) vectors
-    los_icrf = np.array([xyz[0], xyz[1], xyz[2]]).T
+    los_icrf = array([xyz[0], xyz[1], xyz[2]]).T
 
     # Transform LOS vectors to frame of choice
     los = tr.frameChange(los_icrf, 'icrf', 'ecliptic') 
@@ -680,11 +712,24 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, observerInterp
     # to move to smaller r
     
     dt = df['time'].values-tref
+    
+    # calculate angular momentum h = r x v, 
+    # split velocity in parallel and orthogonal components to r: v = v_o + v_r 
+    # then h= r x v_o + r x v_r 
+    # since r x v_r = 0 (parallel) h = r x v_o 
+    # v_o = v - v_r = v - rdot, and |h| = r*(v-rdot)
+    # for circular orbits rdot = 0 and v = sqrt(GM/r)  
+    # with F(r) = m d^2r/dt^2 - m r w^2 = m d^2r/dt^2 - m h^2/r^3
     #     dt = tref-df['time'].values
-    dr = (drdt-GM/(r*r)*dt/2)*dt
+        
+    h = r*(sqrt(GM/r)-drdt)    
+    dr = drdt*dt + (-GM/(r*r)+h**2/r**3)*dt**2/2 
     r_plus_dr = r+dr
     print('tref,t0',tref,df['time'].values)
     print('r,r+dr',r,r_plus_dr)
+    
+#     r_plus_dr,rdot_new = vleapfrog(dt,r,drdt,0.5,GM,h)
+    
     
     # Heliocentric postions of the observed asteroids
     posu = vc.sphereLineIntercept(los, observerXYZ, r_plus_dr)
@@ -734,30 +779,31 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max, observerInterp
     dt = df['time'].values[goodpairs[:,1]]-df['time'].values[goodpairs[:,0]]
     dx = posu[goodpairs[:,1]]-posu[goodpairs[:,0]]
     for d in range(0,3):
-        vapp(np.divide(dx[:,d],dt))
-    v = np.array(va).T
+        vapp(divide(dx[:,d],dt))
+    v = array(va).T
     
     if (filtering):
         if(verbose):
             print('Filtering arrows by max velocity...')
-        vnorm=vc.norm(v)
-        v_idx=np.where(vnorm<=v_max)[0]
+        vnorm = vc.norm(v)
+        v_idx = where(vnorm<=v_max)[0]
     
         goodpairs=np.take(goodpairs,v_idx,axis=0)
-        x=np.take(x,v_idx,axis=0)
-        v=np.take(v,v_idx,axis=0)
-        t=np.take(t,v_idx,axis=0)
+        x = take(x,v_idx,axis=0)
+        v = take(v,v_idx,axis=0)
+        t = take(t,v_idx,axis=0)
     
     if(verbose):
         print('Tracklets created:',len(goodpairs))
     
-    # correct arrows for light travel time
+    # correct arrows for down-leg light travel time. At the time of observation, the source has
+    # moved from its previous position where it emitted light to a new position advancing on its orbit
     if(lttc):
         if(verbose):
             print('(Linear correction for light travel time aberration...')
         xo = observerInterpolant(t).T
         dist = vc.norm(x-xo)
-        xl = x.T-dist/cn.CAUPD*v.T
+        xl = x.T+dist/cn.CAUPD*v.T
         x = xl.T 
  
     return x, v, t, goodpairs
@@ -797,6 +843,7 @@ def makeArrowsFromTrails(df, r, drdt, tref, observerInterpolant, dt = 0.01, v_ma
     goodpairs ... index pairs of observations that go into each tracklet/arrow
     """
 
+    sqrt = np.sqrt
     trailidx = df.reset_index().index.values
     
     df['RA0'] = df['RA_center']-df['RA_vel']*dt
@@ -827,8 +874,24 @@ def makeArrowsFromTrails(df, r, drdt, tref, observerInterpolant, dt = 0.01, v_ma
     dt0 = df['time'].values-tref-dt
     dt1 = df['time'].values-tref+dt
     
-    dr0 = (drdt-GM/(r*r)*dt0/2)*dt0
-    dr1 = (drdt-GM/(r*r)*dt1/2)*dt1
+     # calculate angular momentum h = r x v, 
+    # split velocity in parallel and orthogonal components to r: v = v_o + v_r 
+    # then h= r x v_o + r x v_r 
+    # since r x v_r = 0 (parallel) h = r x v_o 
+    # v_o = v - v_r = v - rdot, and |h| = r*(v-rdot)
+    # for circular orbits rdot = 0 and v = sqrt(GM/r)  
+    # with F(r) = m d^2r/dt^2 - m r w^2 = m d^2r/dt^2 - m h^2/r^3
+    # dt = tref-df['time'].values
+    # h = r*(sqrt(GM/r)-drdt)    
+    # dr = drdt*dt + (-GM/(r*r)+h**2/r**3)*dt**2/2 
+    # r_plus_dr = r+dr
+    
+    h = r*(sqrt(GM/r)-drdt)  
+    dr0 = drdt*dt + (-GM/(r*r)+h**2/r**3)*dt0**2/2
+    dr1 = drdt*dt + (-GM/(r*r)+h**2/r**3)*dt1**2/2
+    
+#     dr0 = (drdt-GM/(r*r)*dt0/2)*dt0
+#     dr1 = (drdt-GM/(r*r)*dt1/2)*dt1
     
     r_plus_dr0 = r+dr0
     r_plus_dr1 = r+dr1
@@ -870,20 +933,56 @@ def makeArrowsFromTrails(df, r, drdt, tref, observerInterpolant, dt = 0.01, v_ma
     if(verbose):
         print('Tracklets created:',len(trailidx))
     
-    # correct arrows for light travel time
+    # correct arrows for down-leg light travel time. At the time of observation, the source has
+    # moved from its previous position where it emitted light to a new position advancing on its orbit
     if(lttc):
         if(verbose):
             print('(Linear correction for light travel time aberration...')
         xo = observerInterpolant(t[trailidx]).T
         dist = vc.norm(x-xo)
-        xl = x.T-dist/cn.CAUPD*v.T
+        xl = x.T+dist/cn.CAUPD*v.T
         x = xl.T 
  
     return x, v, t, trailidx
 
     
-
+def leapfrog(tend,r,rdot,dt,gm,h):
+    """Leap frog integrator for radial Kepler problem
+    d2r/dt2 = -GM/r^2 + h/r^3, where r is the scalar distance 
+    to the focus (e.g. Sun), t is the time, GM the gravitational parameter,
+    and h the (specific) angular momentum of the orbit.
     
+    Parameters:
+    -----------
+    tend ... final time of propagation
+    r    ... radial distance to focus (e.g. Sun)
+    rdot ... dr/dt, radial velocity
+    dt   ... time step
+    GM   ... gravitational parameter 
+    h    ... angular momentum
+
+    """
+    t=0
+    
+    if (tend<0):
+        dt = -dt
+    
+    dth = 0.5*dt
+    rdoth = rdot+dth*(-gm/r**2+h**2/r**3)
+    
+    #rtest=[]
+    while (abs(t)<abs(tend-dt)):
+        r = r+dt*rdoth
+        rdoth = rdoth+dt*(-gm/r**2+h**2/r**3)
+        t=t+dt
+        # rtest.append([t,r,rdoth-dth*(-gm/r**2+h**2/r**3)])
+        
+    # last step
+    r = r+(tend-t)*rdoth
+    rdot = rdoth-dth*(-gm/r**2+h**2/r**3)
+    return r, rdot #, np.array(rtest)  
+
+vleapfrog = np.vectorize(leapfrog)
     
 def deduplicateClusters(cdf):    
     """Deduplicate clusters produced by helioLinC2 

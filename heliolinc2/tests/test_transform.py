@@ -3,7 +3,7 @@ import numpy as np
 # time scale transforms
 from astropy.time import Time
 
-import ..transform as tr
+from .. import transforms as tr
 
 def test_orbital_element_conversion():
     

@@ -783,4 +783,31 @@ def coordinateTransform(M, x_in):
                 raise Exception('Error in coordinate_transform: \
                                  3D positions or 6D state vector required') 
     return x_out
+
+# def rotateAxis(u,phi,x,deg=False):
+#     """Rotate vector x around axis u for angle phi.
     
+#     Parameters:
+#     -----------
+#     u        ... float array, axis of rotation in 3-space
+#     phi      ... angle by which to rotate x around u 
+#     x        ... float array, vector to be rotated
+
+ 
+#     Returns:
+#     --------
+#     xrotu    ... float array, rotated vector x
+#     """
+
+#     deg2rad = np.deg2rad
+#     cos = np.cos
+#     sin = np.sin
+    
+#     if(deg):
+#         angle = deg2rad(angle)
+        
+#     ucrossx =  vcross(u,x)
+    
+#     xrotu = u*vdot(u,x) + cos(angle)*vcross(ucrossx,u) + sin(angle)*ucrossx) 
+        
+#     return xrotu

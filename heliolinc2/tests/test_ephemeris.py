@@ -3,9 +3,9 @@ import numpy as np
 # time scale transforms
 from astropy.time import Time
 
-import ..transform as tr
+from .. import transforms as tr
 
-import ..ephemeris as ephem
+from .. import ephemeris as ephem
 
 
 def test_transforms():
