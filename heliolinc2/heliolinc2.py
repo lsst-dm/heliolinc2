@@ -165,7 +165,8 @@ def heliolinc2(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(),
     notrails = False
     noobs = False
     
-    nobsarrows=0
+    nobsarrows = 0
+    ntrailarrows = 0
     
     if(dftrails.dropna().empty):
         observation_epochs = unique(dfobs['time'].values)
@@ -178,9 +179,6 @@ def heliolinc2(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(),
     
     tmin = min(observation_epochs)
     tmax = max(observation_epochs)
-    
-    #tmin = min(dfobs['time'].min(),dftrails['time'].min())
-    #tmax = max(dfobs['time'].max(),dftrails['time'].max())
                              
     # generate interpolating functions for observer heliocentric positions and velocities as function of time [MJD]  
     
@@ -191,13 +189,6 @@ def heliolinc2(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(),
                                                        observer_location=observer_location,
                                                        ephemeris_dt=ephemeris_dt,frame='ecliptic')
 
-    # the following two arrays are for testing purposes only
-
-    # objid_night = []
-    # tobs_night = []
-    
-    # objid_night_add =  objid_night.append
-    # tobs_night_add = tobs_night.append
             
     # reference time for propagation (center of linking window)
     tref=(tmin+tmax)*0.5 
@@ -230,14 +221,12 @@ def heliolinc2(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(),
                 tar_add(tarrow_night)
                 obsids_night_add(dfo['obsId'].values[goodpairs_night])
 
-        #objid_night_add(df['objId'].values[goodpairs_night])
-        #tobs_night_add(df['time'].values[goodpairs_night])
-
             nobsarrows=len(tar)
                 
     if (not notrails):
         trail_nights = unique(dftrails['night'].values)
-        print('trail_nights',trail_nights)
+        if (verbose):
+            print('trail_nights',trail_nights)
         
         for n in trail_nights:                    
         # GENERATE HELIOCENTRIC ARROWS FROM TOPOCENTRIC TRAILS 
@@ -260,11 +249,12 @@ def heliolinc2(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(),
                 var_add(varrow_night)
                 tar_add(tarrow_night)
                 # trail IDs are negative
-#                 print('trails',len(trails_night))
-#                 print('arrows',len(tarrow_night))
+                # print('trails',len(trails_night))
+                # print('arrows',len(tarrow_night))
 #                 print(trails_night[0],trails_night[-1])
 #                 print(n,dft['trailId'].values[trails_night])
-                trailids_night_add(dft['trailId'].values[trails_night])                             
+                trailids_night_add(dft['trailId'].values[trails_night])
+    
             ntrailarrows=len(tar)-nobsarrows
 #   Collect all arrows for propagation                                   
     if (len(xar)<1):
@@ -275,27 +265,27 @@ def heliolinc2(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(),
         varrow=np.vstack(var)
         tarrow=np.hstack(tar)
         
-#       Which observations are in each arrow? -> obsids   
-        print('obsids_night',obsids_night)
+#       Which observations are in each arrow? -> obsids
+        if (verbose):
+            print('obsids_nights',obsids_night)
         obsids=[]
         trailids=[]
         if(not noobs):
             obsids = np.vstack(obsids_night)
-            print('obsids', obsids)
-            print('nobsarrows',nobsarrows,len(obsids))
+            if(verbose):
+                print('obsids', obsids)
+                print('nobsarrows',nobsarrows,len(obsids))
         if(not notrails):    
             trailids = np.hstack(trailids_night)
-            print('trailids',trailids)
-            print('ntrailarrows',ntrailarrows,len(trailids))
+            if(verbose):
+                print('trailids',trailids)
+                print('ntrailarrows',ntrailarrows,len(trailids))
     
         if(verbose):
             print('tarrow', tarrow)
             print('xarrow', xarrow)
             print('varrow', varrow) 
 
-#   # the following two arrays are for testing purposes only
-        #objids=np.vstack(objid_night)
-        #tobs=np.vstack(tobs_night)
 
 #   # PROPAGATE ARROWS TO COMMON EPOCH
         if (verbose):
@@ -330,7 +320,7 @@ def heliolinc2(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(),
         else:
             raise Exception('Error: only clustering in 3 or 6 dimensions supported.')
             
-        print(db.labels_)    
+        # print(db.labels_)    
 #       # CONVERT CLUSTER INDICES TO OBSERVATION INDICES IN EACH CLUSTER
         try:
             if (verbose):
@@ -344,8 +334,8 @@ def heliolinc2(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(),
 #                  obs_in_cluster_df=pd.DataFrame(zip(labels,obs_in_cluster), columns=['clusterId','obsId'])
 #             elif:
             
-            [obs_in_cluster, trails_in_cluster, labels] = observationsInCluster(obsids,trailids, db, garbage=False)
-            obs_in_cluster_df = pd.DataFrame(zip(labels,obs_in_cluster,trails_in_cluster), 
+            [obs_in_cluster, trails_in_cluster, labels] = observationsInCluster(obsids, trailids, db, garbage=False)
+            obs_in_cluster_df = pd.DataFrame(zip(labels, obs_in_cluster, trails_in_cluster), 
                                              columns=['clusterId','obsId','trailId'])
 #             [obs_in_cluster, labels] = observationsInCluster(obsids, db, garbage=False)
 #             obs_in_cluster_df=pd.DataFrame(zip(labels,obs_in_cluster), columns=['clusterId','obsId'])
@@ -406,10 +396,10 @@ def observationsInCluster(pairs, trails, cluster, garbage=False):
     #which objects do observations in pairs (tracklets) belong to
     p = np.array(pairs)
     lenp = len(pairs)
-    print('pairs',pairs)
-    print('lenp',lenp)
-    print('n_clusters',n_clusters)
-    print('unique_arrow_labels',unique_arrow_labels)
+#     print('pairs',pairs)
+#     print('lenp',lenp)
+#     print('n_clusters',n_clusters)
+#     print('unique_arrow_labels',unique_arrow_labels)
     obs_in_cluster=[]
     obs_in_cluster_add=obs_in_cluster.append
     
@@ -855,6 +845,15 @@ def makeArrowsFromTrails(df, r, drdt, tref, observerInterpolant, dt = 0.01, v_ma
     xyz0 = tr.radec2icrfu(df['RA0'], df['DEC0'], deg=True)
     xyz1 = tr.radec2icrfu(df['RA1'], df['DEC1'], deg=True)
     
+    # INSERT STELLAR ABERRATION CORRECTION HERE:
+    # V IS THE SOLARSYSTEM BARYCENTRIC VELOCITY OF THE OBSERVER
+    # XYZ IS THE VECTOR TO THE ASTEROID, W IS THE ANGLE BETWEEN XYZ AND V.
+    # H = XYZ CROSS V 
+    # SIN(PHI) = V/C SIN(W) 
+    # ROTATE XYZ BY -PHI AROUND H TO CORRECT FOR STELLAR ABERRATION BEFORE
+    # INTERSECTING WITH UNIT SPHERE
+    
+    
     # Those are the line of sight (LOS) vectors
     los_icrf0 = np.array([xyz0[0], xyz0[1], xyz0[2]]).T
     los_icrf1 = np.array([xyz1[0], xyz1[1], xyz1[2]]).T
@@ -874,7 +873,7 @@ def makeArrowsFromTrails(df, r, drdt, tref, observerInterpolant, dt = 0.01, v_ma
     dt0 = df['time'].values-tref-dt
     dt1 = df['time'].values-tref+dt
     
-     # calculate angular momentum h = r x v, 
+    # calculate angular momentum h = r x v, 
     # split velocity in parallel and orthogonal components to r: v = v_o + v_r 
     # then h= r x v_o + r x v_r 
     # since r x v_r = 0 (parallel) h = r x v_o 
@@ -1004,6 +1003,28 @@ def deduplicateClusters(cdf):
     cdf.sort_values(by=['clusterObs','var_pos','var_vel'],inplace=True)
     cdf.drop_duplicates(subset='clusterObs',keep="first",ignore_index=True, inplace=True)
     return cdf.drop(columns=['clusterObs'])
+
+def deduplicateTrailClusters(cdf):    
+    """Deduplicate clusters produced by helioLinC2 
+    based on similar observations (r,rdot are discarded)
+
+    Parameters:
+    -----------
+    cdf ... Pandas DataFrame containing object ID (objId), observation ID (obsId)
+              
+    Returns:
+    --------
+    cdf2     ... deduplicated Pandas DataFrame 
+    """
+    
+#   cdf2=(cdf.iloc[cdf.astype(str).drop_duplicates(
+#         subset='obsId',keep="first").index]).reset_index(drop=True)    
+
+    cdf['clusterObs'] = cdf['trailId'].astype(str) 
+    cdf.sort_values(by=['clusterObs','var_pos','var_vel'],inplace=True)
+    cdf.drop_duplicates(subset='clusterObs',keep="first",ignore_index=True, inplace=True)
+    return cdf.drop(columns=['clusterObs'])
+
         
 def collapseClusterSubsets(cdf):
     """Merge clusters that are subsets of each other 
