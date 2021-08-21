@@ -886,8 +886,8 @@ def makeArrowsFromTrails(df, r, drdt, tref, observerInterpolant, dt = 0.01, v_ma
     # r_plus_dr = r+dr
     
     h = r*(sqrt(GM/r)-drdt)  
-    dr0 = drdt*dt + (-GM/(r*r)+h**2/r**3)*dt0**2/2
-    dr1 = drdt*dt + (-GM/(r*r)+h**2/r**3)*dt1**2/2
+    dr0 = drdt*dt0 + (-GM/(r*r)+h**2/r**3)*dt0**2/2
+    dr1 = drdt*dt1 + (-GM/(r*r)+h**2/r**3)*dt1**2/2
     
 #     dr0 = (drdt-GM/(r*r)*dt0/2)*dt0
 #     dr1 = (drdt-GM/(r*r)*dt1/2)*dt1
