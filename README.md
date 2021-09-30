@@ -7,5 +7,6 @@ Based on HelioLinC (Holman et al. 2018) we transform topocentric observations to
 `pip install .`
 
 The difi package may have to be installed separately (requires python version >3.7.1).
+
 `conda install -c moeyensj difi`
 
