@@ -25,5 +25,6 @@ setup(
        "spiceypy",
        "pandas",
        "pytest",
+       "matplotlib",
    ],
 )
