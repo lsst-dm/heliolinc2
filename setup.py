@@ -14,4 +14,15 @@ setup(
    use_scm_version=True,
    setup_requires=["pytest-runner", "setuptools_scm"],
    tests_require=["pytest"],
+   install_requires=[
+       "astropy",
+       "joblib",
+       "numba",
+       "numpy",
+       "scipy",
+       "scikit-learn",
+       "spiceypy",
+       "pandas",
+       "pytest",
+   ],
 )
