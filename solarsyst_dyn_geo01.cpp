@@ -146,7 +146,7 @@ int celedeproj01(point3d p3, double *RA, double *Dec)
   }
 };
     
- // celeproj01LD: November 05, 2021
+// celeproj01LD: November 05, 2021
 // Given double precision RA, Dec in DEGREES, project
 // onto the unit sphere and return an object of class point3d.
 // Input coordinates are in degrees, input RA=0, Dec=0
@@ -322,6 +322,1460 @@ int distradec02(double ra1,double dec1,double ra2,double dec2,double *dist,doubl
   return(0);
 }
 
+long medindex(const vector <xy_index> &xyvec, int dim)
+{
+  vector <xy_index> xyv = xyvec; //Mutable copy of immutable input vector
+  for(int i=0; i<xyv.size(); i++) xyv[i].index=i; //Redefine indices
+  long medpt = xyv.size()/2;
+  if(dim%2==1) sort(xyv.begin(), xyv.end(), xyind_lower_x());
+  else sort(xyv.begin(), xyv.end(), xyind_lower_y());
+  return(xyv[medpt].index);
+}
+
+int splitxy(const vector <xy_index> &xyvec, int dim, long splitpoint, vector <xy_index> &left, vector <xy_index> &right)
+{
+  long i=0;
+  double xval = xyvec[splitpoint].x;
+  double yval = xyvec[splitpoint].y;
+  
+  if(dim%2==1) {
+    // Split on x
+    for(i=0 ; i<xyvec.size() ; i++) {
+      if(i!=splitpoint && xyvec[i].x<=xval) {
+	left.push_back(xyvec[i]);
+      } else if(i!=splitpoint) {
+	right.push_back(xyvec[i]);
+      }
+    }
+  } else {
+    // Split on y
+    for(i=0 ; i<xyvec.size() ; i++) {
+      if(i!=splitpoint && xyvec[i].y<=yval) {
+	left.push_back(xyvec[i]);
+      } else if(i!=splitpoint) right.push_back(xyvec[i]);
+    }
+  }
+  return(0);
+}
+
+// kdtree01: November 11, 2021:
+// Given an input root point, presumed to have null
+// right and left branches, load the branches and then
+// call kdtree01 on them recursively.
+// NOTE THAT THIS IS FOR 2-D KD trees.
+int kdtree01(const vector <xy_index> &xyvec, int dim, long rootptxy, long rootptkd, vector <kdpoint> &kdvec)
+{
+  int status=0;
+  int lmed=0;
+  int rmed=0;
+  int kdct = kdvec.size()-1;
+  int i=0;
+  long leftrootkd=-1;
+  long rightrootkd=-1;
+  xy_index xyi = xy_index(0.0,0.0,0);
+  kdpoint root = kdvec[kdct];
+  kdpoint lp = kdpoint(xyi,-1,-1,0);
+  kdpoint rp = kdpoint(xyi,-1,-1,0);
+  kdpoint kdtest = kdpoint(xyi,-1,-1,0);
+  vector <xy_index> leftvec = {};
+  vector <xy_index> rightvec = {};
+
+  status = splitxy(xyvec,dim,rootptxy,leftvec,rightvec);
+  
+  if(dim==1) dim=2;
+  else dim=1;
+
+  if(leftvec.size()==1) {
+    // Left branch is just a single leaf
+    lp = kdpoint(leftvec[0],-1,-1,dim);
+    kdvec.push_back(lp);
+    kdct++;
+    kdvec[rootptkd].left = kdct;
+    kdtest = kdvec[kdct];
+  } else if(leftvec.size()<=0) {
+    // There is no left branch
+    kdvec[rootptkd].left = -1;
+  }
+  if(rightvec.size()==1) {
+    // Right branch is just a single leaf
+    rp = kdpoint(rightvec[0],-1,-1,dim);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[rootptkd].right = kdct;
+    kdtest = kdvec[kdct];
+  } else if(rightvec.size()<=0) {
+    // There is no right branch
+    kdvec[rootptkd].right = -1;
+  }
+   
+ if(leftvec.size()>1) {
+    lmed = medindex(leftvec,dim);
+    lp = kdpoint(leftvec[lmed],-1,-1,dim);
+    kdvec.push_back(lp);
+    kdct++;
+    kdvec[rootptkd].left = kdct;
+    leftrootkd = kdct;
+    kdtest = kdvec[kdct];
+ }
+ 
+  if(rightvec.size()>1) {
+    rmed = medindex(rightvec,dim);
+    rp = kdpoint(rightvec[rmed],-1,-1,dim);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[rootptkd].right = kdct;
+    rightrootkd = kdct;
+    kdtest = kdvec[kdct];
+  }
+  // I moved these down out of the above loops, because I thought
+  // that otherwise, a bunch of stuff might get pushed down by the
+  // left loop that the right loop didn't know about.
+  if(leftvec.size()>1 && leftrootkd>=0) kdtree01(leftvec,dim,lmed,leftrootkd,kdvec);
+  else if(leftvec.size()>1 && leftrootkd<0)
+    {
+      cerr << "Error, kdtree01 finds leftroot less than zero with leftvec.size() = " << leftvec.size() << "\n";
+    }
+  if(rightvec.size()>1 && rightrootkd>=0) kdtree01(rightvec,dim,rmed,rightrootkd,kdvec);
+  else if(rightvec.size()>1 && rightrootkd<0)
+    {
+      cerr << "Error, kdtree01 finds rightroot less than zero with rightvec.size() = " << rightvec.size() << "\n";
+    }
+
+  return(0);
+}
+
+// kdrange01: November 15, 2021:
+// Given a k-d tree vector kdvec created by kdtree01,
+// perform a range-query about the point x,y. Returns
+// a vector indexing all of the points in the input k-d tree
+// that lie within the specified range of the input coordinates.
+// Assumes that kdvec[0] is the root of the k-d tree.
+// NOTE THAT THIS IS FOR 2-D KD trees.
+int kdrange01(const vector <kdpoint> &kdvec,double x,double y,double range,vector <long> &indexvec)
+{
+  int branchct=0;
+  double rng2 = range*range;
+  int notdone=1;
+  int kdveclen = kdvec.size();
+  int dim=1;
+  int currentpoint=0;
+  int leftpoint=0;
+  int rightpoint=0;
+  int goleft=0;
+  int goright=0;
+  double xdiff=0.0;
+  double ydiff=0.0;
+  vector <long> checkit={};
+  int i=0;
+  int checknum=0;
+
+  while(notdone>0) {
+    // Climb to the top of the k-d tree, keeping track
+    // of potentially interesting unexplored branches
+    // in the vector checkit.
+    while(leftpoint>=0 || rightpoint>=0) {
+      // Previous step did not end on a leaf.
+      leftpoint = kdvec[currentpoint].left;
+      rightpoint = kdvec[currentpoint].right;
+      dim = kdvec[currentpoint].dim;
+      if(dim%2==1) {
+	xdiff = kdvec[currentpoint].point.x - x;
+	// cout << "kxdr: " << kdvec[currentpoint].point.x << " " << x << " " << xdiff << " " << range << "\n";
+	goright = (xdiff <= range); // possible hits lie to the left;
+	goleft = (xdiff >= -range); // possible hits lie to the right;
+	if(goleft && goright) {
+	  // Current point might be within range.
+	    ydiff = kdvec[currentpoint].point.y - y;
+	    if(fabs(ydiff)<=range && (xdiff*xdiff + ydiff*ydiff)<=rng2) {
+	      // Current point is within range. Add it to the output vector
+	      indexvec.push_back(currentpoint);
+	    }
+	    if(leftpoint>=0) {
+	       //Explore leftward first.
+	      currentpoint = leftpoint;
+	      if(rightpoint>=0) {
+		// Rightward branch will also be explored later
+		checknum++;
+		if(checknum>checkit.size()) {
+		  checkit.push_back(rightpoint);
+		}
+		else {
+		  checkit[checknum-1] = rightpoint;
+		}		
+	      }
+	    }
+	    else if(rightpoint>=0) {
+	      // Leftward branch is a dead end: explore rightward branch
+	      currentpoint = rightpoint;
+	    }
+	}
+	else if(goleft) {
+	  // Current point cannot be in range, but points that
+	  // are in range may lie along the left branch.
+	  if(leftpoint>=0) {
+	    currentpoint = leftpoint;
+	  } else rightpoint=-1; // Dead end, make sure while-loop exits.
+	} else if(goright) {
+	  // Current point cannot be in range, but points that
+	  // are in range may lie along the right branch.
+	  if(rightpoint>=0) {
+	    currentpoint = rightpoint;
+	  } else leftpoint=-1;  // Dead end, make sure while-loop exits.
+	} else {
+	  // Program concluded it should go neither left nor right.
+	  // The likely cause is that it encountered a NAN. Give up on this point.
+	  leftpoint=rightpoint=-1;
+	  cerr << "WARNING: ENCOUNTERED NAN CASE!\n";
+	  cerr << "Input point " << x << ", " << y <<", target point " << kdvec[currentpoint].point.x << ", " << kdvec[currentpoint].point.y << ".\n";
+	}
+	// Close x-dimension case
+      } else if(dim%2==0) {
+	ydiff = kdvec[currentpoint].point.y - y;
+	goright = (ydiff <= range); // possible hits lie to the left;
+	goleft = (ydiff >= -range); // possible hits lie to the right;
+	if(goleft && goright) {
+	    // Current point might be within range.
+	    xdiff = kdvec[currentpoint].point.x - x;
+	    if(fabs(ydiff)<=range && (xdiff*xdiff + ydiff*ydiff)<=rng2) {
+	      // Current point is within range. Add it to the output vector
+	      indexvec.push_back(currentpoint);
+	    }
+	    if(leftpoint>=0) {
+	       //Explore leftward first.
+	      currentpoint = leftpoint;
+	      if(rightpoint>=0) {
+		// Rightward branch will also be explored later
+		checknum++;
+		if(checknum>checkit.size()) {
+		  checkit.push_back(rightpoint);
+		}
+		else {
+		  checkit[checknum-1] = rightpoint;
+		}
+	      }
+	    } else if(rightpoint>=0) {
+	      // Leftward branch is a dead end: explore rightward branch
+	      currentpoint = rightpoint;
+	    }
+	}
+	else if(goleft) {
+	  // Current point cannot be in range, but points that
+	  // are in range may lie along the left branch.
+	  if(leftpoint>=0) {
+	    currentpoint = leftpoint;
+	  } else rightpoint = -1; // Dead end, make sure while loop exits.
+	} else if(goright) {
+	  // Current point cannot be in range, but points that
+	  // are in range may lie along the right branch.
+	  if(rightpoint>=0) {
+	    currentpoint = rightpoint;
+	  } else leftpoint=-1;  // Dead end, make sure while loop exits.
+	} else {
+	  // Program concluded it should go neither left nor right.
+	  // The likely cause is that it encountered a NAN. Give up on this point.
+	  leftpoint=rightpoint=-1;
+	  cerr << "WARNING: ENCOUNTERED NAN CASE!\n";
+	  cerr << "Input point " << x << ", " << y <<", target point " << kdvec[currentpoint].point.x << ", " << kdvec[currentpoint].point.y << ".\n";
+	}
+	// Note that we do not need to worry about the possiblity
+	// that current point will get set to -1: i.e., we were
+	// at a leaf or a one-sided branch. Such cases will
+	// be caught by the while statement.
+	// Close y-dimension case
+      }
+      // Close while-loop checking if we've hit a leaf.
+    }
+    // We have climbed up the tree to a leaf. Go backwards through
+    // the checkit vector and see if there is anything to check.
+    checknum=checkit.size();
+    while(checknum>=1 && checkit[checknum-1]<0) checknum--;
+    if(checknum<=0) {
+      //There were no valid entries to check: we're done.
+      notdone=0;
+    } else {
+      //Set currentpoint to the last valid entry in checkit
+      currentpoint = checkit[checknum-1];
+      //Mark this point as used.
+      checkit[checknum-1]=-1;
+      leftpoint=rightpoint=0;
+    }
+  }
+  return(0);
+}
+
+long medind_6LDx2(const vector <point6LDx2> &pointvec, int dim)
+{
+  vector <point6LDx2> pvec = pointvec; //Mutable copy of immutable input vector
+  for(long i=0; i<pvec.size(); i++) pvec[i].i1=i; //Redefine indices
+  long medpt = pvec.size()/2; // Central point of vector (it will be off by one half
+                              // for a vector with even length, but we don't care).
+  if(dim%6 == 1) sort(pvec.begin(), pvec.end(), lower_point6LDx2_x()); // Sort vector by x
+  else if(dim%6 == 2) sort(pvec.begin(), pvec.end(), lower_point6LDx2_y()); // Sort vector by y
+  else if(dim%6 == 3) sort(pvec.begin(), pvec.end(), lower_point6LDx2_z()); // Sort vector by z
+  else if(dim%6 == 4) sort(pvec.begin(), pvec.end(), lower_point6LDx2_vx()); // Sort vector by vx
+  else if(dim%6 == 5) sort(pvec.begin(), pvec.end(), lower_point6LDx2_vy()); // Sort vector by vy
+  else if(dim%6 == 0) sort(pvec.begin(), pvec.end(), lower_point6LDx2_vz()); // Sort vector by vz
+  else {
+    cerr << "ERROR: medind_6LDx2 recieved invalid dimension " << dim << "\n";
+    return(-1);
+  }
+  return(pvec[medpt].i1); // Output the index of the median point in
+                             // the original, unsorted input vector.
+}
+
+// splitLDx2: January 05, 2022:
+// Given a vector of type point6LDx2, split it into two halves,
+// a left half with all the points lower than or equal to a specified
+// split point along the chosen dimension (use dim = 1, 2, 3, 4, 5, or 6
+// to split along x, y, z, vx, vy, or vz respectively).
+int splitLDx2(const vector <point6LDx2> &pointvec, int dim, long splitpoint, vector <point6LDx2> &left, vector <point6LDx2> &right)
+{
+  long i=0;
+  long double splitval = 0.0L;
+
+  if(dim%6==1) {
+    // split on x
+    splitval = pointvec[splitpoint].x;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].x<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%6==2) {
+    // split on y
+    splitval = pointvec[splitpoint].y;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].y<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%6==3) {
+    // split on z
+    splitval = pointvec[splitpoint].z;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].z<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%6==4) {
+    // split on vx
+    splitval = pointvec[splitpoint].vx;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].vx<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%6==5) {
+    // split on vy
+    splitval = pointvec[splitpoint].vy;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].vy<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%6==0) {
+    // split on vz
+    splitval = pointvec[splitpoint].vz;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].vz<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else {
+      cerr << "ERROR: splitLDx2 asked to split on undefined dimension " << dim << "\n";
+      return(1);
+  } 
+  return(0);
+}
+
+// kdtree_6D01: January 05, 2022
+// Given an input root point, presumed to have null
+// right and left branches, load the branches and then
+// call kdtree_6D01 on them recursively.
+int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long splitpoint, long kdroot, vector <KD_point6LDx2> &kdvec)
+{
+  int status=0;
+  int lmed=0;
+  int rmed=0;
+  int kdct = kdvec.size()-1;
+  int i=0;
+  long leftrootkd=-1;
+  long rightrootkd=-1;
+  point6LDx2 point0 = point6LDx2(0.0L,0.0L,0.0L,0.0L,0.0L,0.0L,0,0);
+  KD_point6LDx2 root = kdvec[kdct];
+  KD_point6LDx2 lp = KD_point6LDx2(point0,-1,-1,0,0);
+  KD_point6LDx2 rp = KD_point6LDx2(point0,-1,-1,0,0);
+  vector <point6LDx2> leftvec = {};
+  vector <point6LDx2> rightvec = {};
+
+  // Basic outline: split the input vector into a left and a right
+  // half, where the left half is below (or level with) splitpoint
+  // in the dimension specified by dim, and the right half is above
+  // splitpoint. Find the median of the left and right vectors,
+  // and make the left and right branches from kdroot point to
+  // these medians. Then call kdtree_6D01 itself recursively on
+  // each of these median points, to peform a new split along a
+  // different dimension.
+  status = splitLDx2(invec,dim,splitpoint,leftvec,rightvec);
+
+  dim+=1;
+  while(dim>6) dim-=6;
+
+  if(leftvec.size()==1) {
+    // Left branch is just a single leaf
+    lp = KD_point6LDx2(leftvec[0],-1,-1,dim,0); // Define new point as a leaf: branches point nowhere
+    kdvec.push_back(lp); // Add this new point to the KD tree.
+    kdct++; // Keep track of how many point are in the tree
+    kdvec[kdroot].left = kdct; // Stick the new point on the left branch of the input root.
+  } else if(leftvec.size()<=0) {
+    // There is no left branch
+    kdvec[kdroot].left = -1;
+  }
+  if(rightvec.size()==1) {
+    // Right branch is just a single leaf
+    rp = KD_point6LDx2(rightvec[0],-1,-1,dim,0);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[kdroot].right = kdct;
+  } else if(rightvec.size()<=0) {
+    // There is no right branch
+    kdvec[kdroot].right = -1;
+  }
+   
+ if(leftvec.size()>1) {
+    lmed = medind_6LDx2(leftvec,dim);
+    lp = KD_point6LDx2(leftvec[lmed],-1,-1,dim,0);
+    kdvec.push_back(lp);
+    kdct++;
+    kdvec[kdroot].left = kdct;
+    leftrootkd = kdct;
+ }
+ 
+  if(rightvec.size()>1) {
+    rmed = medind_6LDx2(rightvec,dim);
+    rp = KD_point6LDx2(rightvec[rmed],-1,-1,dim,0);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[kdroot].right = kdct;
+    rightrootkd = kdct;
+  }
+  // I moved these down out of the above loops, because I thought
+  // that otherwise, a bunch of stuff might get pushed down by the
+  // left loop that the right loop didn't know about.
+  if(leftvec.size()>1 && leftrootkd>=0) kdtree_6D01(leftvec,dim,lmed,leftrootkd,kdvec);
+  else if(leftvec.size()>1 && leftrootkd<0)
+    {
+      cerr << "Error, kdtree_6D01 finds leftroot less than zero with leftvec.size() = " << leftvec.size() << "\n";
+    }
+  if(rightvec.size()>1 && rightrootkd>=0) kdtree_6D01(rightvec,dim,rmed,rightrootkd,kdvec);
+  else if(rightvec.size()>1 && rightrootkd<0)
+    {
+      cerr << "Error, kdtree_6D01 finds rightroot less than zero with rightvec.size() = " << rightvec.size() << "\n";
+    }
+
+  return(0);
+}
+
+// point6LDx2_dist: January 05, 2022:
+// Calculate the distance in 6-dimensional parameter space bewteen
+// two points of class point6LDx2.
+long double point6LDx2_dist(const point6LDx2 &p1, const point6LDx2 &p2)
+{
+  return(sqrt(LDSQUARE(p1.x - p2.x) + LDSQUARE(p1.y - p2.y) + LDSQUARE(p1.z - p2.z) + LDSQUARE(p1.vx - p2.vx) + LDSQUARE(p1.vy - p2.vy) + LDSQUARE(p1.vz - p2.vz)));
+}	 
+
+// point6LDx2_dist2: January 05, 2022:
+// Calculate the squared distance in 6-dimensional parameter space
+// between two points of class point6LDx2.
+long double point6LDx2_dist2(const point6LDx2 &p1, const point6LDx2 &p2)
+{
+  return(LDSQUARE(p1.x - p2.x) + LDSQUARE(p1.y - p2.y) + LDSQUARE(p1.z - p2.z) + LDSQUARE(p1.vx - p2.vx) + LDSQUARE(p1.vy - p2.vy) + LDSQUARE(p1.vz - p2.vz));
+}	 
+
+// kdrange_6D01: January 05, 2022:
+// Given a k-d tree vector kdvec created by kdtree_6D01,
+// perform a range-query about the specified point. Returns
+// a vector indexing all of the points in the input k-d tree
+// that lie within the specified range of the input coordinates.
+// Assumes that kdvec[0] is the root of the k-d tree.
+int kdrange_6D01(const vector <KD_point6LDx2> &kdvec, const point6LDx2 &querypoint, long double range, vector <long> &indexvec)
+{
+  int branchct=0;
+  long double rng2 = range*range;
+  int notdone=1;
+  int kdveclen = kdvec.size();
+  int dim=1;
+  int currentpoint=0;
+  int leftpoint=0;
+  int rightpoint=0;
+  int goleft=0;
+  int goright=0;
+  long double pointdiff = 0.0L;
+  long double pdist2 = 0.0L;
+  vector <long> checkit={};
+  int i=0;
+  int checknum=0;
+
+  while(notdone>0) {
+    // Climb to the top of the k-d tree, keeping track
+    // of potentially interesting unexplored branches
+    // in the vector checkit.
+    while(leftpoint>=0 || rightpoint>=0) {
+      // Previous step did not end on a leaf.
+      leftpoint = kdvec[currentpoint].left;
+      rightpoint = kdvec[currentpoint].right;
+      dim = kdvec[currentpoint].dim;
+      if(dim%6==1) pointdiff = kdvec[currentpoint].point.x - querypoint.x;
+      else if(dim%6==2) pointdiff = kdvec[currentpoint].point.y - querypoint.y;
+      else if(dim%6==3) pointdiff = kdvec[currentpoint].point.z - querypoint.z;
+      else if(dim%6==4) pointdiff = kdvec[currentpoint].point.vx - querypoint.vx;
+      else if(dim%6==5) pointdiff = kdvec[currentpoint].point.vy - querypoint.vy;
+      else if(dim%6==0) pointdiff = kdvec[currentpoint].point.vz - querypoint.vz;
+
+      goright = (pointdiff <= range); // possible hits lie to the left;
+      goleft = (pointdiff >= -range); // possible hits lie to the right;
+      if(goleft && goright) {
+	// Current point might be within range.
+	pdist2 = point6LDx2_dist2(querypoint,kdvec[currentpoint].point);
+	if(pdist2 <= rng2) {
+	  // Current point is within range. Add it to the output vector
+	  indexvec.push_back(currentpoint);
+	}
+	if(leftpoint>=0) {
+	  //Explore leftward first.
+	  currentpoint = leftpoint;
+	  if(rightpoint>=0) {
+	    // Rightward branch will also be explored later
+	    checknum++;
+	    if(checknum>checkit.size()) {
+	      checkit.push_back(rightpoint);
+	    }
+	    else {
+	      checkit[checknum-1] = rightpoint;
+	    }
+	  }
+	}
+	else if(rightpoint>=0) {
+	  // Leftward branch is a dead end: explore rightward branch
+	  currentpoint = rightpoint;
+	}
+      }
+      else if(goleft) {
+	// Current point cannot be in range, but points that
+	// are in range may lie along the left branch.
+	if(leftpoint>=0) {
+	  currentpoint = leftpoint;
+	} else rightpoint=-1; // Dead end, make sure while-loop exits.
+      } else if(goright) {
+	// Current point cannot be in range, but points that
+	// are in range may lie along the right branch.
+	if(rightpoint>=0) {
+	  currentpoint = rightpoint;
+	} else leftpoint=-1;  // Dead end, make sure while-loop exits.
+      } else {
+	// Program concluded it should go neither left nor right.
+	// The likely cause is that it encountered a NAN. Give up on this point.
+	leftpoint=rightpoint=-1;
+	cerr << "WARNING: ENCOUNTERED NAN CASE!\n";
+	cerr << "Query point:\n";
+	cerr << querypoint.x << ", " << querypoint.y << ", " << querypoint.z << ", " << querypoint.vx << ", " << querypoint.vy << ", " << querypoint.vz << "\n";
+	cerr << "Target point:\n";
+ 	cerr << kdvec[currentpoint].point.x << ", " << kdvec[currentpoint].point.y << ", " << kdvec[currentpoint].point.z << ", " << kdvec[currentpoint].point.vx << ", " << kdvec[currentpoint].point.vy << ", " << kdvec[currentpoint].point.vz << "\n";
+     }
+      // Close while-loop checking if we've hit a leaf.
+    }
+    // We have climbed up the tree to a leaf. Go backwards through
+    // the checkit vector and see if there is anything to check.
+    checknum=checkit.size();
+    while(checknum>=1 && checkit[checknum-1]<0) checknum--;
+    if(checknum<=0) {
+      //There were no valid entries to check: we're done.
+      notdone=0;
+    } else {
+      //Set currentpoint to the last valid entry in checkit
+      currentpoint = checkit[checknum-1];
+      //Mark this point as used.
+      checkit[checknum-1]=-1;
+      leftpoint=rightpoint=0;
+    }
+  }
+  return(0);
+}
+
+long double cluster_stats6D01(const vector <KD_point6LDx2> &cluster, vector <long double> &meanvals, vector <long double> &rmsvals)
+{
+  if(cluster.size()<2) {
+    cerr << "ERROR: cluster_stats6D01 called with only " << cluster.size() << " points.\n";
+    return(-1.0L);
+  }
+  
+  long double xmean, ymean, zmean, vxmean, vymean, vzmean;
+  xmean = ymean = zmean = vxmean = vymean = vzmean = 0.0L;
+  long double xrms, yrms, zrms, vxrms, vyrms, vzrms;
+  xrms = yrms = zrms = vxrms = vyrms = vzrms = 0.0L;
+  long double norm = cluster.size();
+  long double posrms = 0.0L;
+  long double velrms = 0.0L;
+  long double totalrms = 0.0L;
+  
+  for(int i=0; i<cluster.size(); i++) {
+    xmean += cluster[i].point.x;   
+    ymean += cluster[i].point.y;   
+    zmean += cluster[i].point.z;
+    vxmean += cluster[i].point.vx;   
+    vymean += cluster[i].point.vy;   
+    vzmean += cluster[i].point.vz;
+  }
+  xmean /= norm;
+  ymean /= norm;
+  zmean /= norm;
+  vxmean /= norm;
+  vymean /= norm;
+  vzmean /= norm;
+  
+  meanvals.push_back(xmean);
+  meanvals.push_back(ymean);
+  meanvals.push_back(zmean);
+  meanvals.push_back(vxmean);
+  meanvals.push_back(vymean);
+  meanvals.push_back(vzmean);
+  
+  for(int i=0; i<cluster.size(); i++) {
+    xrms += LDSQUARE(cluster[i].point.x - xmean);   
+    yrms += LDSQUARE(cluster[i].point.y - ymean);   
+    zrms += LDSQUARE(cluster[i].point.z - zmean);
+    vxrms += LDSQUARE(cluster[i].point.vx - vxmean);   
+    vyrms += LDSQUARE(cluster[i].point.vy - vymean);   
+    vzrms += LDSQUARE(cluster[i].point.vz - vzmean);
+  }
+
+  xrms /= norm;
+  yrms /= norm;
+  zrms /= norm;
+  vxrms /= norm;
+  vyrms /= norm;
+  vzrms /= norm;
+
+  posrms = xrms + yrms + zrms;
+  velrms = vxrms + vyrms + vzrms;
+  totalrms = posrms + velrms;
+
+  xrms = sqrt(xrms);
+  yrms = sqrt(yrms);
+  zrms = sqrt(zrms);
+  vxrms = sqrt(vxrms);
+  vyrms = sqrt(vyrms);
+  vzrms = sqrt(vzrms);
+  posrms = sqrt(posrms);
+  velrms = sqrt(velrms);
+  totalrms = sqrt(totalrms);
+
+  rmsvals.push_back(xrms);
+  rmsvals.push_back(yrms);
+  rmsvals.push_back(zrms);
+  rmsvals.push_back(vxrms);
+  rmsvals.push_back(vyrms);
+  rmsvals.push_back(vzrms);
+  rmsvals.push_back(posrms);
+  rmsvals.push_back(velrms);
+  rmsvals.push_back(totalrms);
+
+  return(totalrms);
+}
+  
+  
+// DBSCAN_6D01: January 06, 2022:
+// Given an input 6-dimensional kdtree produced by kdtree_6D01,
+// find clusters using the DBSCAN algorithm, with range querying
+// enabled by kdrange_6D01.
+#define MINSPAN 1.0 // Temporal span must be at least this large (in days) for a bona fide cluster
+#define MINDAYSTEPS 2 // A bona fide cluster must have at least this many intra-point
+                      // time intervals greater than INTRANIGHTSTEP days.
+#define INTRANIGHTSTEP 0.3 // Minimum interval in days between successive points
+                           // in a tracklet, to enable them to be counted as being
+                           // on separate nights.
+int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, const vector <det_bsc> &detvec, const vector <string> &det_id_vec, vector <KD6_clust> &outclusters, string rmsfile)
+{
+  long kdnum = kdtree.size();
+  long kdct=0;
+  int clustptnum=0;
+  int clustptct=0;
+  long clusternum=0;
+  long fakeclusternum=0;
+  vector <long> queryout;
+  vector <long> subquery;
+  vector <long> clusterind;
+  point6LDx2 querypoint = point6LDx2(0.0L, 0.0L, 0.0L, 0.0L, 0.0L, 0.0L, 0, 0);
+  vector <KD_point6LDx2> cluster;
+  KD6_clust oneclust = KD6_clust(0,{},{},{});
+  vector <long double> meanvec;
+  vector <long double> rmsvec;
+  long double trms = 0.0L;
+  int i=0;
+  vector <long> pointind;
+  vector <long> pointjunk;
+  vector <long double> clustmjd;
+  vector <long double> mjdstep;
+  long double timespan = 0.0L;
+  int numdaysteps=0;
+
+  ofstream outstream1 {rmsfile};
+  outstream1.precision(17);
+
+  // Loop on points
+  for(kdct=0; kdct<kdnum; kdct++) {
+    if(kdtree[kdct].flag == 0) {
+      // Current point has not yet been assigned.
+      // Range-query current point.
+      querypoint = kdtree[kdct].point;
+      queryout = {};
+      cluster = {};
+      clusterind = {};
+      kdrange_6D01(kdtree, querypoint, clustrad, queryout);
+      // If it's alone, mark it as noise.
+      if(queryout.size()<=1) {
+	kdtree[kdct].flag = -1; // Noise point.
+	cout << "Point " << kdct << ": noise\n";
+      }
+      else if(queryout.size() >= npt) {
+	// This is a core point of a new cluster.
+	cout << "Point " << kdct << ": cluster core with " << queryout.size() << " neighbors.\n";
+	fakeclusternum++;
+	kdtree[kdct].flag = fakeclusternum;
+	// Begin loading cluster
+	clusterind.push_back(kdct);
+	cluster.push_back(kdtree[kdct]);
+	// Loop on points in cluster.
+	clustptct=0;
+	while(clustptct<queryout.size()) {
+	  if(kdtree[queryout[clustptct]].flag != 0) {
+	    // Current point has already been considered: skip to the next.
+	    clustptct++;
+	  } else {
+	    // Range-query current cluster point.
+	    querypoint = kdtree[queryout[clustptct]].point;
+	    subquery={};
+	    kdrange_6D01(kdtree, querypoint, clustrad, subquery);
+	    if(subquery.size()>=npt) {
+	      // This point is a core point.
+	      kdtree[queryout[clustptct]].flag = fakeclusternum;
+	      clusterind.push_back(queryout[clustptct]);
+	      cluster.push_back(kdtree[queryout[clustptct]]);
+	      // Add additional points to queryout as appropriate
+	      for(i=0;i<subquery.size();i++) {
+		if(kdtree[subquery[i]].flag == 0) queryout.push_back(subquery[i]);
+	      }
+	    } else {
+	      // This is a border point. Add it to the cluster, but
+	      // do not add its neighbors to queryout.
+	      clusterind.push_back(queryout[clustptct]);
+	      kdtree[queryout[clustptct]].flag = fakeclusternum;
+	      cluster.push_back(kdtree[queryout[clustptct]]);
+	    }
+	    // Move on to next point in queryout vector
+	    clustptct++;
+	    // Close statement testing points for core vs. border status
+	  }
+	  // Close loop over the whole cluster
+	}
+	// Just finished loading a cluster.
+	// Calculate some cluster statistics.
+	cout << "Found cluster with " << cluster.size() << " = " << clusterind.size() << "points.\n";
+
+	// Map cluster to individual detections.
+	// create vector of unique detection indices.
+	pointind={};
+	for(i=0;i<clusterind.size();i++) {
+	  pointind.push_back(kdtree[clusterind[i]].point.i1);
+	  pointind.push_back(kdtree[clusterind[i]].point.i2);
+	}
+	// Sort vector of detection indices
+	sort(pointind.begin(), pointind.end());
+	// Cull out duplicate entries
+	pointjunk = pointind;
+	pointind={};
+	pointind.push_back(pointjunk[0]);
+	for(i=1; i<pointjunk.size(); i++) {
+	  if(pointjunk[i]!=pointjunk[i-1]) pointind.push_back(pointjunk[i]);
+	}
+	// Load vector of detection MJD's
+	clustmjd = {};
+	for(i=0; i<pointind.size(); i++) {
+	  clustmjd.push_back(detvec[pointind[i]].MJD);
+	}
+	// Sort vector of MJD's
+	sort(clustmjd.begin(), clustmjd.end());
+	timespan = clustmjd[clustmjd.size()-1] - clustmjd[0];
+	// Load vector of MJD steps
+	mjdstep={};
+	for(i=1; i<clustmjd.size(); i++) {
+	  mjdstep.push_back(clustmjd[i]-clustmjd[i-1]);
+	}
+	// Count steps large enough to suggest a daytime period between nights.
+	numdaysteps=0;	
+	for(i=0; i<mjdstep.size(); i++) {
+	  if(mjdstep[i]>INTRANIGHTSTEP) numdaysteps++;
+	}
+	cout << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
+	// Does cluster pass the criteria for a linked detection?
+	if(timespan >= MINSPAN && numdaysteps >= MINDAYSTEPS) {
+	  clusternum++;
+	  cout << "Cluster passes discovery criteria: will be designated as cluster " << clusternum << "\n";
+	  outstream1 << "Found cluster " << clusternum << " with " << cluster.size() << " = " << clusterind.size() << "points.\n";
+	  outstream1 << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
+	  meanvec = rmsvec = {};
+	  trms = cluster_stats6D01(cluster, meanvec, rmsvec);
+	  cout << "Cluster pos RMS: " << rmsvec[0] << " " << rmsvec[1] << " " << rmsvec[2] <<  " total pos " << rmsvec[6] << "\n";
+	  cout << "Cluster vel RMS: " << rmsvec[3] << " " << rmsvec[4] << " " << rmsvec[5] <<  " total vel " << rmsvec[7] << "\n";
+	  cout << "Cluster total RMS: " << rmsvec[8] << " = " << trms << "\n";
+	  outstream1 << "Cluster pos RMS: " << rmsvec[0] << " " << rmsvec[1] << " " << rmsvec[2] <<  " total pos " << rmsvec[6] << "\n";
+	  outstream1 << "Cluster vel RMS: " << rmsvec[3] << " " << rmsvec[4] << " " << rmsvec[5] <<  " total vel " << rmsvec[7] << "\n";
+	  outstream1 << "Cluster total RMS: " << rmsvec[8] << " = " << trms << "\n";
+	  // Write individual detections to output file
+	  for(i=0; i<pointind.size(); i++) {
+	    outstream1 << i << " " << detvec[pointind[i]].MJD << " " << detvec[pointind[i]].RA << " " << detvec[pointind[i]].Dec << " " << det_id_vec[pointind[i]] << "\n";
+	    cout << i << " " << detvec[pointind[i]].MJD << " " << detvec[pointind[i]].RA << " " << detvec[pointind[i]].Dec << " " << det_id_vec[pointind[i]] << "\n";
+	  }
+	  outstream1 << "\n";
+	  cout << "\n";
+	  // Load cluster into oneclust.
+	  oneclust = KD6_clust(cluster.size(),clusterind,meanvec,rmsvec);
+	  // Push oneclust onto output vector.
+	  outclusters.push_back(oneclust);
+	} else {
+	  cout << "Cluster failed criteria for a bona fide discovery.\n\n";
+	}
+	// Close statement testing for cluster vs. noise points.
+      }
+      // Close statement finding the next un-tested point.
+    }
+    // Close loop over entire k-d tree.
+  }
+  return(clusternum);
+}
+#undef MINSPAN
+#undef MINDAYSTEPS
+#undef INTRANIGHTSTEP
+
+// DBSCAN_6D02: January 06, 2022:
+// Like DBSCAN_6D01, but without kludgy debugging stuff.
+// Given an input 6-dimensional kdtree produced by kdtree_6D01,
+// find clusters using the DBSCAN algorithm, with range querying
+// enabled by kdrange_6D01.
+int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, vector <KD6_clust> &outclusters)
+{
+  long kdnum = kdtree.size();
+  long kdct=0;
+  int clustptnum=0;
+  int clustptct=0;
+  long clusternum=0;
+  vector <long> queryout;
+  vector <long> subquery;
+  vector <long> clusterind;
+  point6LDx2 querypoint = point6LDx2(0.0L, 0.0L, 0.0L, 0.0L, 0.0L, 0.0L, 0, 0);
+  vector <KD_point6LDx2> cluster;
+  KD6_clust oneclust = KD6_clust(0,{},{},{});
+  vector <long double> meanvec;
+  vector <long double> rmsvec;
+  long double trms = 0.0L;
+  int i=0;
+
+  // Loop on points
+  for(kdct=0; kdct<kdnum; kdct++) {
+    if(kdtree[kdct].flag == 0) {
+      // Current point has not yet been assigned.
+      // Range-query current point.
+      querypoint = kdtree[kdct].point;
+      queryout = {};
+      cluster = {};
+      clusterind = {};
+      kdrange_6D01(kdtree, querypoint, clustrad, queryout);
+      // If it's alone, mark it as noise.
+      if(queryout.size()<=1) {
+	kdtree[kdct].flag = -1; // Noise point.
+	cout << "Point " << kdct << ": noise\n";
+      }
+      else if(queryout.size() >= npt) {
+	// This is a core point of a new cluster.
+	cout << "Point " << kdct << ": cluster core with " << queryout.size() << " neighbors.\n";
+	clusternum++;
+	kdtree[kdct].flag = clusternum;
+	// Begin loading cluster
+	clusterind.push_back(kdct);
+	cluster.push_back(kdtree[kdct]);
+	// Loop on points in cluster.
+	clustptct=0;
+	while(clustptct<queryout.size()) {
+	  if(kdtree[queryout[clustptct]].flag != 0) {
+	    // Current point has already been considered: skip to the next.
+	    clustptct++;
+	  } else {
+	    // Range-query current cluster point.
+	    querypoint = kdtree[queryout[clustptct]].point;
+	    subquery={};
+	    kdrange_6D01(kdtree, querypoint, clustrad, subquery);
+	    if(subquery.size()>=npt) {
+	      // This point is a core point.
+	      kdtree[queryout[clustptct]].flag = clusternum;
+	      clusterind.push_back(queryout[clustptct]);
+	      cluster.push_back(kdtree[queryout[clustptct]]);
+	      // Add additional points to queryout as appropriate
+	      for(i=0;i<subquery.size();i++) {
+		if(kdtree[subquery[i]].flag == 0) queryout.push_back(subquery[i]);
+	      }
+	    } else {
+	      // This is a border point. Add it to the cluster, but
+	      // do not add its neighbors to queryout.
+	      clusterind.push_back(queryout[clustptct]);
+	      kdtree[queryout[clustptct]].flag = clusternum;
+	      cluster.push_back(kdtree[queryout[clustptct]]);
+	    }
+	    // Move on to next point in queryout vector
+	    clustptct++;
+	    // Close statement testing points for core vs. border status
+	  }
+	  // Close loop over the whole cluster
+	}
+	// Just finished loading a cluster.
+	// Calculate some cluster statistics.
+	meanvec = rmsvec = {};
+	trms = cluster_stats6D01(cluster, meanvec, rmsvec);
+	// Load cluster into oneclust.
+	oneclust = KD6_clust(cluster.size(),clusterind,meanvec,rmsvec);
+	// Push oneclust onto output vector.
+	outclusters.push_back(oneclust);
+	// Close statement testing for cluster vs. noise points.
+      }
+      // Close statement finding the next un-tested point.
+    }
+    // Close loop over entire k-d tree.
+  }
+  return(clusternum);
+}
+
+// There follows a suite of programs re-implementing the 6-dimensional
+// k-d tree and DBSCAN algorithms with integerized 6-D points for speed.
+
+
+// point6ix2: January 07, 2022:
+// Integerize an object of class point6LDx2 (6-dimensional
+// long double point with 2 long integer indices) into an
+// object of class point6ix2, to enable clustering algorithms
+// to run faster. NOTE WELL that since the same scale factor
+// is used for position and velocity, it is implicitly
+// assumed that the velocity has previously been converted
+// to position units via multiplication by an appropriate
+// characteristic timescale.
+point6ix2 conv_6LD_to_6i(point6LDx2 p1, long double scale)
+{
+  point6ix2 p2 = point6ix2(0,0,0,0,0,0,0,0);
+  p2.x = int(p1.x/scale + 0.5);
+  p2.y = int(p1.y/scale + 0.5);
+  p2.z = int(p1.z/scale + 0.5);
+  p2.vx = int(p1.vx/scale + 0.5);
+  p2.vy = int(p1.vy/scale + 0.5);
+  p2.vz = int(p1.vz/scale + 0.5);
+  p2.i1 = p1.i1;
+  p2.i2 = p1.i2;
+  return(p2);
+}
+
+long medind_6ix2(const vector <point6ix2> &pointvec, int dim)
+{
+  vector <point6ix2> pvec = pointvec; //Mutable copy of immutable input vector
+  for(long i=0; i<pvec.size(); i++) pvec[i].i1=i; //Redefine indices
+  long medpt = pvec.size()/2; // Central point of vector (it will be off by one half
+                              // for a vector with even length, but we don't care).
+  if(dim%6 == 1) sort(pvec.begin(), pvec.end(), lower_point6ix2_x()); // Sort vector by x
+  else if(dim%6 == 2) sort(pvec.begin(), pvec.end(), lower_point6ix2_y()); // Sort vector by y
+  else if(dim%6 == 3) sort(pvec.begin(), pvec.end(), lower_point6ix2_z()); // Sort vector by z
+  else if(dim%6 == 4) sort(pvec.begin(), pvec.end(), lower_point6ix2_vx()); // Sort vector by vx
+  else if(dim%6 == 5) sort(pvec.begin(), pvec.end(), lower_point6ix2_vy()); // Sort vector by vy
+  else if(dim%6 == 0) sort(pvec.begin(), pvec.end(), lower_point6ix2_vz()); // Sort vector by vz
+  else {
+    cerr << "ERROR: medind_6ix2 recieved invalid dimension " << dim << "\n";
+    return(-1);
+  }
+  return(pvec[medpt].i1); // Output the index of the median point in
+                             // the original, unsorted input vector.
+}
+
+// splitix2: January 07, 2022:
+// Given a vector of type point6ix2, split it into two halves,
+// a left half with all the points lower than or equal to a specified
+// split point along the chosen dimension (use dim = 1, 2, 3, 4, 5, or 6
+// to split along x, y, z, vx, vy, or vz respectively).
+int splitix2(const vector <point6ix2> &pointvec, int dim, long splitpoint, vector <point6ix2> &left, vector <point6ix2> &right)
+{
+  long i=0;
+  int splitval = 0;
+
+  if(dim%6==1) {
+    // split on x
+    splitval = pointvec[splitpoint].x;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].x<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%6==2) {
+    // split on y
+    splitval = pointvec[splitpoint].y;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].y<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%6==3) {
+    // split on z
+    splitval = pointvec[splitpoint].z;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].z<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%6==4) {
+    // split on vx
+    splitval = pointvec[splitpoint].vx;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].vx<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%6==5) {
+    // split on vy
+    splitval = pointvec[splitpoint].vy;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].vy<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%6==0) {
+    // split on vz
+    splitval = pointvec[splitpoint].vz;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].vz<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else {
+      cerr << "ERROR: splitix2 asked to split on undefined dimension " << dim << "\n";
+      return(1);
+  } 
+  return(0);
+}
+
+// kdtree_6i01: January 05, 2022
+// Given an input root point, presumed to have null
+// right and left branches, load the branches and then
+// call kdtree_6i01 on them recursively.
+int kdtree_6i01(const vector <point6ix2> &invec, int dim, long splitpoint, long kdroot, vector <KD_point6ix2> &kdvec)
+{
+  int status=0;
+  int lmed=0;
+  int rmed=0;
+  int kdct = kdvec.size()-1;
+  int i=0;
+  long leftrootkd=-1;
+  long rightrootkd=-1;
+  point6ix2 point0 = point6ix2(0,0,0,0,0,0,0,0);
+  KD_point6ix2 root = kdvec[kdct];
+  KD_point6ix2 lp = KD_point6ix2(point0,-1,-1,0,0);
+  KD_point6ix2 rp = KD_point6ix2(point0,-1,-1,0,0);
+  vector <point6ix2> leftvec = {};
+  vector <point6ix2> rightvec = {};
+
+  // Basic outline: split the input vector into a left and a right
+  // half, where the left half is below (or level with) splitpoint
+  // in the dimension specified by dim, and the right half is above
+  // splitpoint. Find the median of the left and right vectors,
+  // and make the left and right branches from kdroot point to
+  // these medians. Then call kdtree_6i01 itself recursively on
+  // each of these median points, to peform a new split along a
+  // different dimension.
+  status = splitix2(invec,dim,splitpoint,leftvec,rightvec);
+
+  dim+=1;
+  while(dim>6) dim-=6;
+
+  if(leftvec.size()==1) {
+    // Left branch is just a single leaf
+    lp = KD_point6ix2(leftvec[0],-1,-1,dim,0); // Define new point as a leaf: branches point nowhere
+    kdvec.push_back(lp); // Add this new point to the KD tree.
+    kdct++; // Keep track of how many point are in the tree
+    kdvec[kdroot].left = kdct; // Stick the new point on the left branch of the input root.
+  } else if(leftvec.size()<=0) {
+    // There is no left branch
+    kdvec[kdroot].left = -1;
+  }
+  if(rightvec.size()==1) {
+    // Right branch is just a single leaf
+    rp = KD_point6ix2(rightvec[0],-1,-1,dim,0);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[kdroot].right = kdct;
+  } else if(rightvec.size()<=0) {
+    // There is no right branch
+    kdvec[kdroot].right = -1;
+  }
+   
+ if(leftvec.size()>1) {
+    lmed = medind_6ix2(leftvec,dim);
+    lp = KD_point6ix2(leftvec[lmed],-1,-1,dim,0);
+    kdvec.push_back(lp);
+    kdct++;
+    kdvec[kdroot].left = kdct;
+    leftrootkd = kdct;
+ }
+ 
+  if(rightvec.size()>1) {
+    rmed = medind_6ix2(rightvec,dim);
+    rp = KD_point6ix2(rightvec[rmed],-1,-1,dim,0);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[kdroot].right = kdct;
+    rightrootkd = kdct;
+  }
+  // I moved these down out of the above loops, because I thought
+  // that otherwise, a bunch of stuff might get pushed down by the
+  // left loop that the right loop didn't know about.
+  if(leftvec.size()>1 && leftrootkd>=0) kdtree_6i01(leftvec,dim,lmed,leftrootkd,kdvec);
+  else if(leftvec.size()>1 && leftrootkd<0)
+    {
+      cerr << "Error, kdtree_6i01 finds leftroot less than zero with leftvec.size() = " << leftvec.size() << "\n";
+    }
+  if(rightvec.size()>1 && rightrootkd>=0) kdtree_6i01(rightvec,dim,rmed,rightrootkd,kdvec);
+  else if(rightvec.size()>1 && rightrootkd<0)
+    {
+      cerr << "Error, kdtree_6i01 finds rightroot less than zero with rightvec.size() = " << rightvec.size() << "\n";
+    }
+
+  return(0);
+}
+
+// point6ix2_dist2: January 07, 2022:
+// Calculate the squared distance in 6-dimensional parameter space
+// between two points of class point6LDx2.
+long point6ix2_dist2(const point6ix2 &p1, const point6ix2 &p2)
+{
+  return(LSQUARE(p1.x - p2.x) + LSQUARE(p1.y - p2.y) + LSQUARE(p1.z - p2.z) + LSQUARE(p1.vx - p2.vx) + LSQUARE(p1.vy - p2.vy) + LSQUARE(p1.vz - p2.vz));
+}	 
+
+// kdrange_6i01: January 07, 2022:
+// Given a k-d tree vector kdvec created by kdtree_6i01,
+// perform a range-query about the specified point. Returns
+// a vector indexing all of the points in the input k-d tree
+// that lie within the specified range of the input coordinates.
+// Assumes that kdvec[0] is the root of the k-d tree.
+int kdrange_6i01(const vector <KD_point6ix2> &kdvec, const point6ix2 &querypoint, long range, vector <long> &indexvec)
+{
+  int branchct=0;
+  long rng2 = range*range;
+  int notdone=1;
+  int kdveclen = kdvec.size();
+  int dim=1;
+  int currentpoint=0;
+  int leftpoint=0;
+  int rightpoint=0;
+  int goleft=0;
+  int goright=0;
+  long pointdiff = 0;
+  long pdist2 = 0;
+  vector <long> checkit={};
+  int i=0;
+  int checknum=0;
+
+  while(notdone>0) {
+    // Climb to the top of the k-d tree, keeping track
+    // of potentially interesting unexplored branches
+    // in the vector checkit.
+    while(leftpoint>=0 || rightpoint>=0) {
+      // Previous step did not end on a leaf.
+      leftpoint = kdvec[currentpoint].left;
+      rightpoint = kdvec[currentpoint].right;
+      dim = kdvec[currentpoint].dim;
+      if(dim%6==1) pointdiff = kdvec[currentpoint].point.x - querypoint.x;
+      else if(dim%6==2) pointdiff = kdvec[currentpoint].point.y - querypoint.y;
+      else if(dim%6==3) pointdiff = kdvec[currentpoint].point.z - querypoint.z;
+      else if(dim%6==4) pointdiff = kdvec[currentpoint].point.vx - querypoint.vx;
+      else if(dim%6==5) pointdiff = kdvec[currentpoint].point.vy - querypoint.vy;
+      else if(dim%6==0) pointdiff = kdvec[currentpoint].point.vz - querypoint.vz;
+
+      goright = (pointdiff <= range); // possible hits lie to the left;
+      goleft = (pointdiff >= -range); // possible hits lie to the right;
+      if(goleft && goright) {
+	// Current point might be within range.
+	pdist2 = point6ix2_dist2(querypoint,kdvec[currentpoint].point);
+	if(pdist2 <= rng2) {
+	  // Current point is within range. Add it to the output vector
+	  indexvec.push_back(currentpoint);
+	}
+	if(leftpoint>=0) {
+	  //Explore leftward first.
+	  currentpoint = leftpoint;
+	  if(rightpoint>=0) {
+	    // Rightward branch will also be explored later
+	    checknum++;
+	    if(checknum>checkit.size()) {
+	      checkit.push_back(rightpoint);
+	    }
+	    else {
+	      checkit[checknum-1] = rightpoint;
+	    }
+	  }
+	}
+	else if(rightpoint>=0) {
+	  // Leftward branch is a dead end: explore rightward branch
+	  currentpoint = rightpoint;
+	}
+      }
+      else if(goleft) {
+	// Current point cannot be in range, but points that
+	// are in range may lie along the left branch.
+	if(leftpoint>=0) {
+	  currentpoint = leftpoint;
+	} else rightpoint=-1; // Dead end, make sure while-loop exits.
+      } else if(goright) {
+	// Current point cannot be in range, but points that
+	// are in range may lie along the right branch.
+	if(rightpoint>=0) {
+	  currentpoint = rightpoint;
+	} else leftpoint=-1;  // Dead end, make sure while-loop exits.
+      } else {
+	// Program concluded it should go neither left nor right.
+	// The likely cause is that it encountered a NAN. Give up on this point.
+	leftpoint=rightpoint=-1;
+	cerr << "WARNING: ENCOUNTERED NAN CASE!\n";
+	cerr << "Query point:\n";
+	cerr << querypoint.x << ", " << querypoint.y << ", " << querypoint.z << ", " << querypoint.vx << ", " << querypoint.vy << ", " << querypoint.vz << "\n";
+	cerr << "Target point:\n";
+ 	cerr << kdvec[currentpoint].point.x << ", " << kdvec[currentpoint].point.y << ", " << kdvec[currentpoint].point.z << ", " << kdvec[currentpoint].point.vx << ", " << kdvec[currentpoint].point.vy << ", " << kdvec[currentpoint].point.vz << "\n";
+     }
+      // Close while-loop checking if we've hit a leaf.
+    }
+    // We have climbed up the tree to a leaf. Go backwards through
+    // the checkit vector and see if there is anything to check.
+    checknum=checkit.size();
+    while(checknum>=1 && checkit[checknum-1]<0) checknum--;
+    if(checknum<=0) {
+      //There were no valid entries to check: we're done.
+      notdone=0;
+    } else {
+      //Set currentpoint to the last valid entry in checkit
+      currentpoint = checkit[checknum-1];
+      //Mark this point as used.
+      checkit[checknum-1]=-1;
+      leftpoint=rightpoint=0;
+    }
+  }
+  return(0);
+}
+
+// cluster_stats6i01: January 07, 2022:
+// Calculates some cluster statistics for integerized state
+// vectors clusters. Reverses the integerization in an approximate
+// sense by multiplying back through by intconvscale.
+double cluster_stats6i01(const vector <KD_point6ix2> &cluster, double intconvscale, vector <double> &meanvals, vector <double> &rmsvals)
+{
+  if(cluster.size()<2) {
+    cerr << "ERROR: cluster_stats6i01 called with only " << cluster.size() << " points.\n";
+    return(-1.0L);
+  }
+  
+  double xmean, ymean, zmean, vxmean, vymean, vzmean;
+  xmean = ymean = zmean = vxmean = vymean = vzmean = 0.0l;
+  double xrms, yrms, zrms, vxrms, vyrms, vzrms;
+  xrms = yrms = zrms = vxrms = vyrms = vzrms = 0.0l;
+  double norm = cluster.size();
+  double posrms = 0.0l;
+  double velrms = 0.0l;
+  double totalrms = 0.0l;
+  
+  for(int i=0; i<cluster.size(); i++) {
+    xmean += intconvscale * cluster[i].point.x;   
+    ymean += intconvscale * cluster[i].point.y;   
+    zmean += intconvscale * cluster[i].point.z;
+    vxmean += intconvscale * cluster[i].point.vx;   
+    vymean += intconvscale * cluster[i].point.vy;   
+    vzmean += intconvscale * cluster[i].point.vz;
+  }
+  xmean /= norm;
+  ymean /= norm;
+  zmean /= norm;
+  vxmean /= norm;
+  vymean /= norm;
+  vzmean /= norm;
+  
+  meanvals.push_back(xmean);
+  meanvals.push_back(ymean);
+  meanvals.push_back(zmean);
+  meanvals.push_back(vxmean);
+  meanvals.push_back(vymean);
+  meanvals.push_back(vzmean);
+  
+  for(int i=0; i<cluster.size(); i++) {
+    xrms += DSQUARE(intconvscale * cluster[i].point.x - xmean);   
+    yrms += DSQUARE(intconvscale * cluster[i].point.y - ymean);   
+    zrms += DSQUARE(intconvscale * cluster[i].point.z - zmean);
+    vxrms += DSQUARE(intconvscale * cluster[i].point.vx - vxmean);   
+    vyrms += DSQUARE(intconvscale * cluster[i].point.vy - vymean);   
+    vzrms += DSQUARE(intconvscale * cluster[i].point.vz - vzmean);
+  }
+
+  xrms /= norm;
+  yrms /= norm;
+  zrms /= norm;
+  vxrms /= norm;
+  vyrms /= norm;
+  vzrms /= norm;
+
+  posrms = xrms + yrms + zrms;
+  velrms = vxrms + vyrms + vzrms;
+  totalrms = posrms + velrms;
+
+  xrms = sqrt(xrms);
+  yrms = sqrt(yrms);
+  zrms = sqrt(zrms);
+  vxrms = sqrt(vxrms);
+  vyrms = sqrt(vyrms);
+  vzrms = sqrt(vzrms);
+  posrms = sqrt(posrms);
+  velrms = sqrt(velrms);
+  totalrms = sqrt(totalrms);
+
+  rmsvals.push_back(xrms);
+  rmsvals.push_back(yrms);
+  rmsvals.push_back(zrms);
+  rmsvals.push_back(vxrms);
+  rmsvals.push_back(vyrms);
+  rmsvals.push_back(vzrms);
+  rmsvals.push_back(posrms);
+  rmsvals.push_back(velrms);
+  rmsvals.push_back(totalrms);
+
+  return(totalrms);
+}
+  
+
+// DBSCAN_6i01: January 07, 2022:
+// Like DBSCAN_6D02 (NOT DBSCAN_6D01), but uses integerized state
+// vectors for speed.
+int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double intconvscale, vector <KD6i_clust> &outclusters)
+{
+  long kdnum = kdtree.size();
+  long kdct=0;
+  int clustptnum=0;
+  int clustptct=0;
+  long clusternum=0;
+  vector <long> queryout;
+  vector <long> subquery;
+  vector <long> clusterind;
+  point6ix2 querypoint = point6ix2(0, 0, 0, 0, 0, 0, 0, 0);
+  vector <KD_point6ix2> cluster;
+  KD6i_clust oneclust = KD6i_clust(0,{},{},{});
+  vector <double> meanvec;
+  vector <double> rmsvec;
+  double trms = 0.0l;
+  int i=0;
+
+  // Loop on points
+  for(kdct=0; kdct<kdnum; kdct++) {
+    if(kdtree[kdct].flag == 0) {
+      // Current point has not yet been assigned.
+      // Range-query current point.
+      querypoint = kdtree[kdct].point;
+      queryout = {};
+      cluster = {};
+      clusterind = {};
+      kdrange_6i01(kdtree, querypoint, clustrad, queryout);
+      // If it's alone, mark it as noise.
+      if(queryout.size()<=1) {
+	kdtree[kdct].flag = -1; // Noise point.
+	cout << "Point " << kdct << ": noise\n";
+      }
+      else if(queryout.size() >= npt) {
+	// This is a core point of a new cluster.
+	cout << "Point " << kdct << ": cluster core with " << queryout.size() << " neighbors.\n";
+	clusternum++;
+	kdtree[kdct].flag = clusternum;
+	// Begin loading cluster
+	clusterind.push_back(kdct);
+	cluster.push_back(kdtree[kdct]);
+	// Loop on points in cluster.
+	clustptct=0;
+	while(clustptct<queryout.size()) {
+	  if(kdtree[queryout[clustptct]].flag != 0) {
+	    // Current point has already been considered: skip to the next.
+	    clustptct++;
+	  } else {
+	    // Range-query current cluster point.
+	    querypoint = kdtree[queryout[clustptct]].point;
+	    subquery={};
+	    kdrange_6i01(kdtree, querypoint, clustrad, subquery);
+	    if(subquery.size()>=npt) {
+	      // This point is a core point.
+	      kdtree[queryout[clustptct]].flag = clusternum;
+	      clusterind.push_back(queryout[clustptct]);
+	      cluster.push_back(kdtree[queryout[clustptct]]);
+	      // Add additional points to queryout as appropriate
+	      for(i=0;i<subquery.size();i++) {
+		if(kdtree[subquery[i]].flag == 0) queryout.push_back(subquery[i]);
+	      }
+	    } else {
+	      // This is a border point. Add it to the cluster, but
+	      // do not add its neighbors to queryout.
+	      clusterind.push_back(queryout[clustptct]);
+	      kdtree[queryout[clustptct]].flag = clusternum;
+	      cluster.push_back(kdtree[queryout[clustptct]]);
+	    }
+	    // Move on to next point in queryout vector
+	    clustptct++;
+	    // Close statement testing points for core vs. border status
+	  }
+	  // Close loop over the whole cluster
+	}
+	// Just finished loading a cluster.
+	// Calculate some cluster statistics.
+	meanvec = rmsvec = {};
+	trms = cluster_stats6i01(cluster, intconvscale, meanvec, rmsvec);
+	// Load cluster into oneclust.
+	oneclust = KD6i_clust(cluster.size(),clusterind,meanvec,rmsvec);
+	// Push oneclust onto output vector.
+	outclusters.push_back(oneclust);
+	// Close statement testing for cluster vs. noise points.
+      }
+      // Close statement finding the next un-tested point.
+    }
+    // Close loop over entire k-d tree.
+  }
+  return(clusternum);
+}
+
+		
 int celestial_to_statevec(double RA, double Dec,double delta,point3d &baryvec)
 {
   double x,y,z,theta,phi,thetapole,phipole;
@@ -1741,12 +3195,12 @@ int planetposvel01LD(long double detmjd, int polyorder, const vector <long doubl
   perfectpoly01LD(xvec,yvec,fitvec);
   // Calculate interpolated velocity and position
   outvel.x = fitvec[0];
-  outpos.x = planetpos[pbf].x + fitvec[0]*tdelt;
+  outpos.x = planetpos[pbf].x + fitvec[0]*tdelt*SOLARDAY;
   for(j=1;j<fitnum;j++) {
     sumvar = fitvec[j]*tdelt;
     for(k=2;k<=j;k++) sumvar*=tdelt;
     outvel.x += sumvar;
-    sumvar *= tdelt; // One more power of tdelt, for the position.
+    sumvar *= tdelt*SOLARDAY/((long double)(j+1.0L)); // One more power of tdelt, for the position.
     outpos.x += sumvar;
   }
   // Load vector to fit y-coordinate
@@ -1756,12 +3210,12 @@ int planetposvel01LD(long double detmjd, int polyorder, const vector <long doubl
   perfectpoly01LD(xvec,yvec,fitvec);
   // Calculate interpolated position.
   outvel.y = fitvec[0];
-  outpos.y = planetpos[pbf].y + fitvec[0]*tdelt;
+  outpos.y = planetpos[pbf].y + fitvec[0]*tdelt*SOLARDAY;
   for(j=1;j<fitnum;j++) {
     sumvar = fitvec[j]*tdelt;
     for(k=2;k<=j;k++) sumvar*=tdelt;
     outvel.y += sumvar;
-    sumvar *= tdelt; // One more power of tdelt, for the position.
+    sumvar *= tdelt*SOLARDAY/((long double)(j+1.0L)); // One more power of tdelt, for the position.
     outpos.y += sumvar;
   }
   // Load vector to fit z-coordinate
@@ -1771,12 +3225,12 @@ int planetposvel01LD(long double detmjd, int polyorder, const vector <long doubl
   perfectpoly01LD(xvec,yvec,fitvec);
   // Calculate interpolated position.
   outvel.z = fitvec[0];
-  outpos.z = planetpos[pbf].z + fitvec[0]*tdelt;
+  outpos.z = planetpos[pbf].z + fitvec[0]*tdelt*SOLARDAY;
   for(j=1;j<fitnum;j++) {
     sumvar = fitvec[j]*tdelt;
     for(k=2;k<=j;k++) sumvar*=tdelt;
     outvel.z += sumvar;
-    sumvar *= tdelt; // One more power of tdelt, for the position.
+    sumvar *= tdelt*SOLARDAY/((long double)(j+1.0L)); // One more power of tdelt, for the position.
     outpos.z += sumvar;
   }
   return(0);
@@ -2054,8 +3508,8 @@ int helioproj01(point3d unitbary, point3d obsbary,double heliodist,double &geodi
   double opdistcos,sunelong,barydist;
   double obsdot,opelong;
   
-  cout << fixed << setprecision(9) << "helioproj01 input observer pos: " << obsbary.x << " " << obsbary.y << " " << obsbary.z << "\n";
-  cout << "barycentric unit vector: " << unitbary.x << " " << unitbary.y << " " << unitbary.z << "\n";
+  //cout << fixed << setprecision(9) << "helioproj01 input observer pos: " << obsbary.x << " " << obsbary.y << " " << obsbary.z << "\n";
+  //cout << "barycentric unit vector: " << unitbary.x << " " << unitbary.y << " " << unitbary.z << "\n";
 
   barydist = sqrt(dotprod3d(obsbary,obsbary));
   obsdot = dotprod3d(unitbary,obsbary);
@@ -2064,7 +3518,7 @@ int helioproj01(point3d unitbary, point3d obsbary,double heliodist,double &geodi
   if(opelong < 0.0) opelong = 90.0 - opelong;
   sunelong = 180.0 - opelong;
 
-  cout << "barydist = " << barydist << ", obsdot = " << obsdot << ", opdistcos = " << opdistcos << ", opelong = " << opelong << ", sunelong = " << sunelong << "\n";
+  //cout << "barydist = " << barydist << ", obsdot = " << obsdot << ", opdistcos = " << opdistcos << ", opelong = " << opelong << ", sunelong = " << sunelong << "\n";
   
   // Default values, signify failure if returned.
   geodist = -1.0;
@@ -2083,15 +3537,15 @@ int helioproj01(point3d unitbary, point3d obsbary,double heliodist,double &geodi
     return(-1);
   } else
     {
-      cout << "a = " << a << ", b = " << b << ", c = " << c << "\n";
+      //cout << "a = " << a << ", b = " << b << ", c = " << c << "\n";
       alphapos = (-b + sqrt(b*b-4.0*a*c))/2.0/a;
       if(alphapos>0.0) {
 	geodist=alphapos;
 	projbary.x = obsbary.x + alphapos*unitbary.x;
 	projbary.y = obsbary.y + alphapos*unitbary.y;
 	projbary.z = obsbary.z + alphapos*unitbary.z;
-	cout << "Distance from Earth: " << alphapos << "\n";
-	cout << "Barycentric coordinates: " << projbary.x << " " << projbary.y << " " << projbary.z << "\n";
+	//cout << "Distance from Earth: " << alphapos << "\n";
+	//cout << "Barycentric coordinates: " << projbary.x << " " << projbary.y << " " << projbary.z << "\n";
 	return(0);
       }
       else return(-1);
@@ -2107,8 +3561,8 @@ int helioproj01LD(point3LD unitbary, point3LD obsbary, long double heliodist, lo
   long double opdistcos,sunelong,barydist;
   long double obsdot,opelong;
   
-  cout << fixed << setprecision(9) << "helioproj01 input observer pos: " << obsbary.x << " " << obsbary.y << " " << obsbary.z << "\n";
-  cout << "barycentric unit vector: " << unitbary.x << " " << unitbary.y << " " << unitbary.z << "\n";
+  //cout << fixed << setprecision(9) << "helioproj01 input observer pos: " << obsbary.x << " " << obsbary.y << " " << obsbary.z << "\n";
+  //cout << "barycentric unit vector: " << unitbary.x << " " << unitbary.y << " " << unitbary.z << "\n";
 
   barydist = sqrt(dotprod3LD(obsbary,obsbary));
   obsdot = dotprod3LD(unitbary,obsbary);
@@ -2117,7 +3571,7 @@ int helioproj01LD(point3LD unitbary, point3LD obsbary, long double heliodist, lo
   if(opelong < 0.0L) opelong = 90.0L - opelong;
   sunelong = 180.0L - opelong;
 
-  cout << "barydist = " << barydist << ", obsdot = " << obsdot << ", opdistcos = " << opdistcos << ", opelong = " << opelong << ", sunelong = " << sunelong << "\n";
+  //cout << "barydist = " << barydist << ", obsdot = " << obsdot << ", opdistcos = " << opdistcos << ", opelong = " << opelong << ", sunelong = " << sunelong << "\n";
   
   // Default values, signify failure if returned.
   geodist = -1.0L;
@@ -2136,15 +3590,15 @@ int helioproj01LD(point3LD unitbary, point3LD obsbary, long double heliodist, lo
     return(-1);
   } else
     {
-      cout << "a = " << a << ", b = " << b << ", c = " << c << "\n";
+      //cout << "a = " << a << ", b = " << b << ", c = " << c << "\n";
       alphapos = (-b + sqrt(b*b-4.0L*a*c))/2.0L/a;
       if(alphapos>0.0L) {
 	geodist=alphapos;
 	projbary.x = obsbary.x + alphapos*unitbary.x;
 	projbary.y = obsbary.y + alphapos*unitbary.y;
 	projbary.z = obsbary.z + alphapos*unitbary.z;
-	cout << "Distance from Earth: " << alphapos << "\n";
-	cout << "Barycentric coordinates: " << projbary.x << " " << projbary.y << " " << projbary.z << "\n";
+	//cout << "Distance from Earth: " << alphapos << "\n";
+	//cout << "Barycentric coordinates: " << projbary.x << " " << projbary.y << " " << projbary.z << "\n";
 	return(0);
       }
       else return(-1);
@@ -2297,7 +3751,9 @@ long double kep_transcendental(long double q, long double e, long double tol)
   }
 
   if(itct>=KEPTRANSITMAX) {
-    cout << "Warning: kep_trancendental used " << itct << " iterations and still had an error of " << fpsi << ", greater than tolerance of " << tol << "\n";
+    cout.precision(21);
+    cout << "Warning: kep_trancendental " << itct << " iters, still " << fpsi << " > tol = " << tol;
+    cout << " Call was q = " << q << ", e = " << e << "\n";
   }
   // cout << "kep_transcendental obtained error of " << fpsi << " in only " << itct << " iterations\n";
   return(psi_guess);
@@ -2335,7 +3791,7 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   lvec = crossprod3LD(startpos,startvel);
   lscalar = sqrt(dotprod3LD(lvec,lvec));
   if(E>=0L) {
-      cerr << "ERROR: Keplerint finds positive total energy: " << E << "\n";
+    //cerr << "ERROR: Keplerint finds positive total energy: " << E << "\n";
     return(1);
   }
 		 
@@ -2650,7 +4106,6 @@ int integrate_orbit01LD(int planetnum, const vector <long double> &planetmjd, co
 
   return(0);
 }
-
 
 // integrate_orbit02LD: December 01, 2021
 // Uses modeling of the acceleration as a polynomial of order n>1
@@ -3123,5 +4578,335 @@ int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double>
   return(0);
 }
 
+// iswhitespace: December 2021
+// Does the input integer c correspond to a whitespace character?
+int iswhitespace(int c)
+{
+  if(c==' ' || c=='\t' || c=='\r' || c=='\n' || c=='\v' || c=='\f') return(1);
+  else return(0);
+}
 
+// readconfigLD: December 2021
+// Read a single long double parameter from a file stream, where
+// the calling function guarantees that every line in the input file
+// stream is either a comment line with # as the first character,
+// or else the line we mean to read, which begins with the single
+// long double parameter to be read. The point is to enable reading
+// a configuration file where any number of explanatory comment lines
+// may precede the desired parameter.
+int readconfigLD(ifstream &instream1, long double *ldval)
+{
+  string lnfromfile;
+  string stest;
+  int i=0;
+  int c = '0';
+  *ldval = 0L;
+  getline(instream1,lnfromfile);
+  if(instream1.eof()) {
+    // EOF: should not happen because the file should adhere to the
+    // specifications given in the calling function, and hence the
+    // calling function should stop before it hits the end of the file.
+    return(-1);
+  } else if(instream1.fail()) {
+    return(-2); // Worse problem.
+  } else if(instream1.bad()) {
+    return(-3); // Even worse.
+  } else if(lnfromfile[0]=='#') {
+    // It was a comment line. Not an error, but signal
+    // the detection of a comment in the return.
+    return(1);
+  } else {
+    // Apparently a valid line.
+    c='0';
+    i=0;
+    while(i<lnfromfile.size() && !iswhitespace(c) && c!=EOF) {
+      c=lnfromfile[i];
+      if(!iswhitespace(c) && c!=EOF) stest.push_back(c);
+      i++;
+    }
+    *ldval = stold(stest);
+    return(0);
+  }
+}
 
+// readconfigd: December 2021
+// Read a single double-precision parameter from a file stream, where
+// the calling function guarantees that every line in the input file
+// stream is either a comment line with # as the first character,
+// or else the line we mean to read, which begins with the single
+// double-precision parameter to be read. The point is to enable reading
+// a configuration file where any number of explanatory comment lines
+// may precede the desired parameter.
+int readconfigd(ifstream &instream1, double *dval)
+{
+  string lnfromfile;
+  string stest;
+  int i=0;
+  int c = '0';
+  *dval = 0L;
+  getline(instream1,lnfromfile);
+  if(instream1.eof()) {
+    // EOF: should not happen because the file should adhere to the
+    // specifications given in the calling function, and hence the
+    // calling function should stop before it hits the end of the file.
+    return(-1);
+  } else if(instream1.fail()) {
+    return(-2); // Worse problem.
+  } else if(instream1.bad()) {
+    return(-3); // Even worse.
+  } else if(lnfromfile[0]=='#') {
+    // It was a comment line. Not an error, but signal
+    // the detection of a comment in the return.
+    return(1);
+  } else {
+    // Apparently a valid line.
+    c='0';
+    i=0;
+    while(i<lnfromfile.size() && !iswhitespace(c) && c!=EOF) {
+      c=lnfromfile[i];
+      if(!iswhitespace(c) && c!=EOF) stest.push_back(c);
+      i++;
+    }
+    *dval = stod(stest);
+    return(0);
+  }
+}
+
+// readconfigd: December 2021
+// Read a single integer parameter from a file stream, where
+// the calling function guarantees that every line in the input file
+// stream is either a comment line with # as the first character,
+// or else the line we mean to read, which begins with the single
+// integer parameter to be read. The point is to enable reading
+// a configuration file where any number of explanatory comment lines
+// may precede the desired parameter.
+int readconfigint(ifstream &instream1, int *ival)
+{
+  string lnfromfile;
+  string stest;
+  int i=0;
+  int c = '0';
+  *ival = 0;
+  getline(instream1,lnfromfile);
+  if(instream1.eof()) {
+    // EOF: should not happen because the file should adhere to the
+    // specifications given in the calling function, and hence the
+    // calling function should stop before it hits the end of the file.
+    return(-1);
+  } else if(instream1.fail()) {
+    return(-2); // Worse problem.
+  } else if(instream1.bad()) {
+    return(-3); // Even worse.
+  } else if(lnfromfile[0]=='#') {
+    // It was a comment line. Not an error, but signal
+    // the detection of a comment in the return.
+    return(1);
+  } else {
+    // Apparently a valid line.
+    c='0';
+    i=0;
+    while(i<lnfromfile.size() && !iswhitespace(c) && c!=EOF) {
+      c=lnfromfile[i];
+      if(!iswhitespace(c) && c!=EOF) stest.push_back(c);
+      i++;
+    }
+    *ival = stoi(stest);
+    return(0);
+  }
+}
+
+// Read a single string parameter from a file stream, where
+// the calling function guarantees that every line in the input file
+// stream is either a comment line with # as the first character,
+// or else the line we mean to read, which begins with the single
+// string parameter to be read. The point is to enable reading
+// a configuration file where any number of explanatory comment lines
+// may precede the desired parameter.
+int readconfigstring(ifstream &instream1, string &sval)
+{
+  string lnfromfile;
+  string stest;
+  int i=0;
+  int c = '0';
+  sval={};
+  getline(instream1,lnfromfile);
+  if(instream1.eof()) {
+    // EOF: should not happen because the file should adhere to the
+    // specifications given in the calling function, and hence the
+    // calling function should stop before it hits the end of the file.
+    return(-1);
+  } else if(instream1.fail()) {
+    return(-2); // Worse problem.
+  } else if(instream1.bad()) {
+    return(-3); // Even worse.
+  } else if(lnfromfile[0]=='#') {
+    // It was a comment line. Not an error, but signal
+    // the detection of a comment in the return.
+    return(1);
+  } else {
+    // Apparently a valid line.
+    c='0';
+    i=0;
+    while(i<lnfromfile.size() && !iswhitespace(c) && c!=EOF) {
+      c=lnfromfile[i];
+      if(!iswhitespace(c) && c!=EOF) stest.push_back(c);
+      i++;
+    }
+    sval = stest;
+    return(0);
+  }
+}
+
+// read_accel_fileLD: December 16, 2021:
+// Read a file giving heliocentric distance, radial velocity,
+// normalization, and acceleration. This file is expected to
+// have a one-line header, marked as a non-data line by the fact
+// that it begins with #. There follow any number of lines
+// whose first for columns are (1) heliocentric distance,
+// (2) heliocentric radial velocity, (3) normalization, and
+// (4) heliocentric acceleration. Additional columns are expected
+// but are not read or used. Lines with distance or
+// normalization equal to (or less than) zero are ignored
+// as invalid but do not produce errors. The distances,
+// velocities, and accelerations for all valid lines are
+// output in the vectors heliodist, heliovel, and helioacc,
+// which are expected to be empty when the function is called.
+//
+// Note that the first input files for this function were produced
+// by the CCode program Kepler_dyn11.c. The acceleration values
+// were obtained by averaging the actual acceleration for
+// every instance where any known asteroid 
+// was found in the specified bin of distance and radial velocity
+// over a several-year integration with 1-day sampling.
+int read_accel_fileLD(string accelfile, vector <long double> &heliodist, vector <long double> &heliovel, vector <long double> &helioacc)
+{
+  string lnfromfile;
+  string stest;
+  int i=0;
+  int lnct=0;
+  char c = '0';
+  long double dist,vel,norm,acc;
+  dist = vel = norm = acc = 0L;
+
+  ifstream instream1 {accelfile};
+  if(!instream1) {
+    cerr << "ERROR: can't open input acceleration file " << accelfile << "\n";
+    return(1);
+  }
+ 
+  while(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
+    // Read first character in the current line.
+    instream1 >> c;
+    if(c=='#') {
+      // Comment line in file: skip to the end of the line.
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad()) getline(instream1,lnfromfile);
+    } else if (!instream1.eof() && !instream1.fail() && !instream1.bad()) {
+      // Put the character back
+      instream1.unget();
+      // Read distance, velocity, normalization, and acceleration.
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad()) instream1 >> dist;
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad()) instream1 >> vel;
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad()) instream1 >> norm;
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad()) instream1 >> acc;
+      // Skip the rest of the line.
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad()) getline(instream1,lnfromfile);
+       // Finished reading. velocity and acceleration
+      // are allowed to be zero or negative, but distance
+      // and normalization must be strictly positive.
+      if(dist>0.0L && norm >0.0L)
+	{
+	  heliodist.push_back(dist);
+	  heliovel.push_back(vel);
+	  helioacc.push_back(acc);
+	}
+    }
+  }
+  if(instream1.eof()) {
+    return(0); // Reached end of file, fine.
+  } else if(instream1.fail()) {
+    return(2); // Some problem.
+  } else if(instream1.bad()) {
+    return(3); // Worse problem.
+  }
+  // if we get here, we probably finished reading OK.
+  return(0);
+}
+
+// weight_posvel_rms: December 16, 2021:
+// Given vectors containing the positions and velocities
+// for a set of 6-D state vectors (e.g. a cluster of heliocentric
+// 'arrows' produced by heliolinc), calculate the RMS relative
+// to the cluster mean (i.e., the STDEV) of x, y, z, vz, vy, and vz.
+// Convert the velocity STDEV values to match the positional ones
+// in terms of units and scale by multiplying them by a characteristic
+// time dtime. Store the 3 positional and 3 scaled velocity
+// STDEV values in the vector rmsvec. Return the overall STDEV:
+// that is, the quadrature sum of the six individual values
+// with the velocity terms pre-weighted via multiplication by dtime.
+long double weight_posvel_rms(const vector <point3LD> &poscluster,const vector <point3LD> &velcluster,const long double dtime, vector <long double> &rmsvec)
+{
+  int pnum = poscluster.size();
+  int i=0;
+  long double norm,x,y,z,vx,vy,vz;
+  x = y = z = vx = vy = vz = 0L;
+  norm = pnum;
+  long double xrms, yrms, zrms, vxrms, vyrms, vzrms;
+  xrms = yrms = zrms = vxrms = vyrms = vzrms = 0L;
+
+  cout << "weight_posvel_rms pnum = " << pnum << " " << norm << "\n"; 
+  
+  if(pnum <= 0) {
+    cerr << "ERROR: weight_posvel_rms called with no input points!\n";
+    return(-1.0L);
+  } else if(velcluster.size() != pnum) {
+    cerr << "ERROR: weight_posvel_rms finds input position and velocity vectors\n";
+    cerr << "do not agree in size!\n";
+    return(-1.0L);
+  }
+  for(i=0;i<pnum;i++) {
+    x += poscluster[i].x;
+    y += poscluster[i].y;
+    z += poscluster[i].z;
+    vx += velcluster[i].x;
+    vy += velcluster[i].y;
+    vz += velcluster[i].z;
+  }
+
+  x/=norm;
+  y/=norm;
+  z/=norm;
+  vx/=norm;
+  vy/=norm;
+  vz/=norm;
+  
+  for(i=0;i<pnum;i++) {
+    xrms += LDSQUARE(poscluster[i].x - x);
+    yrms += LDSQUARE(poscluster[i].y - y);
+    zrms += LDSQUARE(poscluster[i].z - z);
+    vxrms += LDSQUARE(velcluster[i].x - vx);
+    vyrms += LDSQUARE(velcluster[i].y - vy);
+    vzrms += LDSQUARE(velcluster[i].z - vz);
+  }
+  
+  cout << "weight_posvel_rms pnum = " << pnum << " " << norm <<  " " << xrms <<  " " << yrms <<  " " << zrms <<  " " << vxrms <<  " " << vyrms <<  " " << vzrms << "\n"; 
+  
+  xrms = sqrt(xrms/norm);
+  yrms = sqrt(yrms/norm);
+  zrms = sqrt(zrms/norm);
+  vxrms = sqrt(vxrms/norm)*dtime; // Convert velocity to position
+  vyrms = sqrt(vyrms/norm)*dtime; // through multiplication by a
+  vzrms = sqrt(vzrms/norm)*dtime; // characteristic timescale.
+
+  
+  rmsvec.push_back(xrms);
+  rmsvec.push_back(yrms);
+  rmsvec.push_back(zrms);
+  rmsvec.push_back(vxrms);
+  rmsvec.push_back(vyrms);
+  rmsvec.push_back(vzrms);
+
+  return(sqrt(xrms*xrms + yrms*yrms + zrms*zrms + vxrms*vxrms + vyrms*vyrms + vzrms*vzrms));
+}
+
+  
+  

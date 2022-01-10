@@ -24,8 +24,9 @@ using namespace std;
 #include <cstdio>
 
 #define DEGPRAD (180.0L/M_PI) /*Degrees per radian*/
+#define LSQUARE(x) long(x)*long(x)
 #define DSQUARE(x) double(x)*double(x)
-#define LDSQUARE(x) (long double)x*(long double)x
+#define LDSQUARE(x) ((long double)x)*((long double)x)
 
 #define SOLARDAY 86400.0L
 #define NEPRA 270.0L //Right ascension of the North Ecliptic Pole.
@@ -63,8 +64,14 @@ using namespace std;
 #define CLIGHT_AUDAY CLIGHT*SOLARDAY/AU // Speed of light in AU/day
 #define KEPTRANSITMAX 50 // Maximum number of iterations to use in Newton's
                          // method solution of the trancendental Kepler Equation.
-#define KEPTRANSTOL 1e-20L // Maximum error for an acceptable solution of the
+#define KEPTRANSTOL 1e-15L // Maximum error for an acceptable solution of the
                            // trancendental Kepler Equation.
+#define LARGERR 1e30L // Large number supposed to be a safe initialization
+                      // for most minimum-finding problems.
+#define GMSUN_KM3_SEC2 132712440041.279419L // GM for the Sun: that is, the Universal
+                                           // Gravitational Constant times the solar mass,
+                                           // in units of km^3/sec^2. 
+
 
 class det_bsc{ // Basic, minimal detection of some astronomical source 
 public:
@@ -74,14 +81,63 @@ public:
   det_bsc(double mjd, double ra, double dec) :MJD(mjd), RA(ra), Dec(dec) { }
 };
 
-class det_xindex{ // Detection of some astronomical source with
+class det_index{ // Detection of some astronomical source with
                   // cross-reference index.
 public:
   double MJD;
   double RA;
   double Dec;
-  long xindex;
-  det_xindex(double mjd, double ra, double dec, long xindex) :MJD(mjd), RA(ra), Dec(dec), xindex(xindex) { }
+  long index;
+  det_index(double mjd, double ra, double dec, long index) :MJD(mjd), RA(ra), Dec(dec), index(index) { }
+};
+
+class det_OC_index{ // Detection of some astronomical source with
+                    // the observer's X, Y, Z coordinates, an index
+                    // for cross-referencing, and a string identifier.
+public:
+  long double MJD;
+  long double RA;
+  long double Dec;
+  long double x;
+  long double y;
+  long double z;
+  string idstring;
+  long index;
+  det_OC_index(long double mjd, long double ra, long double dec, long double x, long double y, long double z, string idstring, long index) :MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), idstring(idstring), index(index) { }
+};
+
+class xy_index{ // Double-precision x,y point plus long index
+public:
+  double x;
+  double y;
+  long index;
+  xy_index(double x, double y, long index) :x(x), y(y), index(index) { }
+};
+
+class kdpoint { // Point in an xy_index k-d tree designed as a vector,
+                // with left and right giving the index of the left and
+                // right branches, and the dimension of splitting
+                // specified at each node.
+public:
+  xy_index point;
+  long left;
+  long right;
+  int dim;
+  kdpoint(xy_index point, long left, long right, int dim) :point(point), left(left), right(right), dim(dim) {}
+};
+  
+class xyind_lower_x{ // Function for sorting vectors of type xy_index by x
+public:
+  inline bool operator() (const xy_index& p1, const xy_index& p2) {
+    return(p1.x < p2.x);
+  }
+};
+
+class xyind_lower_y{ // Function for sorting vectors of type xy_index by y
+public:
+  inline bool operator() (const xy_index& p1, const xy_index& p2) {
+    return(p1.y < p2.y);
+  }
 };
 
 class img_log01{ // Minimalist image log: MJD, RA, Dec, num_dets, imradius
@@ -112,9 +168,16 @@ public:
   }
 };
 
-class early_detindx{
+class early_det_index{
 public:
-  inline bool operator() (const det_xindex& o1, const det_xindex& o2) {
+  inline bool operator() (const det_index& o1, const det_index& o2) {
+    return(o1.MJD < o2.MJD);
+  }
+};
+
+class early_det_OC_index{
+public:
+  inline bool operator() (const det_OC_index& o1, const det_OC_index& o2) {
     return(o1.MJD < o2.MJD);
   }
 };
@@ -149,6 +212,175 @@ public:
   point3LD(long double x, long double y, long double z) :x(x), y(y), z(z) { }
 };
 
+class point6LDx2{ // Long double-precision 6-D point plus 2 long integer indices
+                  // The purpose of the indices is to specify the pair of detections
+                  // from which the position and velocity state vectors originated.
+public:
+  long double x;
+  long double y;
+  long double z;
+  long double vx;
+  long double vy;
+  long double vz;
+  long i1;
+  long i2;
+  point6LDx2(long double x, long double y, long double z, long double vx, long double vy, long double vz, long i1, long i2) :x(x), y(y), z(z), vx(vx), vy(vy), vz(vz), i1(i1), i2(i2) {}
+};
+
+class lower_point6LDx2_x{ // Sort point6LDx2's by x
+public:
+  inline bool operator() (const point6LDx2& p1, const point6LDx2& p2) {
+    return(p1.x < p2.x);
+  }
+};
+
+class lower_point6LDx2_y{ // Sort point6LDx2's by y
+public:
+  inline bool operator() (const point6LDx2& p1, const point6LDx2& p2) {
+    return(p1.y < p2.y);
+  }
+};
+
+class lower_point6LDx2_z{ // Sort point6LDx2's by z
+public:
+  inline bool operator() (const point6LDx2& p1, const point6LDx2& p2) {
+    return(p1.z < p2.z);
+  }
+};
+
+class lower_point6LDx2_vx{ // Sort point6LDx2's by vx
+public:
+  inline bool operator() (const point6LDx2& p1, const point6LDx2& p2) {
+    return(p1.vx < p2.vx);
+  }
+};
+
+class lower_point6LDx2_vy{ // Sort point6LDx2's by vy
+public:
+  inline bool operator() (const point6LDx2& p1, const point6LDx2& p2) {
+    return(p1.vy < p2.vy);
+  }
+};
+
+class lower_point6LDx2_vz{ // Sort point6LDx2's by vz
+public:
+  inline bool operator() (const point6LDx2& p1, const point6LDx2& p2) {
+    return(p1.vz < p2.vz);
+  }
+};
+
+
+class KD_point6LDx2{ // 6-dimensional KD tree based on points of type point6LDx2.
+                     // These points carry two long integer indices not used by
+                     // the KD tree, which itself uses two additional long integer
+                     // indices to specify the left and right branches, and one
+                     // regular integer to specify the dimension of the current
+                     // branching. We also provide a final integer, flag, to mark
+                     // points as already-checked for DBSCAN or other algorithms.
+public:
+  point6LDx2 point;
+  long left;
+  long right;
+  int dim;
+  int flag;
+  KD_point6LDx2(point6LDx2 point, long left, long right, int dim, int flag) :point(point), left(left), right(right), dim(dim), flag(flag) {}
+};
+
+class KD6_clust{ // Cluster of points produced by DBSCAN_6D01.
+public:
+  int numpoints;
+  vector <long> clustind;
+  vector <long double> meanvec;
+  vector <long double> rmsvec;
+  KD6_clust(int numpoints, vector <long> clustind, vector <long double> meanvec, vector <long double> rmsvec) :numpoints(numpoints), clustind(clustind), meanvec(meanvec), rmsvec(rmsvec) {}
+};
+
+class KD6i_clust{ // Cluster of points produced by DBSCAN_6i01.
+public:
+  int numpoints;
+  vector <long> clustind;
+  vector <double> meanvec;
+  vector <double> rmsvec;
+  KD6i_clust(int numpoints, vector <long> clustind, vector <double> meanvec, vector <double> rmsvec) :numpoints(numpoints), clustind(clustind), meanvec(meanvec), rmsvec(rmsvec) {}
+};
+
+class point6ix2{  // integer 6-D point plus 2 long integer indices
+                  // The integer 6-D point is supposed to hold integerized
+                  // versions of dynamical state vectors (xyz position and velocity).
+                  // the purpose of the indices is to specify the pair of detections
+                  // from which the position and velocity state vectors originated.
+public:
+  int x;
+  int y;
+  int z;
+  int vx;
+  int vy;
+  int vz;
+  long i1;
+  long i2;
+  point6ix2(int x, int y, int z, int vx, int vy, int vz, long i1, long i2) :x(x), y(y), z(z), vx(vx), vy(vy), vz(vz), i1(i1), i2(i2) {}
+};
+
+class lower_point6ix2_x{ // Sort point6ix2's by x
+public:
+  inline bool operator() (const point6ix2& p1, const point6ix2& p2) {
+    return(p1.x < p2.x);
+  }
+};
+
+class lower_point6ix2_y{ // Sort point6ix2's by y
+public:
+  inline bool operator() (const point6ix2& p1, const point6ix2& p2) {
+    return(p1.y < p2.y);
+  }
+};
+
+class lower_point6ix2_z{ // Sort point6ix2's by z
+public:
+  inline bool operator() (const point6ix2& p1, const point6ix2& p2) {
+    return(p1.z < p2.z);
+  }
+};
+
+class lower_point6ix2_vx{ // Sort point6ix2's by vx
+public:
+  inline bool operator() (const point6ix2& p1, const point6ix2& p2) {
+    return(p1.vx < p2.vx);
+  }
+};
+
+class lower_point6ix2_vy{ // Sort point6ix2's by vy
+public:
+  inline bool operator() (const point6ix2& p1, const point6ix2& p2) {
+    return(p1.vy < p2.vy);
+  }
+};
+
+class lower_point6ix2_vz{ // Sort point6ix2's by vz
+public:
+  inline bool operator() (const point6ix2& p1, const point6ix2& p2) {
+    return(p1.vz < p2.vz);
+  }
+};
+
+
+class KD_point6ix2{ // 6-dimensional KD tree based on points of type point6ix2.
+                     // These points carry two long integer indices not used by
+                     // the KD tree, which itself uses two additional long integer
+                     // indices to specify the left and right branches, and one
+                     // regular integer to specify the dimension of the current
+                     // branching. We also provide a final integer, flag, to mark
+                     // points as already-checked for DBSCAN or other algorithms.
+public:
+  point6ix2 point;
+  long left;
+  long right;
+  int dim;
+  int flag;
+  KD_point6ix2(point6ix2 point, long left, long right, int dim, int flag) :point(point), left(left), right(right), dim(dim), flag(flag) {}
+};
+
+
 void make_dvec(int nx, vector <double> &dvec);
 void make_dmat(int nx, int ny, vector <vector <double>> &dmat);
 void make_LDvec(int nx, vector <long double> &ldvec);
@@ -166,6 +398,27 @@ int celedeproj01LD(point3LD p3, long double *RA, long double *Dec);
 double angspeed01(det_bsc o1, det_bsc o2);
 double distradec01(double RA1, double Dec1, double RA2, double Dec2);
 int distradec02(double ra1,double dec1,double ra2,double dec2,double *dist,double *pa);
+long medindex(const vector <xy_index> &xyvec, int dim);
+int splitxy(const vector <xy_index> &xyvec, int dim, long splitpoint, vector <xy_index> &left, vector <xy_index> &right);
+int kdtree01(const vector <xy_index> &xyvec, int dim, long rootptxy, long rootptkd, vector <kdpoint> &kdvec);
+int kdrange01(const vector <kdpoint> &kdvec,double x,double y,double range,vector <long> &indexvec);
+long medind_6LDx2(const vector <point6LDx2> &pointvec, int dim);
+int splitLDx2(const vector <point6LDx2> &pointvec, int dim, long splitpoint, vector <point6LDx2> &left, vector <point6LDx2> &right);
+int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long splitpoint, long kdroot, vector <KD_point6LDx2> &kdvec);
+long double point6LDx2_dist(const point6LDx2 &p1, const point6LDx2 &p2);
+long double point6LDx2_dist2(const point6LDx2 &p1, const point6LDx2 &p2);
+int kdrange_6D01(const vector <KD_point6LDx2> &kdvec, const point6LDx2 &querypoint, long double range, vector <long> &indexvec);
+long double cluster_stats6D01(const vector <KD_point6LDx2> &cluster, vector <long double> &meanvals, vector <long double> &rmsvals);
+int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, const vector <det_bsc> &detvec, const vector <string> &det_id_vec, vector <KD6_clust> &outclusters, string rmsfile);
+int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, vector <KD6_clust> &outclusters);
+point6ix2 conv_6LD_to_6i(point6LDx2 p1, long double scale);
+long medind_6ix2(const vector <point6ix2> &pointvec, int dim);
+int splitix2(const vector <point6ix2> &pointvec, int dim, long splitpoint, vector <point6ix2> &left, vector <point6ix2> &right);
+int kdtree_6i01(const vector <point6ix2> &invec, int dim, long splitpoint, long kdroot, vector <KD_point6ix2> &kdvec);
+long point6ix2_dist2(const point6ix2 &p1, const point6ix2 &p2);
+int kdrange_6i01(const vector <KD_point6ix2> &kdvec, const point6ix2 &querypoint, long range, vector <long> &indexvec);
+double cluster_stats6i01(const vector <KD_point6ix2> &cluster, double intconvscale, vector <double> &meanvals, vector <double> &rmsvals);
+int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double intconvscale, vector <KD6i_clust> &outclusters);
 int celestial_to_statevec(double RA, double Dec,double delta,point3d &baryvec);
 int celestial_to_statevecLD(long double RA, long double Dec,long double delta,point3LD &baryvec);
 int celestial_to_stateunit(double RA, double Dec,point3d &baryvec);
@@ -195,3 +448,12 @@ long double kep_transcendental(long double q, long double e, long double tol);
 int Keplerint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
 int integrate_orbit01LD(int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel);
 int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel);
+int iswhitespace(int c);
+int readconfigLD(ifstream &instream1, long double *ldval);
+int readconfigd(ifstream &instream1, double *dval);
+int readconfigint(ifstream &instream1, int *ival);
+int readconfigstring(ifstream &instream1, string &sval);
+int read_accel_fileLD(string accelfile, vector <long double> &heliodist, vector <long double> &heliovel, vector <long double> &helioacc);
+long double weight_posvel_rms(const vector <point3LD> &poscluster,const vector <point3LD> &velcluster,const long double dtime, vector <long double> &rmsvec);
+
+
