@@ -357,7 +357,7 @@ int main(int argc, char *argv[])
     outstream2 << fixed << setprecision(6) << "Working on grid point " << accelct << ": " << heliodist[accelct] << " " << heliovel[accelct] << " " << helioacc[accelct] << "\n";
 
     heliodistvec={};
-    cout << "Approximate heliocentric distances:\n";
+    //cout << "Approximate heliocentric distances:\n";
     for(i=0;i<detvec.size();i++)
       {
 	delta1 = detvec[i].MJD - mjdref;
@@ -377,7 +377,7 @@ int main(int argc, char *argv[])
     allstatevecs={};
     for(i=0;i<pairvec.size();i++) {
       badpoint=0;
-      cout << "Working on pair " << i << " of " << pairvec.size() << "\n";
+      //cout << "Working on pair " << i << " of " << pairvec.size() << "\n";
       // Obtain indices to the detection and heliocentric distance vectors.
       i1=pairvec[i].i1;
       i2=pairvec[i].i2;
@@ -416,13 +416,13 @@ int main(int argc, char *argv[])
 	  stateveci = conv_6LD_to_6i(statevec1,INTEGERIZING_SCALE);
 	  allstatevecs.push_back(stateveci);
 	} else {
-	  badpoint=1;
+	  //badpoint=1;
 	  cout << "Kepler integration encountered unphysical situation\n";
 	  continue;
 	}
       } else {
 	badpoint=1;
-	cout << "Heliocentric projection found no physical solution\n";
+	//cout << "Heliocentric projection found no physical solution\n";
 	continue;
       }
     }
@@ -446,7 +446,7 @@ int main(int argc, char *argv[])
     realclusternum=0;
     for(clusterct=0; clusterct<outclusters.size(); clusterct++) {
       // Calculate some cluster statistics.
-      cout << "Working on cluster " << clusterct << " with " << outclusters[clusterct].numpoints << " = " << outclusters[clusterct].clustind.size() << " points.\n";
+      //cout << "Working on cluster " << clusterct << " with " << outclusters[clusterct].numpoints << " = " << outclusters[clusterct].clustind.size() << " points.\n";
 
       // Map cluster to individual detections.
       // create vector of unique detection indices.
@@ -483,16 +483,16 @@ int main(int argc, char *argv[])
       for(i=0; i<mjdstep.size(); i++) {
 	if(mjdstep[i]>INTRANIGHTSTEP) numdaysteps++;
       }
-      cout << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
+      //cout << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
       // Does cluster pass the criteria for a linked detection?
       if(timespan >= MINSPAN && numdaysteps >= MINDAYSTEPS) {
 	realclusternum++;
-	cout << "Cluster passes discovery criteria: will be designated as cluster " << realclusternum << "\n";
+	//cout << "Cluster passes discovery criteria: will be designated as cluster " << realclusternum << "\n";
 	outstream2 << "Accelct " << accelct << " Cluster " << realclusternum << " with " << outclusters[clusterct].numpoints << " = " << outclusters[clusterct].clustind.size() << " points.\n";
 	outstream2 << fixed << setprecision(6) << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
-	cout << "Cluster pos RMS: " << outclusters[clusterct].rmsvec[0] << " " << outclusters[clusterct].rmsvec[1] << " " << outclusters[clusterct].rmsvec[2] <<  " total pos " << outclusters[clusterct].rmsvec[6] << "\n";
-	cout << "Cluster vel RMS: " << outclusters[clusterct].rmsvec[3] << " " << outclusters[clusterct].rmsvec[4] << " " << outclusters[clusterct].rmsvec[5] <<  " total vel " << outclusters[clusterct].rmsvec[7] << "\n";
-	cout << "Cluster total RMS: " << outclusters[clusterct].rmsvec[8] << "\n";
+	//cout << "Cluster pos RMS: " << outclusters[clusterct].rmsvec[0] << " " << outclusters[clusterct].rmsvec[1] << " " << outclusters[clusterct].rmsvec[2] <<  " total pos " << outclusters[clusterct].rmsvec[6] << "\n";
+	//cout << "Cluster vel RMS: " << outclusters[clusterct].rmsvec[3] << " " << outclusters[clusterct].rmsvec[4] << " " << outclusters[clusterct].rmsvec[5] <<  " total vel " << outclusters[clusterct].rmsvec[7] << "\n";
+	//cout << "Cluster total RMS: " << outclusters[clusterct].rmsvec[8] << "\n";
 	outstream2 << fixed << setprecision(3) << "Cluster pos RMS: " << outclusters[clusterct].rmsvec[0] << " " << outclusters[clusterct].rmsvec[1] << " " << outclusters[clusterct].rmsvec[2] <<  " total pos " << outclusters[clusterct].rmsvec[6] << "\n";
 	outstream2 << fixed << setprecision(3) << "Cluster vel RMS: " << outclusters[clusterct].rmsvec[3] << " " << outclusters[clusterct].rmsvec[4] << " " << outclusters[clusterct].rmsvec[5] <<  " total vel " << outclusters[clusterct].rmsvec[7] << "\n";
 	outstream2 << "Cluster total RMS: " << outclusters[clusterct].rmsvec[8] << "\n";
@@ -500,11 +500,11 @@ int main(int argc, char *argv[])
 	rating="PURE";
 	for(i=0; i<pointind.size(); i++) {
 	  outstream2  << fixed << setprecision(6) << i << " " << detvec[pointind[i]].MJD << " " << detvec[pointind[i]].RA << " " << detvec[pointind[i]].Dec << " " << det_id_vec[pointind[i]] << "\n";
-	  cout << i << " " << detvec[pointind[i]].MJD << " " << detvec[pointind[i]].RA << " " << detvec[pointind[i]].Dec << " " << det_id_vec[pointind[i]] << "\n";
+	  //cout << i << " " << detvec[pointind[i]].MJD << " " << detvec[pointind[i]].RA << " " << detvec[pointind[i]].Dec << " " << det_id_vec[pointind[i]] << "\n";
 	  if(i>0 && det_id_vec[pointind[i]] != det_id_vec[pointind[i-1]]) rating="MIXED";
 	}
 	outstream2 << "\n";
-	cout << "\n";
+	//cout << "\n";
 	// Write summary line to rms file
 	outstream1  << fixed << setprecision(6) << "Accelct " << accelct << " Cluster " << realclusternum << " : " << outclusters[clusterct].numpoints << " " << pointind.size() << " " << timespan << " " << numdaysteps << " " << outclusters[clusterct].rmsvec[6] << " " << outclusters[clusterct].rmsvec[7] << " " << outclusters[clusterct].rmsvec[8] << " " << rating << "\n";
       }
