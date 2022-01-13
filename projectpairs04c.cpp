@@ -353,8 +353,8 @@ int main(int argc, char *argv[])
     badpoint=0;
     // Calculate approximate heliocentric distances from the
     // input quadratic approximation.
-    cout << "Working on grid point " << accelct << ": " << heliodist[accelct] << " " << heliovel[accelct] << " " << helioacc[accelct] << "\n";
-    outstream2 << fixed << setprecision(6) << "Working on grid point " << accelct << ": " << heliodist[accelct] << " " << heliovel[accelct] << " " << helioacc[accelct] << "\n";
+    cout << "Working on grid point " << accelct << ": " << heliodist[accelct] << " " << heliovel[accelct]/SOLARDAY << " " << helioacc[accelct]*1000.0/SOLARDAY/SOLARDAY << "\n";
+    outstream2 << fixed << setprecision(6) << "Working on grid point " << accelct << ": " << heliodist[accelct] << " " << heliovel[accelct]/SOLARDAY << " " << helioacc[accelct]*1000.0/SOLARDAY/SOLARDAY << "\n";
 
     heliodistvec={};
     //cout << "Approximate heliocentric distances:\n";
@@ -417,7 +417,7 @@ int main(int argc, char *argv[])
 	  allstatevecs.push_back(stateveci);
 	} else {
 	  //badpoint=1;
-	  cout << "Kepler integration encountered unphysical situation\n";
+	  //cout << "Kepler integration encountered unphysical situation\n";
 	  continue;
 	}
       } else {
@@ -488,7 +488,15 @@ int main(int argc, char *argv[])
       if(timespan >= MINSPAN && numdaysteps >= MINDAYSTEPS) {
 	realclusternum++;
 	//cout << "Cluster passes discovery criteria: will be designated as cluster " << realclusternum << "\n";
-	outstream2 << "Accelct " << accelct << " Cluster " << realclusternum << " with " << outclusters[clusterct].numpoints << " = " << outclusters[clusterct].clustind.size() << " points.\n";
+	// Check whether cluster is composed purely of detections from
+	// a single simulated object (i.e., would be a real discovery) or is a mixture
+	// of detections from two or more different simulated objects (i.e., spurious).
+	rating="PURE";
+	for(i=0; i<pointind.size(); i++) {
+	  if(i>0 && det_id_vec[pointind[i]] != det_id_vec[pointind[i-1]]) rating="MIXED";
+	}
+	// Write cluster to output file.
+	outstream2 << "Accelct " << accelct << " Cluster " << realclusternum << " with " << outclusters[clusterct].numpoints << " = " << outclusters[clusterct].clustind.size() << " points, " << rating << ".\n";
 	outstream2 << fixed << setprecision(6) << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
 	//cout << "Cluster pos RMS: " << outclusters[clusterct].rmsvec[0] << " " << outclusters[clusterct].rmsvec[1] << " " << outclusters[clusterct].rmsvec[2] <<  " total pos " << outclusters[clusterct].rmsvec[6] << "\n";
 	//cout << "Cluster vel RMS: " << outclusters[clusterct].rmsvec[3] << " " << outclusters[clusterct].rmsvec[4] << " " << outclusters[clusterct].rmsvec[5] <<  " total vel " << outclusters[clusterct].rmsvec[7] << "\n";
@@ -496,12 +504,9 @@ int main(int argc, char *argv[])
 	outstream2 << fixed << setprecision(3) << "Cluster pos RMS: " << outclusters[clusterct].rmsvec[0] << " " << outclusters[clusterct].rmsvec[1] << " " << outclusters[clusterct].rmsvec[2] <<  " total pos " << outclusters[clusterct].rmsvec[6] << "\n";
 	outstream2 << fixed << setprecision(3) << "Cluster vel RMS: " << outclusters[clusterct].rmsvec[3] << " " << outclusters[clusterct].rmsvec[4] << " " << outclusters[clusterct].rmsvec[5] <<  " total vel " << outclusters[clusterct].rmsvec[7] << "\n";
 	outstream2 << "Cluster total RMS: " << outclusters[clusterct].rmsvec[8] << "\n";
-	// Write individual detections to output file, checking for mixed clusters.
-	rating="PURE";
+	// Write individual detections to output file
 	for(i=0; i<pointind.size(); i++) {
-	  outstream2  << fixed << setprecision(6) << i << " " << detvec[pointind[i]].MJD << " " << detvec[pointind[i]].RA << " " << detvec[pointind[i]].Dec << " " << det_id_vec[pointind[i]] << "\n";
-	  //cout << i << " " << detvec[pointind[i]].MJD << " " << detvec[pointind[i]].RA << " " << detvec[pointind[i]].Dec << " " << det_id_vec[pointind[i]] << "\n";
-	  if(i>0 && det_id_vec[pointind[i]] != det_id_vec[pointind[i-1]]) rating="MIXED";
+	  outstream2  << fixed << setprecision(6) << i << " " << detvec[pointind[i]].MJD << " " << detvec[pointind[i]].RA << " " << detvec[pointind[i]].Dec << " " << det_id_vec[pointind[i]] << " " << pointind[i] << " " << orig_index[pointind[i]] << "\n";
 	}
 	outstream2 << "\n";
 	//cout << "\n";
