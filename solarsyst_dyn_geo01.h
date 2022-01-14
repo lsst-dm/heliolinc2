@@ -182,6 +182,13 @@ public:
   }
 };
 
+class stringsort_det_OC_index{
+public:
+  inline bool operator() (const det_OC_index& o1, const det_OC_index& o2) {
+    return(o1.idstring < o2.idstring);
+  }
+};
+
 class early_imlg2{
 public:
   inline bool operator() (const img_log02& i1, const img_log02& i2) {
