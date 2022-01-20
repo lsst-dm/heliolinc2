@@ -106,6 +106,25 @@ public:
   det_OC_index(long double mjd, long double ra, long double dec, long double x, long double y, long double z, string idstring, long index) :MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), idstring(idstring), index(index) { }
 };
 
+class det_OC_indvec{ // Detection of some astronomical source with
+                    // the observer's X, Y, Z coordinates, a string
+                    // identifier, an index for cross-referencing,
+                    // and an integer vector intended to hold the
+                    // indices of other detections with which the
+                    // current one has been paired.
+public:
+  long double MJD;
+  long double RA;
+  long double Dec;
+  long double x;
+  long double y;
+  long double z;
+  string idstring;
+  long index;
+  vector <int> indvec;
+  det_OC_indvec(long double mjd, long double ra, long double dec, long double x, long double y, long double z, string idstring, long index, vector <int> indvec) :MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), idstring(idstring), index(index) , indvec(indvec) { }
+};
+
 class xy_index{ // Double-precision x,y point plus long index
 public:
   double x;
@@ -178,6 +197,13 @@ public:
 class early_det_OC_index{
 public:
   inline bool operator() (const det_OC_index& o1, const det_OC_index& o2) {
+    return(o1.MJD < o2.MJD);
+  }
+};
+
+class early_det_OC_indvec{
+public:
+  inline bool operator() (const det_OC_indvec& o1, const det_OC_indvec& o2) {
     return(o1.MJD < o2.MJD);
   }
 };
@@ -385,6 +411,149 @@ public:
   int dim;
   int flag;
   KD_point6ix2(point6ix2 point, long left, long right, int dim, int flag) :point(point), left(left), right(right), dim(dim), flag(flag) {}
+};
+
+class dumbdet { // Dumb representation of a detection, needed only
+                // for ancluster01a.cpp to fix idiocy of projectpairs04c.cpp
+                // not writing out detection indices -- to be superseded as
+                // soon as projectpairs04c.cpp is fixed.
+public:
+  double mjd;
+  string detid;
+  dumbdet(double mjd, string detid) :mjd(mjd), detid(detid) { }
+};
+  
+class early_dumbdet{
+public:
+  inline bool operator() (const dumbdet& o1, const dumbdet& o2) {
+    return(o1.mjd < o2.mjd || (o1.mjd == o2.mjd && o1.detid < o2.detid) );
+  }
+};
+
+class det_svec { // Detection with string ID, integer idex, and vector of
+                 // indices. The vector is intended to contain indices for
+                 // all the clusters of which this detection is a memeber.
+public:
+  double mjd;
+  double RA;
+  double Dec;
+  string detid;
+  int index;
+  vector <int> indvec;
+  det_svec(double mjd, double RA, double Dec, string detid, int index, vector <int> indvec) :mjd(mjd), RA(RA), Dec(Dec), detid(detid), index(index), indvec(indvec) { }
+};
+  
+class clusteran01{ // Analysis of a heliolinc cluster (candidate discovery).
+public:
+  string recfile;
+  int accelct;
+  int clusternum;
+  int numpoints;
+  double timespan;
+  int daysteps;
+  vector <double> heliopar;
+  vector <double> rmsvec; // pos(3), vel(3), postotal, veltotal, total 
+  vector <int> clustind;
+  clusteran01( string recfile, int accelct, int clusternum, int numpoints, double timespan, int daysteps, vector <double> rmsvec, vector <double> heliopar, vector <int> clustind) :recfile(recfile), accelct(accelct), clusternum(clusternum), numpoints(numpoints), timespan(timespan), daysteps(daysteps), rmsvec(rmsvec), heliopar(heliopar), clustind(clustind) {}
+};
+
+class clusteran02{ // Analysis of a heliolinc cluster (candidate discovery).
+                   // Differs from clusteran01 in that it includes a quality metric
+public:
+  string recfile;
+  int accelct;
+  int clusternum;
+  int numpoints;
+  double timespan;
+  int daysteps;
+  vector <double> heliopar;
+  vector <double> rmsvec; // pos(3), vel(3), postotal, veltotal, total 
+  vector <int> clustind;
+  double clustermetric;
+  clusteran02( string recfile, int accelct, int clusternum, int numpoints, double timespan, int daysteps, vector <double> rmsvec, vector <double> heliopar, vector <int> clustind, double clustermetric) :recfile(recfile), accelct(accelct), clusternum(clusternum), numpoints(numpoints), timespan(timespan), daysteps(daysteps), rmsvec(rmsvec), heliopar(heliopar), clustind(clustind), clustermetric(clustermetric) {}
+};
+
+class lowermetric_clusteran02{
+public:
+  inline bool operator() (const clusteran02& o1, const clusteran02& o2) {
+    return(o1.clustermetric < o2.clustermetric);
+  }
+};
+
+class heliogridpoint{ // 
+public:
+  long double dist;
+  long double vel;
+  vector <long double> acc;
+  heliogridpoint(long double dist, long double vel, vector <long double> acc) :dist(dist), vel(vel), acc(acc) {}
+};
+
+class string_index{ // Pairs a string with an index, intended for use
+                    // accessing elements in a vector of a more complex
+                    // class in an order sorted by a string element,
+                    // without actually re-sorting the vector.
+public:
+  string selem;
+  long index;
+  string_index(string selem, long index) :selem(selem), index(index) {}
+};
+
+class lower_string_index{
+public:
+  inline bool operator() (const string_index& i1, const string_index& i2) {
+    return(i1.selem < i2.selem);
+  }
+};
+
+class long_index{   // Pairs a long integer with an index, intended for use
+                    // accessing elements in a vector of a more complex
+                    // class in an order sorted by a long integer element,
+                    // without actually re-sorting the vector.
+public:
+  long lelem;
+  long index;
+  long_index(long lelem, long index) :lelem(lelem), index(index) {}
+};
+
+class lower_long_index{
+public:
+  inline bool operator() (const long_index& i1, const long_index& i2) {
+    return(i1.lelem < i2.lelem);
+  }
+};
+
+class double_index{ // Pairs a double with an index, intended for use
+                    // accessing elements in a vector of a more complex
+                    // class in an order sorted by a double-precision component,
+                    // without actually re-sorting the vector.
+public:
+  double delem;
+  long index;
+  double_index(double delem, long index) :delem(delem), index(index) {}
+};
+
+class lower_double_index{
+public:
+  inline bool operator() (const double_index& i1, const double_index& i2) {
+    return(i1.delem < i2.delem);
+  }
+};
+
+class ldouble_index{ // Pairs a long double with an index, intended for use
+                    // accessing elements in a vector of a more complex
+                    // class in an order sorted by a long double component
+                    // without actually re-sorting the vector.
+public:
+  long double ldelem;
+  long index;
+  ldouble_index(long double ldelem, long index) :ldelem(ldelem), index(index) {}
+};
+
+class lower_ldouble_index{
+public:
+  inline bool operator() (const ldouble_index& i1, const ldouble_index& i2) {
+    return(i1.ldelem < i2.ldelem);
+  }
 };
 
 
