@@ -311,10 +311,10 @@ int main(int argc, char *argv[])
       for(i=0;i<clustanvec[clusterct].clustind.size();i++) {
 	// This point is in the chosen cluster, and cannot be in any other
 	detct = clustanvec[clusterct].clustind[i];
-	cout << "Deduplicating detection " << detct << "\n";
+	//cout << "Deduplicating detection " << detct << "\n";
 	// Mark all the clusters containing this point as already considered
 	for(j=0;j<detvec[detct].indvec.size();j++) {
-	  cout << "         wiping cluster " << detvec[detct].indvec[j] << "\n";
+	  //cout << "         wiping cluster " << detvec[detct].indvec[j] << "\n";
 	  clustanvec[detvec[detct].indvec[j]].numpoints = 0;
 	}
       }
