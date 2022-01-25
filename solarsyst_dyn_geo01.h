@@ -55,6 +55,8 @@ using namespace std;
 #define THET5 -0.1e-6L
 #define SMALLANG 1.0e-7L /*angle in radians within which declinations are 
                            collapsed to the pole in precess01 routine.*/
+#define VSMALLANG 1.0e-9L /*angle difference below which angles are collapsed
+                            to zero in distradec routines.*/
 
 #define TTDELTAT 70.0L // Time in seconds by which TT differs from UT. Thus,
                       // a light-travel-time corrected dynamical position at
@@ -96,14 +98,14 @@ class det_OC_index{ // Detection of some astronomical source with
                     // for cross-referencing, and a string identifier.
 public:
   long double MJD;
-  long double RA;
-  long double Dec;
+  double RA;
+  double Dec;
   long double x;
   long double y;
   long double z;
   string idstring;
   long index;
-  det_OC_index(long double mjd, long double ra, long double dec, long double x, long double y, long double z, string idstring, long index) :MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), idstring(idstring), index(index) { }
+  det_OC_index(long double mjd, double ra, double dec, long double x, long double y, long double z, string idstring, long index) :MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), idstring(idstring), index(index) { }
 };
 
 class det_OC_indvec{ // Detection of some astronomical source with
@@ -114,15 +116,15 @@ class det_OC_indvec{ // Detection of some astronomical source with
                     // current one has been paired.
 public:
   long double MJD;
-  long double RA;
-  long double Dec;
+  double RA;
+  double Dec;
   long double x;
   long double y;
   long double z;
   string idstring;
   long index;
   vector <int> indvec;
-  det_OC_indvec(long double mjd, long double ra, long double dec, long double x, long double y, long double z, string idstring, long index, vector <int> indvec) :MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), idstring(idstring), index(index) , indvec(indvec) { }
+  det_OC_indvec(long double mjd, double ra, double dec, long double x, long double y, long double z, string idstring, long index, vector <int> indvec) :MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), idstring(idstring), index(index) , indvec(indvec) { }
 };
 
 class xy_index{ // Double-precision x,y point plus long index
@@ -235,6 +237,22 @@ public:
   double y;
   double z;
   point3d(double x, double y, double z) :x(x), y(y), z(z) { }
+};
+
+class point3d_index{ // Double-precision 3-D point with long-integer idex
+public:
+  double x;
+  double y;
+  double z;
+  long index;
+  point3d_index(double x, double y, double z, long index) :x(x), y(y), z(z), index(index) { }
+};
+
+class lower_point3d_index_x{ // Sort point3d_index by x
+public:
+  inline bool operator() (const point3d_index& p1, const point3d_index& p2) {
+    return(p1.x < p2.x);
+  }
 };
 
 class point3LD{ // Long double-precision 3-D point
@@ -631,5 +649,5 @@ int readconfigint(ifstream &instream1, int *ival);
 int readconfigstring(ifstream &instream1, string &sval);
 int read_accel_fileLD(string accelfile, vector <long double> &heliodist, vector <long double> &heliovel, vector <long double> &helioacc);
 long double weight_posvel_rms(const vector <point3LD> &poscluster,const vector <point3LD> &velcluster,const long double dtime, vector <long double> &rmsvec);
-
-
+int linfituw01(const vector <double> &x, const vector <double> &y, double &slope, double &intercept);
+int arc2cel01(double racenter,double deccenter,double dist,double pa,double &outra,double &outdec);

@@ -244,80 +244,128 @@ double distradec01(double RA1, double Dec1, double RA2, double Dec2)
 int distradec02(double ra1,double dec1,double ra2,double dec2,double *dist,double *pa)
 {
   double x1,y1,z1,x2,y2,z2,h,d,poleangle,celpa,sinepa,cosinepa,colat1,colat2;
+  double arcsinepa=0.0l;
 
-  // Calculate the distance d, in radians, between
-  // the two points.
-  x1=cos(dec1/DEGPRAD)*cos(ra1/DEGPRAD);
-  y1=cos(dec1/DEGPRAD)*sin(ra1/DEGPRAD);
-  z1=sin(dec1/DEGPRAD);
-  x2=cos(dec2/DEGPRAD)*cos(ra2/DEGPRAD);
-  y2=cos(dec2/DEGPRAD)*sin(ra2/DEGPRAD);
-  z2=sin(dec2/DEGPRAD);
-  h=sqrt(DSQUARE(x1-x2)+DSQUARE(y1-y2)+DSQUARE(z1-z2));
-  d=2.0*asin(h/2.0);
-  *dist = d*DEGPRAD;
+  // Handle trivial cases.
+  if(fabs(ra1-ra2)/DEGPRAD < VSMALLANG) {
+    // the two RA values are functionally identical
+    if(fabs(dec1-dec2)/DEGPRAD < VSMALLANG) {
+      // the two Dec values are functionally identical
+      *dist=0.0l;
+      *pa=0.0l; // Dummy value for zero distance.
+      return(0);
+    } else if(dec2<dec1) {
+      *dist = dec1-dec2;
+      *pa = 180.0l; // Due South
+      return(0);
+    } else {
+      // dec2>dec1 by logical elimination
+      *dist = dec2-dec1;
+      *pa = 0.0l; // Due North
+      return(0);
+    }
+  } else if(fabs(dec1-dec2)/DEGPRAD < VSMALLANG) {
+    // the two Dec values are functionally identical,
+    // although the two RA values are not.
+    if(ra2<ra1) {
+      *dist = ra1-ra2;
+      *pa = 270.0l; // Due West.
+      return(0);
+    } else {
+      // ra2>ra1 by logical elimination
+      *dist = ra2-ra1;
+      *pa = 90.0l; // Due East.
+      return(0);
+    }
+  } else {
+    // We have a non-trivial case
+    // Calculate the distance d, in radians, between
+    // the two points.
+    x1=cos(dec1/DEGPRAD)*cos(ra1/DEGPRAD);
+    y1=cos(dec1/DEGPRAD)*sin(ra1/DEGPRAD);
+    z1=sin(dec1/DEGPRAD);
+    x2=cos(dec2/DEGPRAD)*cos(ra2/DEGPRAD);
+    y2=cos(dec2/DEGPRAD)*sin(ra2/DEGPRAD);
+    z2=sin(dec2/DEGPRAD);
+    h=sqrt(DSQUARE(x1-x2)+DSQUARE(y1-y2)+DSQUARE(z1-z2));
+    if(h/2.0l <= 1.0l) {
+      d=2.0*asin(h/2.0l);
+    }
+    else {
+      cerr << "WARNING: distradec02 attempting to take arcsine of 1 + " << h/2.0l - 1.0l << "\n";
+      d = M_PI/2.0l;
+    }
+    *dist = d*DEGPRAD;
 
-  colat1 = M_PI/2.0 - dec1/DEGPRAD;
-  colat2 = M_PI/2.0 - dec2/DEGPRAD;
+    colat1 = M_PI/2.0 - dec1/DEGPRAD;
+    colat2 = M_PI/2.0 - dec2/DEGPRAD;
 
-  // Catch trivial cases
-  if(d<=0.0 || d>=M_PI) {
-    *pa = 0.0;
+    // Calculate the difference in RA, paying careful
+    // attention to wrapping.
+    cosinepa = (cos(colat2) - cos(d)*cos(colat1))/(sin(d)*sin(colat1));
+    if(ra1<ra2 && (ra2-ra1)<=180.0) {
+      // Simple case, point 2 is east of point 1,
+      // so PA should be less than 180 degrees.
+      poleangle = (ra2-ra1)/DEGPRAD;
+      sinepa = sin(colat2)*sin(poleangle)/sin(d);
+      if(sinepa<=1.0l) {
+	arcsinepa = asin(sinepa);
+      } else {
+	cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
+	arcsinepa = M_PI/2.0l;
+      }
+      if(cosinepa>=0.0) celpa = arcsinepa;
+      else celpa = M_PI - arcsinepa;
+      *pa = celpa*DEGPRAD;
+    }
+    else if(ra1<ra2) {
+      // Wrapped case with point 2 west of point 1
+      // across zero RA: the PA should be greater
+      // than 180 degrees.
+      poleangle = (ra1+(double)360.0-ra2)/DEGPRAD;
+      sinepa = sin(colat2)*sin(poleangle)/sin(d);
+      if(sinepa<=1.0l) {
+	arcsinepa = asin(sinepa);
+      } else {
+	cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
+	arcsinepa = M_PI/2.0l;
+      }
+      if(cosinepa>=0.0) celpa = arcsinepa;
+      else celpa = M_PI - arcsinepa;
+      *pa = (double)360.0 - celpa*DEGPRAD;
+    }
+    else if(ra1>ra2 && (ra1-ra2)<=180.0) {
+      // Simple case, point 2 is west of point 1,
+      // so PA should be greater than 180 degrees.
+      poleangle = (ra1-ra2)/DEGPRAD;
+      sinepa = sin(colat2)*sin(poleangle)/sin(d);
+      if(sinepa<=1.0l) {
+	arcsinepa = asin(sinepa);
+      } else {
+	cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
+	arcsinepa = M_PI/2.0l;
+      }
+      if(cosinepa>=0.0) celpa = arcsinepa;
+      else celpa = M_PI - arcsinepa;
+      *pa = (double)360.0 - celpa*DEGPRAD;
+    }
+    else if(ra1>ra2) {
+      // Wrapped case with point 2 east of point 1
+      // across zero RA: the PA should be less
+      // than 180.0 degrees.
+      poleangle = (ra2+(double)360.0-ra1)/DEGPRAD;
+      sinepa = sin(colat2)*sin(poleangle)/sin(d);
+      if(sinepa<=1.0l) {
+	arcsinepa = asin(sinepa);
+      } else {
+	cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
+	arcsinepa = M_PI/2.0l;
+      }
+      if(cosinepa>=0.0) celpa = arcsinepa;
+      else celpa = M_PI - arcsinepa;
+      *pa = celpa*DEGPRAD;
+    }
     return(0);
-  }
-  else if(ra1==ra2 && dec1>=dec2) {
-    *pa = 180.0;
-    return(0);
-  }
-  else if(ra1==ra2 && dec1<dec2) {
-    *pa = 0.0;
-    return(0);
-  }
-  else if(sin(colat1)<=0.0) {
-    *pa = ra2;
-    return(0);
-  }
-
-  // Calculate the difference in RA, paying careful
-  // attention to wrapping.
-  cosinepa = (cos(colat2) - cos(d)*cos(colat1))/(sin(d)*sin(colat1));
-  if(ra1<ra2 && (ra2-ra1)<=180.0) {
-    // Simple case, point 2 is east of point 1,
-    // so PA should be less than 180 degrees.
-    poleangle = (ra2-ra1)/DEGPRAD;
-    sinepa = sin(colat2)*sin(poleangle)/sin(d);
-    if(cosinepa>=0.0) celpa = asin(sinepa);
-    else celpa = M_PI - asin(sinepa);
-    *pa = celpa*DEGPRAD;
-  }
-  else if(ra1<ra2) {
-    // Wrapped case with point 2 west of point 1
-    // across zero RA: the PA should be greater
-    // than 180 degrees.
-    poleangle = (ra1+(double)360.0-ra2)/DEGPRAD;
-    sinepa = sin(colat2)*sin(poleangle)/sin(d);
-    if(cosinepa>=0.0) celpa = asin(sinepa);
-    else celpa = M_PI - asin(sinepa);
-    *pa = (double)360.0 - celpa*DEGPRAD;
-  }
-  else if(ra1>ra2 && (ra1-ra2)<=180.0) {
-    // Simple case, point 2 is west of point 1,
-    // so PA should be greater than 180 degrees.
-    poleangle = (ra1-ra2)/DEGPRAD;
-    sinepa = sin(colat2)*sin(poleangle)/sin(d);
-    if(cosinepa>=0.0) celpa = asin(sinepa);
-    else celpa = M_PI - asin(sinepa);
-    *pa = (double)360.0 - celpa*DEGPRAD;
-  }
-  else if(ra1>ra2) {
-    // Wrapped case with point 2 east of point 1
-    // across zero RA: the PA should be less
-    // than 180.0 degrees.
-    poleangle = (ra2+(double)360.0-ra1)/DEGPRAD;
-    sinepa = sin(colat2)*sin(poleangle)/sin(d);
-    if(cosinepa>=0.0) celpa = asin(sinepa);
-    else celpa = M_PI - asin(sinepa);
-    *pa = celpa*DEGPRAD;
   }
   return(0);
 }
@@ -3491,8 +3539,8 @@ int observer_barycoords01LD(long double detmjd, int polyorder, long double lon, 
   celestial_to_statevecLD(zenithRA,zenithDec,crad,obs_from_geocen);
   // crad is the distance from the geocenter to the observer, in AU.
   planetpos01LD(detmjd,polyorder,posmjd,planetpos,geocen_from_barycen);
-  cout << "obs_from_geocen: " << obs_from_geocen.x << " " << obs_from_geocen.y << " " << obs_from_geocen.z << " \n";
-  cout << "geocen_from_barycen: " << geocen_from_barycen.x << " " << geocen_from_barycen.y << " " << geocen_from_barycen.z << "\n";
+  // cout << "obs_from_geocen: " << obs_from_geocen.x << " " << obs_from_geocen.y << " " << obs_from_geocen.z << " \n";
+  // cout << "geocen_from_barycen: " << geocen_from_barycen.x << " " << geocen_from_barycen.y << " " << geocen_from_barycen.z << "\n";
   outpos.x = geocen_from_barycen.x + obs_from_geocen.x;
   outpos.y = geocen_from_barycen.y + obs_from_geocen.y;
   outpos.z = geocen_from_barycen.z + obs_from_geocen.z;
@@ -4908,5 +4956,128 @@ long double weight_posvel_rms(const vector <point3LD> &poscluster,const vector <
   return(sqrt(xrms*xrms + yrms*yrms + zrms*zrms + vxrms*vxrms + vyrms*vyrms + vzrms*vzrms));
 }
 
+
+// linfituw01: January 20, 2022
+// Simple and crude utility program, does an unweighted
+// linear fit of the form y = mx * b, for m = slope, b = intercept
+int linfituw01(const vector <double> &x, const vector <double> &y, double &slope, double &intercept)
+{
+  int i;
+  int pointnum = x.size();
+  double delta,xal,yal,xty,xsq,nsum,rms,err,errmax;
+  double siga,sigb;
+
+  if(pointnum<=1) {
+    cerr << "ERROR: linfituw01 CALLED WITH ONLY ONE POINT\n";
+    return(1);
+  }
+
+  xal = yal = xty = xsq = nsum = 0.0;
+  for(i=0;i<pointnum;i++) {
+    xal += x[i];
+    yal += y[i];
+    xsq += x[i]*x[i];
+    xty += x[i]*y[i];
+    nsum += 1.0l;
+  }
+  delta = nsum*xsq - xal*xal;
+  if(delta==0.0) {
+    cerr << "ERROR: linfituw01 has non-finite slope\n";
+    return(1);
+  }
+  intercept = (xsq*yal - xal*xty)/delta;
+  slope = (nsum*xty - xal*yal)/delta;
+
+  return(0);
+}
+
+
   
-  
+// arc2cel01: September 09, 2020
+// Given a central point and the arc distance and celestial
+// position angle to second point, calculate the celestial 
+// coordinates of this second point. All input and output
+// quantities are in degrees. Note that this is the reverse
+// process of, e.g. distradec02, which finds
+// the position angle and arc distance between two points
+// on the celestial sphere. The current program finds the
+// celestial coordinates of the second point, given the
+// first point, and the arc distance and position angle.
+// NOTE WELL: here the arc dist is in degrees.
+int arc2cel01(double racenter,double deccenter,double dist,double pa,double &outra,double &outdec)
+{
+  double colat1,tpa,rpa,arc,coscolat,colat2;
+  double cosdra,deltaRA;
+
+  tpa=pa;
+  while(tpa>=360.0l) tpa-=360.0l;
+  while(tpa<0.0l) tpa+=360.0l;
+
+  // Handle trivial cases
+  if(dist==0.0l)
+    {
+      outra = racenter;
+      outdec = deccenter;
+      return(0);
+    }
+  else if(dist==180.0l)
+    {
+      outra = racenter + 180.0l;
+      if(outra >= 360.0l) outra -= 360.0l;
+      outdec = -deccenter;
+      return(0);
+    }
+  else if(deccenter==90.0l)
+    {
+      cerr << "WARNING: arc2cel01 called with starting point at north pole!\n";
+      outra = tpa;
+      outdec = 90.0l - dist;
+      return(0);
+    }
+  else if(deccenter==-90.0l)
+    {
+      cerr << "WARNING: arc2cel01 called with starting point at south pole!\n";
+      outra = tpa;
+      outdec = -90.0l + dist;
+      return(0);
+    }
+
+  colat1 = M_PI/(double)2.0l - deccenter/DEGPRAD;
+  rpa = tpa/DEGPRAD;
+  arc = dist/DEGPRAD;
+
+  coscolat = cos(arc)*cos(colat1) + sin(arc)*sin(colat1)*cos(rpa);
+  if(coscolat>1.0l) {
+    cerr << "WARNING: arc2cel01 attempting to take arccos of 1 + " << coscolat-1.0l << "\n";
+    colat2 = 0.0l;
+  } else colat2 = acos(coscolat);
+  outdec = 90.0l - colat2*DEGPRAD;
+  if(sin(colat2)<=0.0l)
+    {
+      outra = 0.0l;
+      return(0);
+    }
+  cosdra = (cos(arc) - cos(colat1)*cos(colat2)) / (sin(colat1)*sin(colat2));
+  if(cosdra>1.0l) {
+    cerr  << "WARNING: arc2cel01 attempting to take arccos of 1 + " << cosdra-1.0l << "\n";
+    deltaRA = 0.0l;
+  } else deltaRA = acos(cosdra)*DEGPRAD;
+
+  // Direction of RA change
+  if(tpa<=180.0l)
+    {
+      // Change is to the east
+      outra = racenter + deltaRA;
+      while(outra>=360.0l) outra-=360.0l;
+      return(0);
+    }
+  else
+    {
+      // Change is to the west
+      outra = racenter - deltaRA;
+      while(outra<0.0l) outra+=360.0l;
+      return(0);
+    }
+  return(0);
+}
+    
