@@ -31,12 +31,10 @@
 #define MJDCOL 3
 #define RACOL 6
 #define DECCOL 8
-#define MINOBSINTERVAL 1.0 // Minimum time-between-images in seconds
 #define IMAGETIMETOL 1.0 // Tolerance for matching image time, in seconds
 #define MAXVEL 1.5 // Default max angular velocity in deg/day.
-#define MAXTIME 1.5 // Default max inter-image time interval
-                    // for tracklets, in hours (will be converted
-                    // to days before use).
+#define MAXTIME (1.5/24.0) // Default max inter-image time interval
+                           // for tracklets, in days.
 #define IMAGERAD 2.0 // radius from image center to most distant corner (deg)
 #define MAX_GCR 0.5 // Maximum Great Circle Residual allowed for a valid tracklet
 #define DEBUG 0
@@ -44,9 +42,10 @@
       
 static void show_usage()
 {
-  cerr << "Usage: maketrack03a -dets detfile -imgs imfile -outimgs output image file/ \n";
+  cerr << "Usage: maketrack04a -dets detfile -imgs imfile -outimgs output image file/ \n";
   cerr << "-pairs pairfile -pairdets paired detection file/ \n";
   cerr << "-imrad image radius(deg) -maxtime max inter-image time interval (hr)/ \n";
+  cerr << "-mintime min inter-image time interval (hr)/ \n";
   cerr << "-maxvel maximum angular velocity (deg/day) -earth earthfile -obscoords lon plxcos plxsin\n";
   cerr << "\nor, at minimum\n\n";
   cerr << "maketrack03a -dets detfile -earth earthfile\n";
@@ -94,7 +93,7 @@ int main(int argc, char *argv[])
   double maxvel = MAXVEL; // Max angular velocity in deg/day
   double maxtime = MAXTIME; // Max time interval a tracklet could span,
                             // in days.
-  double maxdist = MAXVEL*MAXTIME/24.0; // Max angular distance a tracklet
+  double maxdist = MAXVEL*MAXTIME; // Max angular distance a tracklet
                                    // could span, in degrees.
   double imrad = IMAGERAD; // radius from image center to most distant corner (deg).
   string indetfile;
@@ -136,6 +135,7 @@ int main(int argc, char *argv[])
   outra1 = outra2 = outdec1 = outdec2 = 0.0l;
   point3d_index p3di =  point3d_index(0l,0l,0l,0);
   vector <point3d_index> track_mrdi_vec;
+  double mintime = IMAGETIMETOL/SOLARDAY;
   
   if(argc<5)
     {
@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-i" || string(argv[i]) == "-imgs" || string(argv[i]) == "-img" || string(argv[i]) == "--imgs" || string(argv[i]) == "--img" || string(argv[i]) == "--image" || string(argv[i]) == "--images") {
+    } else if(string(argv[i]) == "-i" || string(argv[i]) == "-imgs" || string(argv[i]) == "-inimgs" || string(argv[i]) == "-img" || string(argv[i]) == "--inimgs" || string(argv[i]) == "--img" || string(argv[i]) == "--image" || string(argv[i]) == "--images") {
       if(i+1 < argc) {
 	//There is still something to read;
 	inimfile=argv[++i];
@@ -222,13 +222,32 @@ int main(int argc, char *argv[])
 	//There is still something to read;
         maxtime=stod(argv[++i]);
 	i++;
-	if(!isnormal(maxtime) || maxtime<=0.0) {
+	if(isnormal(maxtime) && maxtime>0.0) {
+	  maxtime/=24.0; // Convert from hours to days.
+	} else {
 	  cerr << "Error: invalid maximum inter-image time interval\n";
 	  cerr << "(" << maxtime << " hr) supplied: must be strictly positive.\n";
 	  return(2);
 	}      
       } else {
-	cerr << "Output maximum inter-image time interval\nkeyword supplied with no corresponding argument\n";
+	cerr << "Maximum inter-image time interval\nkeyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    }  else if(string(argv[i]) == "-mintime") {
+      if(i+1 < argc) {
+	//There is still something to read;
+        mintime=stod(argv[++i]);
+	i++;	
+	if((isnormal(mintime) || mintime==0.0) && mintime>=0.0) {
+	  mintime/=24.0; // Convert from hours to days
+	} else {
+	  cerr << "Error: invalid minimum inter-image time interval\n";
+	  cerr << "(" << mintime << " hr) supplied: must be non-negative.\n";
+	  return(2);
+	}      
+      } else {
+	cerr << "Minimum inter-image time interval\nkeyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
@@ -312,10 +331,10 @@ int main(int argc, char *argv[])
   cout << "pairfile file " << outpairfile << "\n";
   cout << "paired detection file " << pairdetfile << "\n";
   cout << "Heliocentric ephemeris file for the Earth: " << earthfile << "\n";
-  cout << "image radius " << imrad << "\n";
-  cout << "max time interval " << maxtime << "\n";
-  cout << "maxvel " << maxvel << "\n";
-  maxtime/=24.0; /*Unit conversion from hours to days*/
+  cout << "image radius " << imrad << " degrees\n";
+  cout << "max time interval " << maxtime*24.0 << " hours\n";
+  cout << "min time interval " << mintime*24.0 << " hours\n";
+  cout << "maxvel " << maxvel << " deg/day\n";
   maxdist = maxtime*maxvel;
   
   ifstream instream1 {indetfile};
@@ -440,7 +459,7 @@ int main(int argc, char *argv[])
     startind=0;
     for(i=1;i<detvec.size();i++) {
       tdelt = detvec[i].MJD - detvec[i-1].MJD;
-      if(tdelt < MINOBSINTERVAL/SOLARDAY) {
+      if(tdelt < IMAGETIMETOL/SOLARDAY) {
 	//This point corresponds to the same image as the previous one.
 	mjdmean += detvec[i].MJD;
 	mjdnorm += 1.0;
@@ -496,7 +515,7 @@ int main(int argc, char *argv[])
       vector <det_OC_indvec> imobs = {};
       num_dets=0;
       p3avg = point3d(0,0,0);
-      while(detct<detnum && detvec[detct].MJD < img_log[imct].MJD + MINOBSINTERVAL/SOLARDAY) {
+      while(detct<detnum && detvec[detct].MJD < img_log[imct].MJD + IMAGETIMETOL/SOLARDAY) {
 	num_dets++; //Keep count of detections on this image
 	imobs.push_back(detvec[detct]); //Load vector of observations for this image
 	p3 =  celeproj01(detvec[detct].RA,detvec[detct].Dec); // Project current detection
@@ -600,7 +619,7 @@ int main(int argc, char *argv[])
 	cerr << "testprog02a ABORTING!\n" ;
       }
       double imcendist = distradec01(img_log[imct].RA, img_log[imct].Dec, img_log[imtarg].RA, img_log[imtarg].Dec);
-      if(imcendist<2.0*imrad+maxvel*timediff) {
+      if(imcendist<2.0*imrad+maxvel*timediff && timediff>=mintime) {
 	if(DEBUG>=1) cout << "  pairs may exist between images " << imct << " and " << imtarg << ": dist = " << imcendist << ", timediff = " << timediff << "\n";
 	imagematches.push_back(imtarg);
       }
