@@ -498,6 +498,31 @@ public:
   }
 };
 
+class clusteran03{ // Analysis of a heliolinc cluster (candidate discovery).
+                   // Differs from clusteran02 in that it uses floats rather
+                   // than double, to preserve space.
+public:
+  string recfile;
+  int accelct;
+  int clusternum;
+  int numpoints;
+  float timespan;
+  int daysteps;
+  vector <float> heliopar;
+  vector <float> rmsvec; // pos(3), vel(3), postotal, veltotal, total 
+  vector <int> clustind;
+  float clustermetric;
+  clusteran03( string recfile, int accelct, int clusternum, int numpoints, float timespan, int daysteps, vector <float> rmsvec, vector <float> heliopar, vector <int> clustind, float clustermetric) :recfile(recfile), accelct(accelct), clusternum(clusternum), numpoints(numpoints), timespan(timespan), daysteps(daysteps), rmsvec(rmsvec), heliopar(heliopar), clustind(clustind), clustermetric(clustermetric) {}
+};
+
+class lowermetric_clusteran03{
+public:
+  inline bool operator() (const clusteran03& o1, const clusteran03& o2) {
+    return(o1.clustermetric < o2.clustermetric);
+  }
+};
+
+
 class heliogridpoint{ // 
 public:
   long double dist;
@@ -540,6 +565,23 @@ public:
   }
 };
 
+class float_index{ // Pairs a float with an index, intended for use
+                    // accessing elements in a vector of a more complex
+                    // class in an order sorted by a double-precision component,
+                    // without actually re-sorting the vector.
+public:
+  float felem;
+  long index;
+  float_index(float felem, long index) :felem(felem), index(index) {}
+};
+
+class lower_float_index{
+public:
+  inline bool operator() (const float_index& i1, const float_index& i2) {
+    return(i1.felem < i2.felem);
+  }
+};
+
 class double_index{ // Pairs a double with an index, intended for use
                     // accessing elements in a vector of a more complex
                     // class in an order sorted by a double-precision component,
@@ -556,6 +598,7 @@ public:
     return(i1.delem < i2.delem);
   }
 };
+
 
 class ldouble_index{ // Pairs a long double with an index, intended for use
                     // accessing elements in a vector of a more complex
