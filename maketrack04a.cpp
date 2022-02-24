@@ -37,7 +37,7 @@
                            // for tracklets, in days.
 #define IMAGERAD 2.0 // radius from image center to most distant corner (deg)
 #define MAX_GCR 0.5 // Maximum Great Circle Residual allowed for a valid tracklet
-#define DEBUG 2
+#define DEBUG 0
 
       
 static void show_usage()
