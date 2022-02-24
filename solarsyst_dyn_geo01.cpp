@@ -1095,7 +1095,7 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
       // If it's alone, mark it as noise.
       if(queryout.size()<=1) {
 	kdtree[kdct].flag = -1; // Noise point.
-	cout << "Point " << kdct << ": noise\n";
+	// cout << "Point " << kdct << ": noise\n";
       }
       else if(queryout.size() >= npt) {
 	// This is a core point of a new cluster.
@@ -1253,7 +1253,7 @@ int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, v
       // If it's alone, mark it as noise.
       if(queryout.size()<=1) {
 	kdtree[kdct].flag = -1; // Noise point.
-	cout << "Point " << kdct << ": noise\n";
+	// cout << "Point " << kdct << ": noise\n";
       }
       else if(queryout.size() >= npt) {
 	// This is a core point of a new cluster.
@@ -1763,7 +1763,7 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
       // If it's alone, mark it as noise.
       if(queryout.size()<=1) {
 	kdtree[kdct].flag = -1; // Noise point.
-	cout << "Point " << kdct << ": noise\n";
+	// cout << "Point " << kdct << ": noise\n";
       }
       else if(queryout.size() >= npt) {
 	// This is a core point of a new cluster.
