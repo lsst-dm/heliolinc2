@@ -37,7 +37,7 @@
                            // for tracklets, in days.
 #define IMAGERAD 2.0 // radius from image center to most distant corner (deg)
 #define MAX_GCR 0.5 // Maximum Great Circle Residual allowed for a valid tracklet
-#define DEBUG 0
+#define DEBUG 2
 
       
 static void show_usage()
@@ -60,6 +60,7 @@ int main(int argc, char *argv[])
   vector <det_OC_indvec> pairdets = {};
   vector <det_OC_indvec> ppset = {};
   img_log02 imlog = img_log02(0.0,0.0,0.0,0,0);
+  vector <img_log02> img_log_tmp = {};
   vector <img_log02> img_log = {};
   longpair onepair = longpair(0,0);
   vector <longpair> pairvec ={};
@@ -119,14 +120,12 @@ int main(int argc, char *argv[])
   vector <double> timevec;
   vector <double> xvec;
   vector <double> yvec;
-  vector <double> timevec2;
-  vector <double> xvec2;
-  vector <double> yvec2;
   vector <long> detindexvec;
-  vector <long> detindexvec2;
   int biggest_tracklet=-1;
   int tracklet_size=0;
-  double slopex,slopey,interceptx,intercepty,worsterr,fiterr;
+  double slopex,slopey,interceptx,intercepty,worsterr;
+  vector <double> fiterr = {};
+  vector <double> fiterr2 = {};
   int worstpoint=-1;
   int istracklet=0;
   int rp1,rp2,instep;
@@ -136,6 +135,7 @@ int main(int argc, char *argv[])
   point3d_index p3di =  point3d_index(0l,0l,0l,0);
   vector <point3d_index> track_mrdi_vec;
   double mintime = IMAGETIMETOL/SOLARDAY;
+  int trkptnum,istimedup=1;
   
   if(argc<5)
     {
@@ -426,7 +426,7 @@ int main(int argc, char *argv[])
 	    // Requirement of MJD>0.0 tests that we read a plausibly
 	    // valid line.
 	    imlog=img_log02(MJD,RA,Dec,0,0);
-	    img_log.push_back(imlog);
+	    img_log_tmp.push_back(imlog);
 	  }
 	}
 	if(reachedeof==1) { 
@@ -436,19 +436,22 @@ int main(int argc, char *argv[])
 	else if(reachedeof==-2) cout << "Warning: file possibly corrupted\n";
 	else cout << "Warning: unknown file read problem\n";
 	// time-sort the image file
-	sort(img_log.begin(), img_log.end(), early_imlg2());
+	sort(img_log_tmp.begin(), img_log_tmp.end(), early_imlg2());
 	// find the indices in the time-sorted detection file
 	// that correspond to the earliest and latest detections
 	// on each image, and load these values into imglog02.
 	detct=0;
-	for(imct=0;imct<img_log.size();imct++) {
-	  while(detct<detvec.size() && detvec[detct].MJD < img_log[imct].MJD-IMAGETIMETOL/SOLARDAY) detct++; //Not on any image
-	  if(detct<detvec.size() && fabs(detvec[detct].MJD-img_log[imct].MJD)<=IMAGETIMETOL/SOLARDAY) {
+	for(imct=0;imct<img_log_tmp.size();imct++) {
+	  while(detct<detvec.size() && detvec[detct].MJD < img_log_tmp[imct].MJD-IMAGETIMETOL/SOLARDAY) detct++; //Not on any image
+	  if(detct<detvec.size() && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY) {
 	    // This should be the first detection on image imct.
-	    img_log[imct].startind = detct;
-	    while(detct<detvec.size() && fabs(detvec[detct].MJD-img_log[imct].MJD)<=IMAGETIMETOL/SOLARDAY) detct++; //Still on this same image
+	    img_log_tmp[imct].startind = detct;
+	    while(detct<detvec.size() && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY) detct++; //Still on this same image
 	    // This should be the first detection on the next image
-	    img_log[imct].endind = detct;
+	    img_log_tmp[imct].endind = detct;
+	  }
+	  if(img_log_tmp[imct].startind >= 0 && img_log_tmp[imct].endind > 0) {
+	    img_log.push_back(img_log_tmp[imct]);
 	  }
 	}
     } else {
@@ -709,6 +712,7 @@ int main(int argc, char *argv[])
 	      // new pair to the pair vector, regardless of whether
 	      // the index values are pre-existing or newly assigned.
 	      onepair = longpair(detvec[axyvec[detct].index].index,detvec[kdvec[matchpt].point.index].index);
+	      if(DEBUG>=1) cout << "Writing pair " << detvec[axyvec[detct].index].index << ", " << detvec[kdvec[matchpt].point.index].index << "\n";
 	      pairvec.push_back(onepair);
 	      pairct++;
 	      apct++;
@@ -759,9 +763,15 @@ int main(int argc, char *argv[])
   
   for(i=pairdets.size()-1; i>=0 ;i--) {
     pdct=pair_partner_num[i].index;
-    if(DEBUG>=2) cout << "Working on detection " << i << " = " << pdct << " with " << pair_partner_num[i].lelem << " pair partners\n";
     istracklet=0; // Assume there is no tracklet unless one is confirmed to exist.
-    if(pair_partner_num[i].lelem > 1) {
+    if(pairdets[pdct].indvec.size() > 1) {
+      if(DEBUG>=2) {
+	cout << "Working on detection " << i << " = " << pdct << " with " << pair_partner_num[i].lelem << " = " << pairdets[pdct].indvec.size() << " pair partners:\n";
+	for(j=0; j<pairdets[pdct].indvec.size(); j++) {
+	  cout << pairdets[pdct].indvec[j] << ", ";
+	}
+	cout << "\n";
+      }
       // The corresponding detection is paired with more than one
       // other detection.
       // Project all of these pairs relative to detection pdct,
@@ -822,14 +832,15 @@ int main(int argc, char *argv[])
       if(DEBUG>=2) cout << "size = " << ppset.size() << "\n";
       for(j=0; j<ppset.size(); j++) {
 	if(DEBUG>=2) cout << j << ":" << ppset.size()-1 << " size = " << ppset[j].indvec.size() << " ";
-	if(ppset[j].indvec.size() > tracklet_size) {
-	  tracklet_size = ppset[j].indvec.size();
+	if(ppset[j].indvec.size()+2 > tracklet_size) {
+	  tracklet_size = ppset[j].indvec.size()+2; //We add one for pdct, one for j, to get actual tracklet size
 	  biggest_tracklet = j;
 	  if(DEBUG>=2) cout << "bt = " << biggest_tracklet << ", size = " << tracklet_size << "\n";
 	} else if(DEBUG>=2) cout << "not the biggest\n";
       }
-      if(DEBUG>=2) cout << "Biggest tracklet is " << biggest_tracklet << ", which corresponds to " << axyvec[biggest_tracklet].index << ", with size " << tracklet_size << "\n";istracklet=0; // Assume there is no tracklet until one is confirmed to exist.
-      if(tracklet_size <= 1) {
+      if(DEBUG>=2) cout << "Biggest tracklet is " << biggest_tracklet << ", which corresponds to " << axyvec[biggest_tracklet].index << ", with size " << tracklet_size << "\n";
+      istracklet=0; // Assume there is no tracklet until one is confirmed to exist.
+      if(tracklet_size <= 2) {
 	istracklet=0;
       } else {
 	// Perform linear fits to x and y vs time.
@@ -838,6 +849,9 @@ int main(int argc, char *argv[])
 	                   // mrdi stands for MJD, RA, Dec, index
 	// Load the reference point
 	p3di = point3d_index(0.0l,0.0l,0.0l,pdct);
+	track_mrdi_vec.push_back(p3di);
+	// Load anchor point corresponding to biggest_tracklet
+	p3di = point3d_index(ppset[biggest_tracklet].MJD - pairdets[pdct].MJD,axyvec[biggest_tracklet].x,axyvec[biggest_tracklet].y,axyvec[biggest_tracklet].index);
 	track_mrdi_vec.push_back(p3di);
 	// Load the other points
  	for(j=0; j<ppset[biggest_tracklet].indvec.size(); j++) {
@@ -862,7 +876,7 @@ int main(int argc, char *argv[])
 	  }
  	if(DEBUG>=2) {
 	  cout << "First iteration linear fit vectors:\n";
-	  for(j=0; j<ppset[biggest_tracklet].indvec.size(); j++) {
+	  for(j=0; j<timevec.size(); j++) {
 	    cout << detindexvec[j] << " " << timevec[j] << " " << xvec[j] << " " << yvec[j] << "\n";
 	  }
 	}
@@ -871,49 +885,96 @@ int main(int argc, char *argv[])
 	linfituw01(timevec, xvec, slopex, interceptx);
  	// Perform fit to projected y coordinate as a function of time
 	linfituw01(timevec, yvec, slopey, intercepty);
+	// Load vector of residuals
+	fiterr = {};
+	for(j=0; j<timevec.size(); j++) {
+	  fiterr.push_back(sqrt(DSQUARE(timevec[j]*slopex+interceptx-xvec[j]) + DSQUARE(timevec[j]*slopey+intercepty-yvec[j])));
+	}
+	// Ditch duplicate times, if there are any
+	istimedup=1; // Guilty until proven innocent
+	while(istimedup==1 && timevec.size()>=3) {
+	  istimedup=0;
+	  j=1;
+	  while(j<timevec.size() && istimedup==0) {
+	    if(fabs(timevec[j] - timevec[j-1]) < IMAGETIMETOL/SOLARDAY) {
+	      istimedup=1; // Point j and j-1 are time-duplicates.
+	      // Mark for rejection whichever one has the largest fitting error
+	      if(fiterr[j]>=fiterr[j-1]) worstpoint = j; 
+	      else worstpoint = j-1;
+	    }
+	    j++;
+	  }
+	  if(istimedup==1) {
+	    // Reject the bad point
+	    trkptnum=timevec.size();
+	    for(j=worstpoint; j<trkptnum-1; j++) {
+	      timevec[j] = timevec[j+1];
+	      xvec[j] = xvec[j+1];
+	      yvec[j] = yvec[j+1];
+	      detindexvec[j] = detindexvec[j+1];
+	    }
+	    trkptnum--;
+	    timevec.resize(trkptnum);
+	    xvec.resize(trkptnum);
+	    yvec.resize(trkptnum);
+	    detindexvec.resize(trkptnum);
+	    // Re-do linear fit
+	    // Perform fit to projected x coordinate as a function of time
+	    linfituw01(timevec, xvec, slopex, interceptx);
+	    // Perform fit to projected y coordinate as a function of time
+	    linfituw01(timevec, yvec, slopey, intercepty);
+	    // Load vector of residuals
+	    fiterr = {};
+	    for(j=0; j<timevec.size(); j++) {
+	      fiterr.push_back(sqrt(DSQUARE(timevec[j]*slopex+interceptx-xvec[j]) + DSQUARE(timevec[j]*slopey+intercepty-yvec[j])));
+	    }
+	  }
+	}
 	// Find worst error.  
 	worsterr = 0.0l;
 	for(j=0; j<timevec.size(); j++) {
-	  fiterr = sqrt(DSQUARE(timevec[j]*slopex+interceptx-xvec[j]) + DSQUARE(timevec[j]*slopey+intercepty-yvec[j]));
-	  if(fiterr>worsterr) {
-	    worsterr = fiterr;
+	  if(fiterr[j]>worsterr) {
+	    worsterr = fiterr[j];
 	    worstpoint = j;
 	  }
 	}
 	// Reject successive points until either there are only three left
 	// or the worst error drops below MAX_GCR.
 	while(worsterr>MAX_GCR && timevec.size()>3) {
-	  timevec2=xvec2=yvec2={};
-	  detindexvec2={};
-	  for(j=0; j<timevec.size(); j++) {
-	    if(j!=worstpoint) {
-	      timevec2.push_back(timevec[j]);
-	      xvec2.push_back(xvec[j]);
-	      yvec2.push_back(yvec[j]);
-	      detindexvec2.push_back(detindexvec[j]);
-	    }
+	  // Reject the worst point
+	  trkptnum=timevec.size();
+	  for(j=worstpoint; j<trkptnum-1; j++) {
+	    timevec[j] = timevec[j+1];
+	    xvec[j] = xvec[j+1];
+	    yvec[j] = yvec[j+1];
+	    detindexvec[j] = detindexvec[j+1];
 	  }
-	  timevec=timevec2;
-	  xvec=xvec2;
-	  yvec=yvec2;
-	  detindexvec=detindexvec2;
+	  trkptnum--;
+	  timevec.resize(trkptnum);
+	  xvec.resize(trkptnum);
+	  yvec.resize(trkptnum);
+	  detindexvec.resize(trkptnum);	  
 	  // Perform fit to projected x coordinate as a function of time
 	  linfituw01(timevec, xvec, slopex, interceptx);
 	  // Perform fit to projected y coordinate as a function of time
 	  linfituw01(timevec, yvec, slopey, intercepty);
+	  // Load vector of residuals
+	  fiterr = {};
+	  for(j=0; j<timevec.size(); j++) {
+	    fiterr.push_back(sqrt(DSQUARE(timevec[j]*slopex+interceptx-xvec[j]) + DSQUARE(timevec[j]*slopey+intercepty-yvec[j])));
+	  }
 	  // Find worst error.  
 	  worsterr = 0.0l;
 	  for(j=0; j<timevec.size(); j++) {
-	    fiterr = sqrt(DSQUARE(timevec[j]*slopex+interceptx-xvec[j]) + DSQUARE(timevec[j]*slopey+intercepty-yvec[j]));
-	    if(fiterr>worsterr) {
-	      worsterr = fiterr;
+	    if(fiterr[j]>worsterr) {
+	      worsterr = fiterr[j];
 	      worstpoint = j;
 	    }
 	  }
 	}
 	if(worsterr<=MAX_GCR && timevec.size()>=3) {
-	  // We succeeded in finding a tracklet with no outliers
-	  // beyond MAX_GCR. Prepare to write it to the pair file
+	  // We succeeded in finding a tracklet with no time-duplicates, and
+	  // no outliers beyond MAX_GCR. Prepare to write it to the pair file.
 	  // Select points that will represent this tracklet.
 	  instep = (timevec.size()-1)/4;
 	  rp1 = instep;
@@ -984,7 +1045,7 @@ int main(int argc, char *argv[])
       // Write out all the pairs as normal
       for(j=0; j<pairdets[pdct].indvec.size(); j++) {
 	k=pairdets[pdct].indvec[j];
-	if(pairdets[k].indvec.size()>0) {
+	if(pairdets[k].indvec.size()>0 && k>pdct) {
 	  outstream4 << "P " <<  pdct << " " <<  k << "\n";
 	}
       }
