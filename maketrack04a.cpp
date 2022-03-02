@@ -36,7 +36,7 @@
 #define MAXTIME (1.5/24.0) // Default max inter-image time interval
                            // for tracklets, in days.
 #define IMAGERAD 2.0 // radius from image center to most distant corner (deg)
-#define MAX_GCR 0.5 // Maximum Great Circle Residual allowed for a valid tracklet
+#define MAX_GCR 0.5 // Default maximum Great Circle Residual allowed for a valid tracklet
 #define DEBUG 0
 
       
@@ -136,6 +136,7 @@ int main(int argc, char *argv[])
   vector <point3d_index> track_mrdi_vec;
   double mintime = IMAGETIMETOL/SOLARDAY;
   int trkptnum,istimedup=1;
+  double maxgcr = MAX_GCR;
   
   if(argc<5)
     {
@@ -267,6 +268,22 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
+    }  else if(string(argv[i]) == "-maxGCR" || string(argv[i]) == "-maxgcr" ) {
+      if(i+1 < argc) {
+	//There is still something to read;
+        maxgcr=stod(argv[++i]);
+	i++;
+	if(!isnormal(maxgcr) || maxgcr<=0.0) {
+	  cerr << "Error: invalid maximum Great Circle residual\n";
+	  cerr << "(" << maxgcr << " arcsec) supplied: must be strictly positive.\n";
+	  return(2);
+	}
+      }
+      else {
+	cerr << "Output maximum inter-image time interval\nkeyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
     } else if(string(argv[i]) == "-earth" || string(argv[i]) == "-e" || string(argv[i]) == "-Earth" || string(argv[i]) == "--earthfile" || string(argv[i]) == "--Earthfile" || string(argv[i]) == "--earth" || string(argv[i]) == "--Earth") {
       if(i+1 < argc) {
 	//There is still something to read;
@@ -335,6 +352,7 @@ int main(int argc, char *argv[])
   cout << "max time interval " << maxtime*24.0 << " hours\n";
   cout << "min time interval " << mintime*24.0 << " hours\n";
   cout << "maxvel " << maxvel << " deg/day\n";
+  cout << "maxGCR " << maxgcr << " arcsec\n";
   maxdist = maxtime*maxvel;
   
   ifstream instream1 {indetfile};
@@ -819,7 +837,7 @@ int main(int argc, char *argv[])
 	    dy = axyvec[k].y - axyvec[j].y*(dt/dtref);
 	    dist = sqrt(dx*dx + dy*dy);
 	    if(DEBUG>=2) cout << "Detection " << axyvec[j].index << ":" << axyvec[k].index << " dist = " << dist << "\n";
-	    if(dist < 2.0*MAX_GCR) {
+	    if(dist < 2.0*maxgcr) {
 	      ppset[j].indvec.push_back(k);
 	    }
 	  }
@@ -939,8 +957,8 @@ int main(int argc, char *argv[])
 	  }
 	}
 	// Reject successive points until either there are only three left
-	// or the worst error drops below MAX_GCR.
-	while(worsterr>MAX_GCR && timevec.size()>3) {
+	// or the worst error drops below maxgcr.
+	while(worsterr>maxgcr && timevec.size()>3) {
 	  // Reject the worst point
 	  trkptnum=timevec.size();
 	  for(j=worstpoint; j<trkptnum-1; j++) {
@@ -972,9 +990,9 @@ int main(int argc, char *argv[])
 	    }
 	  }
 	}
-	if(worsterr<=MAX_GCR && timevec.size()>=3) {
+	if(worsterr<=maxgcr && timevec.size()>=3) {
 	  // We succeeded in finding a tracklet with no time-duplicates, and
-	  // no outliers beyond MAX_GCR. Prepare to write it to the pair file.
+	  // no outliers beyond maxgcr. Prepare to write it to the pair file.
 	  // Select points that will represent this tracklet.
 	  instep = (timevec.size()-1)/4;
 	  rp1 = instep;
