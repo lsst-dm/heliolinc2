@@ -19,6 +19,7 @@
 #include "cmath"
 
 #define MAXCLUSTRMS 1.0e5
+#define ONE_POINT_PER_IMAGE 1
 
 
 static void show_usage()
@@ -55,6 +56,7 @@ int main(int argc, char *argv[])
   double tmjd;
   double maxrms = MAXCLUSTRMS;
   vector <det_svec> detvec;
+  vector <det_svec> clusterdets;
   det_svec dsv = det_svec(0l,0l,0l,"",1,{});
   clusteran03 clustan = clusteran03("",0,0,0,0l,0,{},{},{},0l);
   vector <clusteran03> clustanvec;
@@ -68,8 +70,10 @@ int main(int argc, char *argv[])
   heliodist = heliovel = helioacc = 0l;
   vector <float> heliopar;
   vector <float> rmsvec;
+  vector <double> mjdvec;
   float clustmetric=0;
   int goodclusternum=0;
+  int istimedup=0;
   string rating;
 
   if(argc!=9 && argc!=11) {
@@ -254,14 +258,38 @@ int main(int argc, char *argv[])
 	  instream1 >> i1 >> i2;
 	  // Add detection to cluster index vector.
 	  clustan.clustind.push_back(i1);
-	  // Add cluster index to detvec
-	  detvec[i1].indvec.push_back(clustanvec.size());
 	}
-	// Push new cluster on to clustanvec.
-	clustanvec.push_back(clustan);
+	// See if it's a good cluster
+	if(clustan.rmsvec[8]<=maxrms) {
+	  // Check for duplicate MJDs
+	  mjdvec={};
+	  for(ptct=0; ptct<ptnum; ptct++) {
+	    i1 = clustan.clustind[ptct];
+	    mjdvec.push_back(detvec[i1].mjd);
+	  }
+	  sort(mjdvec.begin(),mjdvec.end());
+	  istimedup=0;
+	  for(ptct=1; ptct<ptnum; ptct++) {
+	    if(mjdvec[ptct-1] == mjdvec[ptct]) istimedup=1;
+	  }
+	  if(istimedup==0) {
+	    // The cluster is good.
+	    // Add cluster indices to detvec.
+	    for(ptct=0; ptct<ptnum; ptct++) {
+	      i1 = clustan.clustind[ptct];
+	      detvec[i1].indvec.push_back(clustanvec.size());
+	    }
+	    // Push new cluster on to clustanvec.
+	    clustanvec.push_back(clustan);
+	  }
+	  // Close if-statement checking the RMS was low enough.
+	}
+	// Close if-statement checking that we're still reading the file.
       }
+      // Close while-loop reading the file.
     }
     instream1.close();
+    // Close loop on input cluster files.
   }
 
   clusternum3 = clustanvec.size();
@@ -300,8 +328,17 @@ int main(int argc, char *argv[])
       outstream1 << fixed << setprecision(3) << "Cluster pos RMS: " << clustanvec[clusterct].rmsvec[0] << " "  << clustanvec[clusterct].rmsvec[1] << " "  << clustanvec[clusterct].rmsvec[2] << " total pos " << clustanvec[clusterct].rmsvec[6] << "\n";
       outstream1 << fixed << setprecision(3) << "Cluster vel RMS: " << clustanvec[clusterct].rmsvec[3] << " "  << clustanvec[clusterct].rmsvec[4] << " "  << clustanvec[clusterct].rmsvec[5] << " total vel " << clustanvec[clusterct].rmsvec[7] << "\n";  
       outstream1 << fixed << setprecision(3) << "Cluster total RMS: " << clustanvec[clusterct].rmsvec[8] << "\n";
+      // Load vector of detections in this cluster (needed only for time-sorting).
+      clusterdets={};
       for(i=0; i<clustanvec[clusterct].clustind.size(); i++) {
 	j = clustanvec[clusterct].clustind[i];
+	clusterdets.push_back(detvec[j]);
+	clusterdets[i].index=j;
+      }
+      sort(clusterdets.begin(), clusterdets.end(), early_det_svec());
+      // Write detections to output file in time-sorted order.
+      for(i=0; i<clustanvec[clusterct].clustind.size(); i++) {
+	j = clusterdets[i].index;
 	outstream1 << fixed << setprecision(6) << i << " " << detvec[j].mjd << " " << detvec[j].RA << " " << detvec[j].Dec << " " << detvec[j].detid << " " << j << " " << detvec[j].index << "\n";
       }
       outstream1 << "\n";

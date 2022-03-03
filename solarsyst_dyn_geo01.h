@@ -460,7 +460,14 @@ public:
   vector <int> indvec;
   det_svec(double mjd, double RA, double Dec, string detid, int index, vector <int> indvec) :mjd(mjd), RA(RA), Dec(Dec), detid(detid), index(index), indvec(indvec) { }
 };
-  
+
+class early_det_svec{
+public:
+  inline bool operator() (const det_svec& o1, const det_svec& o2) {
+    return(o1.mjd < o2.mjd || (o1.mjd == o2.mjd && o1.detid < o2.detid) );
+  }
+};
+
 class clusteran01{ // Analysis of a heliolinc cluster (candidate discovery).
 public:
   string recfile;
