@@ -531,8 +531,11 @@ int main(int argc, char *argv[])
 	}
 
       cout << "Found " << binstatevecs.size() << " state vectors in geocentric bin from " << georadmin << " to " << georadmax << " AU\n";
-      if(binstatevecs.size()<=1) continue; // No clusters possible, skip to the next step.
-
+      if(binstatevecs.size()<=1) {
+	geobinct++;
+	continue; // No clusters possible, skip to the next step.
+      }
+      
       kdvec={};
       kdroot = splitpoint = 0;
       splitpoint=medind_6ix2(binstatevecs,1);
