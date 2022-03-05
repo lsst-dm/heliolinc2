@@ -92,6 +92,22 @@ long double factorialLD(int p)
   return(y);
 }
 
+long double intpowD(double x, int p)
+{
+  int i=0;
+  double y=1.0l;
+  for(i=0;i<p;i++) y*=x;
+  return(y);
+}
+
+long double factorialD(int p)
+{
+  int i=0;
+  double y=1.0l;
+  for(i=1;i<=p;i++) y*=(double)i;
+  return(y);
+}
+
 // celeproj01: November 05, 2021
 // Given double precision RA, Dec in DEGREES, project
 // onto the unit sphere and return an object of class point3d.
@@ -1317,7 +1333,7 @@ int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, v
 // k-d tree and DBSCAN algorithms with integerized 6-D points for speed.
 
 
-// point6ix2: January 07, 2022:
+// conv_6LD_to_6i: January 07, 2022:
 // Integerize an object of class point6LDx2 (6-dimensional
 // long double point with 2 long integer indices) into an
 // object of class point6ix2, to enable clustering algorithms
@@ -1335,6 +1351,25 @@ point6ix2 conv_6LD_to_6i(point6LDx2 p1, long double scale)
   p2.vx = int(p1.vx/scale + 0.5);
   p2.vy = int(p1.vy/scale + 0.5);
   p2.vz = int(p1.vz/scale + 0.5);
+  p2.i1 = p1.i1;
+  p2.i2 = p1.i2;
+  return(p2);
+}
+
+// conv_6i_to_6LD: January 07, 2022:
+// Reverse the effect of conv_6LD_to_6i: expand an integerized
+// 6-dimensional state vector back out into long doubles.
+// Warning: Massive loss of precision, use only for crude
+// comparisons!
+point6LDx2 conv_6i_to_6LD(point6ix2 p1, long double scale)
+{
+  point6LDx2 p2 = point6LDx2(0L,0L,0L,0L,0L,0L,0,0);
+  p2.x = p1.x*scale;
+  p2.y = p1.y*scale;
+  p2.z = p1.z*scale;
+  p2.vx = p1.vx*scale;
+  p2.vy = p1.vy*scale;
+  p2.vz = p1.vz*scale;
   p2.i1 = p1.i1;
   p2.i2 = p1.i2;
   return(p2);

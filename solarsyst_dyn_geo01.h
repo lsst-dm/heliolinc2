@@ -635,6 +635,8 @@ point3d crossprod3d(point3d p1, point3d p2);
 point3LD crossprod3LD(point3LD p1, point3LD p2);
 long double intpowLD(long double x, int p);
 long double factorialLD(int p);
+long double intpowD(double x, int p);
+long double factorialD(int p);
 point3d celeproj01(double RA, double Dec);
 int celedeproj01(point3d p3, double *RA, double *Dec);
 point3LD celeproj01LD(long double RA, long double Dec);
@@ -656,6 +658,7 @@ long double cluster_stats6D01(const vector <KD_point6LDx2> &cluster, vector <lon
 int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, const vector <det_bsc> &detvec, const vector <string> &det_id_vec, vector <KD6_clust> &outclusters, string rmsfile);
 int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, vector <KD6_clust> &outclusters);
 point6ix2 conv_6LD_to_6i(point6LDx2 p1, long double scale);
+point6LDx2 conv_6i_to_6LD(point6ix2 p1, long double scale);
 long medind_6ix2(const vector <point6ix2> &pointvec, int dim);
 int splitix2(const vector <point6ix2> &pointvec, int dim, long splitpoint, vector <point6ix2> &left, vector <point6ix2> &right);
 int kdtree_6i01(const vector <point6ix2> &invec, int dim, long splitpoint, long kdroot, vector <KD_point6ix2> &kdvec);
