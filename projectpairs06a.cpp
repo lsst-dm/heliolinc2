@@ -509,9 +509,9 @@ int main(int argc, char *argv[])
     // in each bin, and running DBSCAN only on those, with clustering radius
     // adjusted accordingly.
     geobinct = 0;
-    georadcen = intpowD(geologstep,geobinct);
+    georadcen = mingeodist*intpowD(geologstep,geobinct);
     while(georadcen<=MAXGEODIST) {
-      georadcen = intpowD(geologstep,geobinct);
+      georadcen = mingeodist*intpowD(geologstep,geobinct);
       georadmin = georadcen/geologstep;
       georadmax = georadcen*geologstep;
       // Load new array of state vectors, limited to those in the current geocentric bin
@@ -611,8 +611,8 @@ int main(int argc, char *argv[])
 	  //cout << "Cluster pos RMS: " << outclusters[clusterct].rmsvec[0] << " " << outclusters[clusterct].rmsvec[1] << " " << outclusters[clusterct].rmsvec[2] <<  " total pos " << outclusters[clusterct].rmsvec[6] << "\n";
 	  //cout << "Cluster vel RMS: " << outclusters[clusterct].rmsvec[3] << " " << outclusters[clusterct].rmsvec[4] << " " << outclusters[clusterct].rmsvec[5] <<  " total vel " << outclusters[clusterct].rmsvec[7] << "\n";
 	  //cout << "Cluster total RMS: " << outclusters[clusterct].rmsvec[8] << "\n";
-	  outstream2 << fixed << setprecision(3) << "Cluster pos RMS: " << outclusters[clusterct].rmsvec[0] << " " << outclusters[clusterct].rmsvec[1] << " " << outclusters[clusterct].rmsvec[2] <<  " total pos " << outclusters[clusterct].rmsvec[6] << "\n";
-	  outstream2 << fixed << setprecision(3) << "Cluster vel RMS: " << outclusters[clusterct].rmsvec[3] << " " << outclusters[clusterct].rmsvec[4] << " " << outclusters[clusterct].rmsvec[5] <<  " total vel " << outclusters[clusterct].rmsvec[7] << "\n";
+	  outstream2 << fixed << setprecision(3) << "Cluster pos RMS: " << outclusters[clusterct].rmsvec[0] << " " << outclusters[clusterct].rmsvec[1] << " " << outclusters[clusterct].rmsvec[2] <<  " total pos " << outclusters[clusterct].rmsvec[6]  << " mean state positions: "  << outclusters[clusterct].meanvec[0] << " " << outclusters[clusterct].meanvec[1] << " " << outclusters[clusterct].meanvec[2] << "\n";
+	  outstream2 << fixed << setprecision(3) << "Cluster vel RMS: " << outclusters[clusterct].rmsvec[3] << " " << outclusters[clusterct].rmsvec[4] << " " << outclusters[clusterct].rmsvec[5] <<  " total vel " << outclusters[clusterct].rmsvec[7] << " mean state velocities: "  << outclusters[clusterct].meanvec[3] << " "   << outclusters[clusterct].meanvec[4] << " " << outclusters[clusterct].meanvec[5] << "\n";
 	  outstream2 << "Cluster total RMS: " << outclusters[clusterct].rmsvec[8] << "\n";
 	  // Write individual detections to output file
 	  for(i=0; i<pointind.size(); i++) {
