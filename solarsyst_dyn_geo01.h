@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <string>
+#include <cstring>
 #include <list>
 #include <forward_list>
 #include <vector>
