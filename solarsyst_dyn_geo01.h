@@ -3,8 +3,6 @@
 // geometry. Includes functions originally developed in orbint02a.cpp,
 // maketrack02b.cpp, projtest01b.cpp, and other places.
 
-using namespace std;
-
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -22,6 +20,9 @@ using namespace std;
 #include <random>
 #include <stdexcept>
 #include <cstdio>
+#include <cassert>
+
+using namespace std;
 
 #define DEGPRAD (180.0L/M_PI) /*Degrees per radian*/
 #define LSQUARE(x) long(x)*long(x)
@@ -73,7 +74,14 @@ using namespace std;
 #define GMSUN_KM3_SEC2 132712440041.279419L // GM for the Sun: that is, the Universal
                                            // Gravitational Constant times the solar mass,
                                            // in units of km^3/sec^2. 
+#define MINSTRINGLEN 5 // Minimum size of character array we use: e.g., for filter bandpass or obscode.
+#define SHORTSTRINGLEN 20 // Standard size for a short-ish string, used, e.g. for detection idstring
+#define MEDSTRINGLEN 80 // Medium string length, should hold most file paths
+#define LONGSTRINGLEN 256 // Should hold any reasonable file path, use if not pressed for memory.
 
+// String-handling stuff that has to be declared early because other things depend on it.
+void stringncopy01(char *dest, const string &source, int n);
+int stringnmatch01(const char *string1, const char *string2, int n);
 
 class det_bsc{ // Basic, minimal detection of some astronomical source 
 public:
@@ -125,6 +133,64 @@ public:
   long index;
   vector <int> indvec;
   det_OC_indvec(long double mjd, double ra, double dec, long double x, long double y, long double z, string idstring, long index, vector <int> indvec) :MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), idstring(idstring), index(index) , indvec(indvec) { }
+};
+
+
+class det_obsmag_indvec{ // Detection of some astronomical source with
+                         // the observer's X, Y, Z coordinates, a string
+                         // identifier, the magnitude and photometric band,
+                         // the observatory code, an index for cross-referencing,
+                         // and an integer vector intended to hold the
+                         // indices of other detections with which the
+                         // current one has been paired.
+                         // Note well that the calling function should ensure
+                         // the input idstring, band, and obcode strings are
+                         // not too long.
+public:
+  long double MJD;
+  double RA;
+  double Dec;
+  long double x;
+  long double y;
+  long double z;
+  char idstring[SHORTSTRINGLEN];
+  double mag;
+  char band[MINSTRINGLEN];
+  char obscode[MINSTRINGLEN];
+  long index;
+  vector <int> indvec;
+  det_obsmag_indvec(long double mjd, double ra, double dec, long double x, long double y, long double z, const string &idstring, double mag, const string &band, const string &obscode, long index, vector <int> indvec) :MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), mag(mag), index(index) , indvec(indvec) {
+    // Copy input value of idstring, making sure it's not too long
+    assert(idstring.size() < sizeof(this->idstring));
+    std::strncpy(this->idstring, idstring.c_str(), sizeof(this->idstring));
+    this->idstring[sizeof(this->idstring)-1] = 0;
+
+    // Copy input value for photometric band, making sure it's not too long
+    assert(band.size() < sizeof(this->band));
+    std::strncpy(this->band, band.c_str(), sizeof(this->band));
+    this->band[sizeof(this->band)-1] = 0;
+    
+    // Copy input value for obscode, making sure it's not too long
+    assert(obscode.size() < sizeof(this->obscode));
+    std::strncpy(this->obscode, obscode.c_str(), sizeof(this->obscode));
+    this->obscode[sizeof(this->obscode)-1] = 0;
+  }
+  det_obsmag_indvec() = default;
+};
+
+class observatory{ // observatory code and location values.
+public:
+  char obscode[MINSTRINGLEN];
+  double obslon;
+  double plxcos;
+  double plxsin;
+  observatory(const string &obscode, double obslon, double plxcos, double plxsin) :obslon(obslon), plxcos(plxcos), plxsin(plxsin) {
+    // Copy input value of obscode, making sure it's not too long
+    assert(obscode.size() < sizeof(this->obscode));
+    std::strncpy(this->obscode, obscode.c_str(), sizeof(this->obscode));
+    this->obscode[sizeof(this->obscode)-1] = 0;
+  }
+  observatory() = default;
 };
 
 class xy_index{ // Double-precision x,y point plus long index
@@ -182,6 +248,23 @@ public:
   img_log02(double mjd, double ra, double dec, long startind, long endind) :MJD(mjd), RA(ra), Dec(dec), startind(startind), endind(endind) { }
 };
 
+class img_log03{ // Image log that indexes a time-sorted detection vector including observatory code:
+                 // MJD, RA, Dec, obscode, starting index, ending index
+public:
+  double MJD;
+  double RA;
+  double Dec;
+  char obscode[MINSTRINGLEN];
+  long startind;
+  long endind;
+  img_log03(double mjd, double ra, double dec, const string &obscode, long startind, long endind) :MJD(mjd), RA(ra), Dec(dec), startind(startind), endind(endind) {
+    // Copy input value of obscode, making sure it's not too long
+    assert(obscode.size() < sizeof(this->obscode));
+    std::strncpy(this->obscode, obscode.c_str(), sizeof(this->obscode));
+    this->obscode[sizeof(this->obscode)-1] = 0;
+  }
+};
+
 class early_det{
 public:
   inline bool operator() (const det_bsc& o1, const det_bsc& o2) {
@@ -217,10 +300,24 @@ public:
   }
 };
 
+class early_det_obsmag_indvec{
+public:
+  inline bool operator() (const det_obsmag_indvec& o1, const det_obsmag_indvec& o2) {
+    return(o1.MJD < o2.MJD || (o1.MJD==o2.MJD && stringnmatch01(o1.obscode,o2.obscode,3)==-1) || (o1.MJD==o2.MJD && stringnmatch01(o1.obscode,o2.obscode,3)==0 && o1.RA<o2.RA));
+  }
+};
+
 class early_imlg2{
 public:
   inline bool operator() (const img_log02& i1, const img_log02& i2) {
     return(i1.MJD < i2.MJD);
+  }
+};
+
+class early_imlg3{
+public:
+  inline bool operator() (const img_log03& i1, const img_log03& i2) {
+    return(i1.MJD < i2.MJD || (i1.MJD == i2.MJD && stringnmatch01(i1.obscode,i2.obscode,3)==-1));
   }
 };
 
@@ -625,6 +722,12 @@ public:
 };
 
 
+void make_ivec(int nx, vector <int> &ivec);
+void make_imat(int nx, int ny, vector <vector <int>> &imat);
+void make_lvec(int nx, vector <long> &lvec);
+void make_lmat(int nx, int ny, vector <vector <long>> &lmat);
+void make_cvec(int nx, vector <char> &cvec);
+void make_cmat(int nx, int ny, vector <vector <char>> &cmat);
 void make_dvec(int nx, vector <double> &dvec);
 void make_dmat(int nx, int ny, vector <vector <double>> &dmat);
 void make_LDvec(int nx, vector <long double> &ldvec);
@@ -704,3 +807,4 @@ int read_accel_fileLD(string accelfile, vector <long double> &heliodist, vector 
 long double weight_posvel_rms(const vector <point3LD> &poscluster,const vector <point3LD> &velcluster,const long double dtime, vector <long double> &rmsvec);
 int linfituw01(const vector <double> &x, const vector <double> &y, double &slope, double &intercept);
 int arc2cel01(double racenter,double deccenter,double dist,double pa,double &outra,double &outdec);
+int obscode_lookup(const vector <observatory> &observatory_list, const char* obscode, double &obslon, double &plxcos,double &plxsin);

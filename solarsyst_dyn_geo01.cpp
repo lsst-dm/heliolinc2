@@ -6,6 +6,106 @@
 #include "solarsyst_dyn_geo01.h"
 #include "cmath"
 
+// stringncopy01: March 09, 2022:
+// like library function strncpy, but works the way I want it to.
+// Copies first n characters of a string into a character array.
+void stringncopy01(char *dest, const string &source, int n)
+{
+  int i=0;
+  int nchar = source.size();
+  if(nchar<n) {
+    // We have enough space to copy the whole thing.
+    for(i=0;i<nchar;i++) {
+      dest[i] = source[i];
+    }
+    dest[nchar]='\0';
+  } else {
+    // Not enough space: copy first n-1 characters.
+    for(i=0;i<n;i++) {
+      dest[i] = source[i];
+    }
+    dest[n-1]='\0';
+  }
+}
+ 
+// stringnmatch01: March 09, 2022:
+// like library function strncmp, but works the way I want it to.
+// Compares first n characters of two character arrays
+int stringnmatch01(const char *string1, const char *string2, int n)
+{
+  int i=0;
+  while(i<n) {
+    if(string1[i]<string2[i]) return(-1);
+    else if(string1[i]>string2[i]) return(1);
+    i++;
+  }
+  // If we get here without returning, the strings must have been equal
+  return(0);
+}
+
+void make_ivec(int nx, vector <int> &ivec)
+{
+  int i=0;
+  ivec={};
+  for(i=0;i<=nx;i++) ivec.push_back(0);
+}
+
+void make_imat(int nx, int ny, vector <vector <int>> &imat)
+{
+  int i=0;
+  int j=0;
+  vector <int> tvec;
+  imat = {};
+  
+  for(i=0;i<=nx;i++) {
+    tvec={};
+    for(j=0;j<=ny;j++) tvec.push_back(0);
+    imat.push_back(tvec);
+  }
+}
+
+void make_lvec(int nx, vector <long> &lvec)
+{
+  int i=0;
+  lvec={};
+  for(i=0;i<=nx;i++) lvec.push_back(0);
+}
+
+void make_lmat(int nx, int ny, vector <vector <long>> &lmat)
+{
+  int i=0;
+  int j=0;
+  vector <long> tvec;
+  lmat = {};
+  
+  for(i=0;i<=nx;i++) {
+    tvec={};
+    for(j=0;j<=ny;j++) tvec.push_back(0);
+    lmat.push_back(tvec);
+  }
+}
+
+void make_cvec(int nx, vector <char> &cvec)
+{
+  int i=0;
+  cvec={};
+  for(i=0;i<=nx;i++) cvec.push_back('\0');
+}
+
+void make_cmat(int nx, int ny, vector <vector <char>> &cmat)
+{
+  int i=0;
+  int j=0;
+  vector <char> tvec;
+  cmat = {};
+  
+  for(i=0;i<=nx;i++) {
+    tvec={};
+    for(j=0;j<=ny;j++) tvec.push_back('\0');
+    cmat.push_back(tvec);
+  }
+}
+
 void make_dvec(int nx, vector <double> &dvec)
 {
   int i=0;
@@ -5116,3 +5216,28 @@ int arc2cel01(double racenter,double deccenter,double dist,double pa,double &out
   return(0);
 }
     
+
+// obscode_lookup: March 09, 2022:
+// Look up an observatory code from a list, and copy the
+// coordinates to obslon, plxcos, and plxsin.
+int obscode_lookup(const vector <observatory> &observatory_list, const char* obscode, double &obslon, double &plxcos,double &plxsin)
+{
+  int i=0;
+  int nobs = observatory_list.size();
+  for(i=0; i<nobs; i++) {
+    // cout << "obscode_lookup comparing " << obscode << " with " << observatory_list[i].obscode << ":";
+    if(stringnmatch01(observatory_list[i].obscode,obscode,3)==0) {
+      // cout << " it\'s a match!\n";
+      obslon = observatory_list[i].obslon;
+      plxcos = observatory_list[i].plxcos;
+      plxsin = observatory_list[i].plxsin;
+      return(0);
+    } // else cout << " not a match\n";
+  }
+  cerr << "ERROR: observatory " << obscode << " not found in list\n";
+  return(1);
+}
+
+  
+
+  
