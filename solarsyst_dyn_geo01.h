@@ -809,3 +809,4 @@ long double weight_posvel_rms(const vector <point3LD> &poscluster,const vector <
 int linfituw01(const vector <double> &x, const vector <double> &y, double &slope, double &intercept);
 int arc2cel01(double racenter,double deccenter,double dist,double pa,double &outra,double &outdec);
 int obscode_lookup(const vector <observatory> &observatory_list, const char* obscode, double &obslon, double &plxcos,double &plxsin);
+string intzero01i(const int i, const int n);

@@ -5238,6 +5238,39 @@ int obscode_lookup(const vector <observatory> &observatory_list, const char* obs
   return(1);
 }
 
-  
+// intzero01i: March 11, 2022:
+// Given an input integer i, add leading zeros as
+// needed to fill out a string of length n. For example,
+// intzero01i(9,4) will produce the string "0009".
+// Works on negative integers, producing one fewer leading
+// zeros than with an otherwise-identical positive number,
+// with a negative sign in place of the first zero.
+string intzero01i(const int i, const int n)
+{
+  int itemp=i;
+  string outstring;
+  int leadzero=n-1;
+  int isneg=0;
+  int j=1;
+  if(i<0) {
+    isneg=1;
+    itemp=-i;
+    leadzero=n-2;
+  }
 
-  
+  // Load a string with the positive expression of i,
+  // with no leading zeros.
+  stringstream ss;
+  ss << itemp;
+  string str = ss.str();
+ 
+  while(j<itemp && leadzero>0) {
+    j*=10;
+    if(j<itemp) leadzero--;
+  }
+
+  if(isneg==1) outstring.push_back('-');
+  for(j=0;j<leadzero;j++) outstring.push_back('0');
+  for(j=0;j<str.size();j++) outstring.push_back(str[j]);
+  return(outstring);
+}

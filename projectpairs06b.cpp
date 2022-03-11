@@ -208,6 +208,7 @@ int main(int argc, char *argv[])
   int geobinct=0;
   double georadcen,georadmin,georadmax,geodist;
   georadcen = georadmin = georadmax = geodist = 0l;
+  double clustmetric=0l;
 
   if(argc!=17)
     {
@@ -416,18 +417,20 @@ int main(int argc, char *argv[])
   }
   instream1.close();
 
-    ofstream outstream2 {outfile};
+  ofstream outstream2 {outfile};
   ofstream outstream1 {rmsfile};
+  outstream2 << "#ptct,MJD,RA,Dec,mag,band,obscode,index1,index2,clusternum\n";
+  outstream1 << "#clusternum,posRMS,velRMS,totRMS,pairnum,timespan,uniquepoints,daysteps,metric,rating,heliodist,heliovel,helioacc,posX,posY,posZ,velX,velY,velZ\n";
   cout << "Writing to " << outfile << "\n";
   cout << "Read " << detvec.size() << " detections and " << pairvec.size() << " pairs.\n";
 
   valid_accel_num=0;  
+  realclusternum=0;
   for(accelct=0;accelct<accelnum;accelct++) {
     badpoint=0;
     // Calculate approximate heliocentric distances from the
     // input quadratic approximation.
     cout << "Working on grid point " << accelct << ": " << heliodist[accelct] << " " << heliovel[accelct]/SOLARDAY << " " << helioacc[accelct]*1000.0/SOLARDAY/SOLARDAY << "\n";
-    outstream2 << fixed << setprecision(6) << "Working on grid point " << accelct << ": " << heliodist[accelct] << " " << heliovel[accelct]/SOLARDAY << " " << helioacc[accelct]*1000.0/SOLARDAY/SOLARDAY << "\n";
 
     heliodistvec={};
     //cout << "Approximate heliocentric distances:\n";
@@ -543,7 +546,6 @@ int main(int argc, char *argv[])
       int npt=3;
       int clusternum = DBSCAN_6i01(kdvec, cluster_radius*(georadcen/CRAD_REF_GEODIST)/INTEGERIZING_SCALE, npt, INTEGERIZING_SCALE, outclusters);
       cout << "DBSCAN_6i01 finished, with " << clusternum << " = " << outclusters.size() << " clusters found\n";
-      realclusternum=0;
       for(clusterct=0; clusterct<outclusters.size(); clusterct++) {
 	// Scale cluster RMS down to reference geocentric distance
 	for(i=0;i<9;i++) outclusters[clusterct].rmsvec[i] *= CRAD_REF_GEODIST/georadcen;
@@ -599,24 +601,18 @@ int main(int argc, char *argv[])
 	  for(i=0; i<pointind.size(); i++) {
 	    if(i>0 && stringnmatch01(detvec[pointind[i]].idstring,detvec[pointind[i-1]].idstring,SHORTSTRINGLEN)!=0) rating="MIXED";
 	  }
-	  // Write cluster to output file.
-	  outstream2 << "Accelct " << accelct << " Cluster " << realclusternum << " with " << outclusters[clusterct].numpoints << " = " << outclusters[clusterct].clustind.size() << " points, " << rating << ".\n";
-	  outstream2 << fixed << setprecision(6) << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
-	  //cout << "Cluster pos RMS: " << outclusters[clusterct].rmsvec[0] << " " << outclusters[clusterct].rmsvec[1] << " " << outclusters[clusterct].rmsvec[2] <<  " total pos " << outclusters[clusterct].rmsvec[6] << "\n";
-	  //cout << "Cluster vel RMS: " << outclusters[clusterct].rmsvec[3] << " " << outclusters[clusterct].rmsvec[4] << " " << outclusters[clusterct].rmsvec[5] <<  " total vel " << outclusters[clusterct].rmsvec[7] << "\n";
-	  //cout << "Cluster total RMS: " << outclusters[clusterct].rmsvec[8] << "\n";
-	  outstream2 << fixed << setprecision(3) << "Cluster pos RMS: " << outclusters[clusterct].rmsvec[0] << " " << outclusters[clusterct].rmsvec[1] << " " << outclusters[clusterct].rmsvec[2] <<  " total pos " << outclusters[clusterct].rmsvec[6]  << " mean state positions: "  << outclusters[clusterct].meanvec[0] << " " << outclusters[clusterct].meanvec[1] << " " << outclusters[clusterct].meanvec[2] << "\n";
-	  outstream2 << fixed << setprecision(3) << "Cluster vel RMS: " << outclusters[clusterct].rmsvec[3] << " " << outclusters[clusterct].rmsvec[4] << " " << outclusters[clusterct].rmsvec[5] <<  " total vel " << outclusters[clusterct].rmsvec[7] << " mean state velocities: "  << outclusters[clusterct].meanvec[3] << " "   << outclusters[clusterct].meanvec[4] << " " << outclusters[clusterct].meanvec[5] << "\n";
-	  outstream2 << "Cluster total RMS: " << outclusters[clusterct].rmsvec[8] << "\n";
-	  // Write individual detections to output file
+	  // Write all individual detections in this cluster to the output cluster file
 	  for(i=0; i<pointind.size(); i++) {
-	    outstream2  << fixed << setprecision(6) << i << " " << detvec[pointind[i]].MJD << " " << detvec[pointind[i]].RA << " " << detvec[pointind[i]].Dec << " " << detvec[pointind[i]].idstring << " ";
-	    outstream2  << fixed << setprecision(3) << detvec[pointind[i]].mag << " " << detvec[pointind[i]].band << " " << detvec[pointind[i]].obscode << " " << pointind[i] << " " << detvec[pointind[i]].index << "\n";
+	    outstream2  << fixed << setprecision(6) << intzero01i(i,4) << "," << detvec[pointind[i]].MJD << "," << detvec[pointind[i]].RA << "," << detvec[pointind[i]].Dec << "," << detvec[pointind[i]].idstring << ",";
+	    outstream2  << fixed << setprecision(3) << detvec[pointind[i]].mag << "," << detvec[pointind[i]].band << "," << detvec[pointind[i]].obscode << "," << pointind[i] << "," << detvec[pointind[i]].index << "," << realclusternum << "\n";
 	  }
 	  outstream2 << "\n";
 	  //cout << "\n";
 	  // Write summary line to rms file
-	  outstream1  << fixed << setprecision(6) << "Accelct " << accelct << " Cluster " << realclusternum << " : " << outclusters[clusterct].numpoints << " " << pointind.size() << " " << timespan << " " << numdaysteps << " " << outclusters[clusterct].rmsvec[6] << " " << outclusters[clusterct].rmsvec[7] << " " << outclusters[clusterct].rmsvec[8] << " " << rating << "\n";
+	  clustmetric = double(pointind.size())*double(numdaysteps)*timespan/outclusters[clusterct].rmsvec[8];
+	  outstream1  << fixed << setprecision(6) << realclusternum << "," << outclusters[clusterct].rmsvec[6] << "," << outclusters[clusterct].rmsvec[7] << "," << outclusters[clusterct].rmsvec[8] << "," << outclusters[clusterct].numpoints << "," << timespan << "," << pointind.size() << "," << numdaysteps  << "," << clustmetric << "," << rating << "," << heliodist[accelct]/AU_KM << "," << heliovel[accelct]/SOLARDAY << "," << helioacc[accelct]*1000.0/SOLARDAY/SOLARDAY << ",";
+	  outstream1  << fixed << setprecision(3)  << outclusters[clusterct].meanvec[0] << "," << outclusters[clusterct].meanvec[1] << "," << outclusters[clusterct].meanvec[2] << ",";
+	  outstream1  << fixed << setprecision(6) << outclusters[clusterct].meanvec[3]/chartimescale << ","   << outclusters[clusterct].meanvec[4]/chartimescale << "," << outclusters[clusterct].meanvec[5]/chartimescale << "\n";
 	}
       }
       // Move on to the next bin in geocentric distance
