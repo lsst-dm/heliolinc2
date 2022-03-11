@@ -84,7 +84,7 @@
 
 #define MINGEODIST 0.1 // Geocentric distance corresponding to the center of the
                        // smallest logarithmic bin
-#define GEOBIN_HALF_WIDTH 2.0 // Logarithmic half-width for bins in geocentric distance.
+#define GEOBIN_HALF_WIDTH 1.5 // Logarithmic half-width for bins in geocentric distance.
                               // for example, if set to 2.0, a bin centered on 1.0 AU
                               // will extend from 0.5 to 2.0 AU
 #define MAXGEODIST 100.0 // Upper limit on geocentric distance corresponding to
