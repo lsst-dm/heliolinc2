@@ -34,7 +34,7 @@ void stringncopy01(char *dest, const string &source, int n)
 int stringnmatch01(const char *string1, const char *string2, int n)
 {
   int i=0;
-  while(i<n) {
+  while(i<n && string1[i]!='\0' && string2[i]!='\0') {
     if(string1[i]<string2[i]) return(-1);
     else if(string1[i]>string2[i]) return(1);
     i++;
