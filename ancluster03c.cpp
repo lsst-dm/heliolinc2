@@ -359,6 +359,7 @@ int main(int argc, char *argv[])
 	  if (!instream1.bad() && !instream1.fail() && !instream1.eof()) {
 	    // Read a line from the cluster file.
 	    getline(instream1,lnfromfile);
+	    if(DEBUG>=1) cout << lnfromfile << "\n";
 	    clustlinect++;
 	    badread=0;
 	    if(lnfromfile.size()>40) {
@@ -367,35 +368,45 @@ int main(int argc, char *argv[])
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
+	      if(DEBUG>=1) cout << "stest 1 " << stest << "\n";
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
+	      if(DEBUG>=1) cout << "stest 2 " << stest << "\n";
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
+	      if(DEBUG>=1) cout << "stest 3 " << stest << "\n";
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
+	      if(DEBUG>=1) cout << "stest 4 " << stest << "\n";
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
+	      if(DEBUG>=1) cout << "stest 5 " << stest << "\n";
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
+	      if(DEBUG>=1) cout << "stest 6 " << stest << "\n";
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
+	      if(DEBUG>=1) cout << "stest 7 " << stest << "\n";
 	      // Read the essential quantity: the index to the detection vector
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	      if(DEBUG>=1) cout << "this one is supposed to be i1 " << stest << "\n";
 	      if(endpoint>0) {
 		startpoint = endpoint+1;
 		i1 = stoi(stest);
 		clustan.clustind.push_back(i1);
+		if(DEBUG>=1) cout << "i1: " << i1 << "\n";
 	      } else badread=1;
 	      // Read and discard index2, which is currently irrelevant.
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
+	      if(DEBUG>=1) cout << "stest 8 " << stest << "\n";
 	      // Read clusterct, and check it against the index read from the rms file
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) {
@@ -404,6 +415,7 @@ int main(int argc, char *argv[])
 		if(i2 != clustan.clusterct) {
 		  cerr << "ERROR: cluster count mismatch at rms line " << rmslinect << ", cluster file line " << clustlinect << "\n";
 		  return(1);
+		  if(DEBUG>=1) cout << "stest 9 " << stest << "\n";
 		}
 	      } else badread=1;
 	      // If there was a file read error, abort.
