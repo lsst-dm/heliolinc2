@@ -419,7 +419,7 @@ int main(int argc, char *argv[])
 
   ofstream outstream2 {outfile};
   ofstream outstream1 {rmsfile};
-  outstream2 << "#ptct,MJD,RA,Dec,mag,band,obscode,index1,index2,clusternum\n";
+  outstream2 << "#ptct,MJD,RA,Dec,idstring,mag,band,obscode,index1,index2,clusternum\n";
   outstream1 << "#clusternum,posRMS,velRMS,totRMS,pairnum,timespan,uniquepoints,daysteps,metric,rating,heliodist,heliovel,helioacc,posX,posY,posZ,velX,velY,velZ\n";
   cout << "Writing to " << outfile << "\n";
   cout << "Read " << detvec.size() << " detections and " << pairvec.size() << " pairs.\n";
@@ -606,11 +606,12 @@ int main(int argc, char *argv[])
 	    outstream2  << fixed << setprecision(6) << intzero01i(i,4) << "," << detvec[pointind[i]].MJD << "," << detvec[pointind[i]].RA << "," << detvec[pointind[i]].Dec << "," << detvec[pointind[i]].idstring << ",";
 	    outstream2  << fixed << setprecision(3) << detvec[pointind[i]].mag << "," << detvec[pointind[i]].band << "," << detvec[pointind[i]].obscode << "," << pointind[i] << "," << detvec[pointind[i]].index << "," << realclusternum << "\n";
 	  }
-	  outstream2 << "\n";
-	  //cout << "\n";
 	  // Write summary line to rms file
 	  clustmetric = double(pointind.size())*double(numdaysteps)*timespan/outclusters[clusterct].rmsvec[8];
-	  outstream1  << fixed << setprecision(6) << realclusternum << "," << outclusters[clusterct].rmsvec[6] << "," << outclusters[clusterct].rmsvec[7] << "," << outclusters[clusterct].rmsvec[8] << "," << outclusters[clusterct].numpoints << "," << timespan << "," << pointind.size() << "," << numdaysteps  << "," << clustmetric << "," << rating << "," << heliodist[accelct]/AU_KM << "," << heliovel[accelct]/SOLARDAY << "," << helioacc[accelct]*1000.0/SOLARDAY/SOLARDAY << ",";
+	  outstream1  << fixed << setprecision(3) << realclusternum << "," << outclusters[clusterct].rmsvec[6] << "," << outclusters[clusterct].rmsvec[7] << "," << outclusters[clusterct].rmsvec[8] << "," << outclusters[clusterct].numpoints << ",";
+	  outstream1  << fixed << setprecision(6) << timespan << "," << pointind.size() << "," << numdaysteps  << "," << clustmetric << "," << rating << ",";
+	  outstream1  << fixed << setprecision(3) << heliodist[accelct]/AU_KM << "," << heliovel[accelct]/SOLARDAY << ",";
+	  outstream1  << fixed << setprecision(6) << helioacc[accelct]*1000.0/SOLARDAY/SOLARDAY << ",";
 	  outstream1  << fixed << setprecision(3)  << outclusters[clusterct].meanvec[0] << "," << outclusters[clusterct].meanvec[1] << "," << outclusters[clusterct].meanvec[2] << ",";
 	  outstream1  << fixed << setprecision(6) << outclusters[clusterct].meanvec[3]/chartimescale << ","   << outclusters[clusterct].meanvec[4]/chartimescale << "," << outclusters[clusterct].meanvec[5]/chartimescale << "\n";
 	}
