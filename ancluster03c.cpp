@@ -256,6 +256,7 @@ int main(int argc, char *argv[])
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) timespan = stof(stest);
 	else badread=1;
+	if(DEBUG>=1) cout << "timespan " << timespan << "\n";
 	
 	// Read the integers ptnum and daysteps
 	startpoint = endpoint+1;
@@ -266,14 +267,17 @@ int main(int argc, char *argv[])
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) daysteps = stoi(stest);
 	else badread=1;
+	if(DEBUG>=1) cout << "pointnum " << ptnum << ", daysteps " << daysteps << "\n";
 	
 	// Calculate the float clustermetric
 	clustmetric = double(ptnum)*double(daysteps)*timespan/totrms;
+	if(DEBUG>=1) cout << "clustmetric = " << clustmetric << "\n";
 	
 	// read the string rating
 	startpoint = endpoint+1;
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) stringncopy01(rating,stest,SHORTSTRINGLEN);
+	if(DEBUG>=1) cout << "rating " << rating << "\n";
 
 	// Read three heliocentric hypothesis parameters.
 	startpoint = endpoint+1;
@@ -288,6 +292,8 @@ int main(int argc, char *argv[])
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) helioacc = stof(stest);
 	else badread=1;
+	if(DEBUG>=1) cout << "heliopars: " << heliodist << " " << heliovel << " " << helioacc << "\n";
+	
 	
 	// Read the six elements of the mean state vector
 	startpoint = endpoint+1;
@@ -314,6 +320,7 @@ int main(int argc, char *argv[])
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) vz = stof(stest);
 	else badread=1;
+	if(DEBUG>=1) cout << "statevecs: " << x << " " << y << " " << z << " " << vx << " " << vy << " " << vz << "\n";
 
 	// Note: the detection index vector is left empty, for now.
      
