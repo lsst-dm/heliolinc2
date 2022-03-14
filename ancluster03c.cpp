@@ -268,8 +268,12 @@ int main(int argc, char *argv[])
 	if(endpoint>0) daysteps = stoi(stest);
 	else badread=1;
 	if(DEBUG>=1) cout << "pointnum " << ptnum << ", daysteps " << daysteps << "\n";
+
+	//Read and discard a value for clustermetric
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	
-	// Calculate the float clustermetric
+	// Recalculate the float clustermetric
 	clustmetric = double(ptnum)*double(daysteps)*timespan/totrms;
 	if(DEBUG>=1) cout << "clustmetric = " << clustmetric << "\n";
 	
