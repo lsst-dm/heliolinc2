@@ -358,7 +358,7 @@ int main(int argc, char *argv[])
 	for(i=0;i<ptnum;i++) {
 	  if (!instream1.bad() && !instream1.fail() && !instream1.eof()) {
 	    // Read a line from the cluster file.
-	    getline(instream2,lnfromfile);
+	    getline(instream1,lnfromfile);
 	    clustlinect++;
 	    badread=0;
 	    if(lnfromfile.size()>40) {
