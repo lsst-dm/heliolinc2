@@ -627,6 +627,37 @@ public:
   }
 };
 
+class clusteran04{ // New, more complete storage of important data on a heliolinc cluster
+
+public:
+  int clusterct;
+  vector <float> rmsvec; // postotal, veltotal, total 
+  int pairnum;
+  float timespan;
+  int uniquepoints;
+  int daysteps;
+  float clustermetric;
+  char rating[SHORTSTRINGLEN];
+  vector <float> heliopar;
+  vector <float> statevecs;
+  vector <int> clustind;
+  
+  clusteran04(int clusterct, vector <float> rmsvec, int pairnum, float timespan, int uniquepoints, int daysteps, float clustermetric, const string &rating, vector <float> heliopar, vector <float> statevecs, vector <int> clustind) :clusterct(clusterct), rmsvec(rmsvec), pairnum(pairnum), timespan(timespan), uniquepoints(uniquepoints), daysteps(daysteps), clustermetric(clustermetric), heliopar(heliopar), statevecs(statevecs), clustind(clustind) {
+    // Copy input value for rating, making sure it's not too long
+    assert(rating.size() < sizeof(this->rating));
+    std::strncpy(this->rating, rating.c_str(), sizeof(this->rating));
+    this->rating[sizeof(this->rating)-1] = 0;
+  }
+  clusteran04() = default;
+};
+
+class lowermetric_clusteran04{
+public:
+  inline bool operator() (const clusteran04& o1, const clusteran04& o2) {
+    return(o1.clustermetric < o2.clustermetric);
+  }
+};
+
 
 class heliogridpoint{ // 
 public:
@@ -810,3 +841,4 @@ int linfituw01(const vector <double> &x, const vector <double> &y, double &slope
 int arc2cel01(double racenter,double deccenter,double dist,double pa,double &outra,double &outdec);
 int obscode_lookup(const vector <observatory> &observatory_list, const char* obscode, double &obslon, double &plxcos,double &plxsin);
 string intzero01i(const int i, const int n);
+int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint);

@@ -5263,14 +5263,33 @@ string intzero01i(const int i, const int n)
   stringstream ss;
   ss << itemp;
   string str = ss.str();
- 
+  j=1;
   while(j<itemp && leadzero>0) {
     j*=10;
-    if(j<itemp) leadzero--;
+    if(j<=itemp) leadzero--;
   }
 
   if(isneg==1) outstring.push_back('-');
   for(j=0;j<leadzero;j++) outstring.push_back('0');
   for(j=0;j<str.size();j++) outstring.push_back(str[j]);
   return(outstring);
+}
+
+// get_csv_string01: Given a line read from a csv file, and an
+// starting point along that line, read the next comma-separated value,
+// and put it into the output string. If the read was successful, return
+// the line index of the comma, newline, or EOF at the end of the value read.
+// Otherwise, return -1 as an error code.
+int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint)
+{
+  int i=startpoint;
+  char c='0';
+  outstring="";
+  while(i<lnfromfile.size() && c!=',' && c!='\n' && c!=EOF) {
+    c=lnfromfile[i];
+    if(c!=',' && c!='\n' && c!=EOF) outstring.push_back(c);
+    i++;
+  }
+  if(outstring.size() > 0) return(i); // Worked fine.
+  else return(-1); // Error code
 }
