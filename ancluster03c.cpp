@@ -24,6 +24,7 @@
 
 #define MAXCLUSTRMS 1.0e5
 #define ONE_POINT_PER_IMAGE 1
+#define DEBUG 1
 
 
 static void show_usage()
@@ -216,6 +217,7 @@ int main(int argc, char *argv[])
     while(!instream1.bad() && !instream1.fail() && !instream1.eof() && !instream2.bad() && !instream2.fail() && !instream2.eof()) {
       // Read a line from the rms file, and load an object of type clusteran04
       getline(instream2,lnfromfile);
+      cout << lnfromfile << "\n";
       rmslinect++;
       badread=0;
       if(lnfromfile.size()>40) {
@@ -224,6 +226,8 @@ int main(int argc, char *argv[])
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) clusterct = stoi(stest);
 	else badread=1;
+	if(DEBUG>=1) cout << "clusterct " << clusterct << "\n";
+
 	
  	// Read three RMS values
 	startpoint = endpoint+1;
@@ -238,12 +242,14 @@ int main(int argc, char *argv[])
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) totrms = stof(stest);
 	else badread=1;
-	  
+	if(DEBUG>=1) cout << "rms: " << posrms << " " << velrms << " " << totrms << "\n";
+
 	// Read the integer pairnum
 	startpoint = endpoint+1;
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) pairnum = stoi(stest);
 	else badread=1;
+	if(DEBUG>=1) cout << "pairnum " << pairnum << "\n";
 	
 	// Read the float timespan
 	startpoint = endpoint+1;
