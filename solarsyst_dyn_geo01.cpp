@@ -5290,6 +5290,6 @@ int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint
     if(c!=',' && c!='\n' && c!=EOF) outstring.push_back(c);
     i++;
   }
-  if(outstring.size() > 0) return(i); // Worked fine.
+  if(outstring.size() > 0) return(i-1); // Worked fine.
   else return(-1); // Error code
 }
