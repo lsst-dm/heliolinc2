@@ -1,7 +1,14 @@
-// March 11, 2022: ancluster03c.cpp
-// Reads cluster files with a new, standardized csv format.
-// This requires both the cluster and the RMS file.
-// 
+// March 11, 2022: ancluster03c.cpp:
+// Like ancluster03b, but reads input
+// files with a new, standardized csv format.
+// This requires both the cluster and the RMS file, where
+// previously only the cluster file was required.
+//
+// February 18, 2022: ancluster03b.cpp: Like ancluster03a.cpp,
+// but has some improvements to reduce memory requirements.
+// Also, rejects all clusters that have multiple measurements
+// at the same time, since this is impossible for a real object.
+//
 // January 17, 2022: ancluster03a.cpp
 // Read cluster files produced by the good version of projectpairs04c.cpp,
 // and analyze them. The good version of projectpairs04c.cpp fixes
@@ -55,13 +62,22 @@ int main(int argc, char *argv[])
   ifstream instream2;
   ofstream outstream1;
   ofstream outstream2;
-  string detidstring;
   double tmjd;
   double maxrms = MAXCLUSTRMS;
   vector <det_obsmag_indvec> detvec;
   vector <det_obsmag_indvec> clusterdets;
   det_obsmag_indvec dsv = det_obsmag_indvec(0l,0l,0l,0L,0L,0L,"null",0.0,"V","I11",1,{});
   clusteran04 clustan = clusteran04(0,{},0,0.0,0,0,0.0,"null",{},{},{});
+  long double X, Y, Z;
+  X = Y = Z = 0L;
+  long double MJD = 0L;
+  double RA = 0;
+  double Dec = 0;
+  char detid[SHORTSTRINGLEN];
+  double mag = 0;
+  char band[MINSTRINGLEN];
+  char obscode[MINSTRINGLEN];
+  long origind=0;
   vector <clusteran04> clustanvec;
   int clusterct=0;
   int clusterct2=0;
@@ -84,7 +100,8 @@ int main(int argc, char *argv[])
   vector <int> clustind;
   int startpoint=0;
   int endpoint=0;
-
+  int detfilelinect=0;
+ 
   float_index findex = float_index(0L,0);
   vector <float_index> clustanvec2;
   int goodclusternum=0;
@@ -172,9 +189,81 @@ int main(int argc, char *argv[])
     return(1);
   }
   detvec={};
-  while(instream1 >> dsv.MJD >> dsv.RA >> dsv.Dec >> w1 >> w2 >> w3 >> dsv.idstring >> dsv.mag >> dsv.band >> dsv.obscode >> dsv.index) {     
-    dsv.indvec = {};
-    detvec.push_back(dsv);
+  // Skip header line
+  getline(instream1,lnfromfile);
+  cout << "Header line from input paired detection file " << pairdetfile << ":\n";
+  cout << lnfromfile << "\n";
+  // Read body of the file
+  detfilelinect=0;
+  while(!instream1.bad() && !instream1.fail() && !instream1.eof()) {
+    // Read a line from the paired detections file, and load an object of class det_obsmag_indvec
+    getline(instream1,lnfromfile);
+    // cout << lnfromfile << "\n";
+    detfilelinect++;
+    badread=0;
+    //while(instream1 >> MJD >> RA >> Dec >> X >> Y >> Z >> detid >> mag >> band >> obscode >> origind) {
+    if(lnfromfile.size()>60) {
+      // Read MJD, RA, Dec, observer x, y, z
+      startpoint=0;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) MJD = stold(stest);
+      else badread=1;
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) RA = stold(stest);
+      else badread=1;
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) Dec = stold(stest);
+      else badread=1;
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) X = stold(stest);
+      else badread=1;
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) Y = stold(stest);
+      else badread=1;
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) Z = stold(stest);
+      else badread=1;
+      // Read the IDstring
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) stringncopy01(detid,stest,SHORTSTRINGLEN);
+      else badread=1;
+      // Read the magnitude
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) mag = stod(stest);
+      else badread=1;
+      // Read the band and observatory code
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) stringncopy01(band,stest,MINSTRINGLEN);
+      else badread=1;
+       startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) stringncopy01(obscode,stest,MINSTRINGLEN);
+      else badread=1;
+      // Read the original detection index
+       startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) origind = stol(stest);
+      else badread=1;
+
+      // If there was a file read error, abort.
+      if(badread==1) {
+	cerr << "ERROR reading line " << detfilelinect << " of paired detection file" << pairdetfile << "\n";
+	return(1);
+      }
+      // If we reach this point, the line was read OK. Write it to detvec.
+      dsv=det_obsmag_indvec(MJD,RA,Dec,X,Y,Z,detid,mag,band,obscode,origind,{});
+      detvec.push_back(dsv);
+    } else if(!instream1.bad() && !instream1.fail() && !instream1.eof()) {
+      cerr << "WARNING: line " << detfilelinect << " of paired detection file " << pairdetfile << " was too short\n";
+    }
   }
   instream1.close();
   cout << "Successfully read " << detvec.size() << " detections from " << pairdetfile << "\n";
