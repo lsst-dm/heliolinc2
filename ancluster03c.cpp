@@ -361,6 +361,13 @@ int main(int argc, char *argv[])
 	    getline(instream1,lnfromfile);
 	    if(DEBUG>=1) cout << lnfromfile << "\n";
 	    clustlinect++;
+	    while(lnfromfile.size()<40 && !instream1.bad() && !instream1.fail() && !instream1.eof()) {
+	      cerr << "WARNING: line " << clustlinect << " of cluster file " << clusternames[clusterfilect] << " is too short\n";
+	      // Read another line, maybe there's just a blank one.
+	      getline(instream1,lnfromfile);
+	      if(DEBUG>=1) cout << lnfromfile << "\n";
+	      clustlinect++;
+	    }
 	    badread=0;
 	    if(lnfromfile.size()>40) {
 	      // Read and discard the first eight quantities: ptct, MJD, RA, Dec, mag, band, and obscode.
@@ -427,9 +434,6 @@ int main(int argc, char *argv[])
 		cerr << "ERROR reading line " << clustlinect << " of cluster file " << clusternames[clusterfilect] << "\n";
 		return(1);
 	      }
-	    } else {
-	      cerr << "ERROR: line " << clustlinect << " of cluster file " << clusternames[clusterfilect] << " is too short\n";
-	      return(1);
 	    }
 	    // Close if-statement checking if we're still reading valid lines from cluster file.
 	  } else {
