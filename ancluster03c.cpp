@@ -197,6 +197,8 @@ int main(int argc, char *argv[])
   
   outstream1.open(outfile,ios_base::out);
   outstream2.open(outrmsfile,ios_base::out);
+  outstream1 << "#ptct,MJD,RA,Dec,idstring,mag,band,obscode,index1,index2,clusternum\n";
+  outstream2 << "#clusternum,posRMS,velRMS,totRMS,pairnum,timespan,uniquepoints,daysteps,metric,rating,heliodist,heliovel,helioacc,posX,posY,posZ,velX,velY,velZ\n";
 
   // Read cluster files, loading clusters.
   for(clusterfilect=0; clusterfilect<clusterfilenum; clusterfilect++) {
@@ -510,16 +512,16 @@ int main(int argc, char *argv[])
       // Write all individual detections in this cluster to the output cluster file
       for(i=0; i<clustanvec[clusterct].clustind.size(); i++) {
 	i1 = clustanvec[clusterct].clustind[i];	
-	outstream2  << fixed << setprecision(6) << intzero01i(i,4) << "," << detvec[i1].MJD << "," << detvec[i1].RA << "," << detvec[i1].Dec << "," << detvec[i1].idstring << ",";
-	outstream2  << fixed << setprecision(3) << detvec[i1].mag << "," << detvec[i1].band << "," << detvec[i1].obscode << "," << i1 << "," << detvec[i1].index << "," << goodclusternum << "\n";
+	outstream1  << fixed << setprecision(6) << intzero01i(i,4) << "," << detvec[i1].MJD << "," << detvec[i1].RA << "," << detvec[i1].Dec << "," << detvec[i1].idstring << ",";
+	outstream1  << fixed << setprecision(3) << detvec[i1].mag << "," << detvec[i1].band << "," << detvec[i1].obscode << "," << i1 << "," << detvec[i1].index << "," << goodclusternum << "\n";
       }
       // Write summary line to rms file
-      outstream1  << fixed << setprecision(3) << goodclusternum << "," << clustanvec[clusterct].rmsvec[0] << "," << clustanvec[clusterct].rmsvec[1] << "," << clustanvec[clusterct].rmsvec[2] << "," << clustanvec[clusterct].pairnum << ",";
-      outstream1  << fixed << setprecision(6) << clustanvec[clusterct].timespan << "," << clustanvec[clusterct].clustind.size() << "," << clustanvec[clusterct].daysteps  << "," << clustanvec[clusterct].clustermetric << "," << clustanvec[clusterct].rating << ",";
-      outstream1  << fixed << setprecision(3) << clustanvec[clusterct].heliopar[0] << "," << clustanvec[clusterct].heliopar[1] << ",";
-      outstream1  << fixed << setprecision(6) << clustanvec[clusterct].heliopar[2] << ",";
-      outstream1  << fixed << setprecision(3)  << clustanvec[clusterct].statevecs[0] << "," << clustanvec[clusterct].statevecs[1] << "," << clustanvec[clusterct].statevecs[2] << ",";
-      outstream1  << fixed << setprecision(6) << clustanvec[clusterct].statevecs[3] << ","   << clustanvec[clusterct].statevecs[4] << "," << clustanvec[clusterct].statevecs[5] << "\n";
+      outstream2  << fixed << setprecision(3) << goodclusternum << "," << clustanvec[clusterct].rmsvec[0] << "," << clustanvec[clusterct].rmsvec[1] << "," << clustanvec[clusterct].rmsvec[2] << "," << clustanvec[clusterct].pairnum << ",";
+      outstream2  << fixed << setprecision(6) << clustanvec[clusterct].timespan << "," << clustanvec[clusterct].clustind.size() << "," << clustanvec[clusterct].daysteps  << "," << clustanvec[clusterct].clustermetric << "," << clustanvec[clusterct].rating << ",";
+      outstream2  << fixed << setprecision(3) << clustanvec[clusterct].heliopar[0] << "," << clustanvec[clusterct].heliopar[1] << ",";
+      outstream2  << fixed << setprecision(6) << clustanvec[clusterct].heliopar[2] << ",";
+      outstream2  << fixed << setprecision(3)  << clustanvec[clusterct].statevecs[0] << "," << clustanvec[clusterct].statevecs[1] << "," << clustanvec[clusterct].statevecs[2] << ",";
+      outstream2  << fixed << setprecision(6) << clustanvec[clusterct].statevecs[3] << ","   << clustanvec[clusterct].statevecs[4] << "," << clustanvec[clusterct].statevecs[5] << "\n";
     } else cout << "Rejected as bad or else redundant with a better cluster\n";
   }
   return(0);
