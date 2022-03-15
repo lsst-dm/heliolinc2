@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
   int pairnum;
   float timespan;
   int ptnum=0;
-  int daysteps=0;
+  int obsnights=0;
   float clustmetric=0;
   char rating[SHORTSTRINGLEN];
   vector <float> heliopar;
@@ -198,7 +198,6 @@ int main(int argc, char *argv[])
   while(!instream1.bad() && !instream1.fail() && !instream1.eof()) {
     // Read a line from the paired detections file, and load an object of class det_obsmag_indvec
     getline(instream1,lnfromfile);
-    // cout << lnfromfile << "\n";
     detfilelinect++;
     badread=0;
     //while(instream1 >> MJD >> RA >> Dec >> X >> Y >> Z >> detid >> mag >> band >> obscode >> origind) {
@@ -260,6 +259,7 @@ int main(int argc, char *argv[])
       }
       // If we reach this point, the line was read OK. Write it to detvec.
       dsv=det_obsmag_indvec(MJD,RA,Dec,X,Y,Z,detid,mag,band,obscode,origind,{});
+      dsv.indvec = {};
       detvec.push_back(dsv);
     } else if(!instream1.bad() && !instream1.fail() && !instream1.eof()) {
       cerr << "WARNING: line " << detfilelinect << " of paired detection file " << pairdetfile << " was too short\n";
@@ -287,7 +287,7 @@ int main(int argc, char *argv[])
   outstream1.open(outfile,ios_base::out);
   outstream2.open(outrmsfile,ios_base::out);
   outstream1 << "#ptct,MJD,RA,Dec,idstring,mag,band,obscode,index1,index2,clusternum\n";
-  outstream2 << "#clusternum,posRMS,velRMS,totRMS,pairnum,timespan,uniquepoints,daysteps,metric,rating,heliodist,heliovel,helioacc,posX,posY,posZ,velX,velY,velZ\n";
+  outstream2 << "#clusternum,posRMS,velRMS,totRMS,pairnum,timespan,uniquepoints,obsnights,metric,rating,heliodist,heliovel,helioacc,posX,posY,posZ,velX,velY,velZ\n";
 
   // Read cluster files, loading clusters.
   for(clusterfilect=0; clusterfilect<clusterfilenum; clusterfilect++) {
@@ -308,7 +308,6 @@ int main(int argc, char *argv[])
     while(!instream1.bad() && !instream1.fail() && !instream1.eof() && !instream2.bad() && !instream2.fail() && !instream2.eof()) {
       // Read a line from the rms file, and load an object of type clusteran04
       getline(instream2,lnfromfile);
-      cout << lnfromfile << "\n";
       rmslinect++;
       badread=0;
       if(lnfromfile.size()>40) {
@@ -317,9 +316,6 @@ int main(int argc, char *argv[])
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) clusterct = stoi(stest);
 	else badread=1;
-	if(DEBUG>=1) cout << "clusterct " << clusterct << "\n";
-
-	
  	// Read three RMS values
 	startpoint = endpoint+1;
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
@@ -333,46 +329,40 @@ int main(int argc, char *argv[])
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) totrms = stof(stest);
 	else badread=1;
-	if(DEBUG>=1) cout << "rms: " << posrms << " " << velrms << " " << totrms << "\n";
 
 	// Read the integer pairnum
 	startpoint = endpoint+1;
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) pairnum = stoi(stest);
 	else badread=1;
-	if(DEBUG>=1) cout << "pairnum " << pairnum << "\n";
 	
 	// Read the float timespan
 	startpoint = endpoint+1;
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) timespan = stof(stest);
 	else badread=1;
-	if(DEBUG>=1) cout << "timespan " << timespan << "\n";
 	
-	// Read the integers ptnum and daysteps
+	// Read the integers ptnum and obsnights
 	startpoint = endpoint+1;
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) ptnum = stoi(stest);
 	else badread=1;
 	startpoint = endpoint+1;
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
-	if(endpoint>0) daysteps = stoi(stest);
+	if(endpoint>0) obsnights = stoi(stest);
 	else badread=1;
-	if(DEBUG>=1) cout << "pointnum " << ptnum << ", daysteps " << daysteps << "\n";
 
 	//Read and discard a value for clustermetric
 	startpoint = endpoint+1;
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	
 	// Recalculate the float clustermetric
-	clustmetric = double(ptnum)*double(daysteps)*timespan/totrms;
-	if(DEBUG>=1) cout << "clustmetric = " << clustmetric << "\n";
+	clustmetric = double(ptnum)*double(obsnights)*timespan/totrms;
 	
 	// read the string rating
 	startpoint = endpoint+1;
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) stringncopy01(rating,stest,SHORTSTRINGLEN);
-	if(DEBUG>=1) cout << "rating " << rating << "\n";
 
 	// Read three heliocentric hypothesis parameters.
 	startpoint = endpoint+1;
@@ -387,8 +377,6 @@ int main(int argc, char *argv[])
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) helioacc = stof(stest);
 	else badread=1;
-	if(DEBUG>=1) cout << "heliopars: " << heliodist << " " << heliovel << " " << helioacc << "\n";
-	
 	
 	// Read the six elements of the mean state vector
 	startpoint = endpoint+1;
@@ -415,7 +403,6 @@ int main(int argc, char *argv[])
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	if(endpoint>0) vz = stof(stest);
 	else badread=1;
-	if(DEBUG>=1) cout << "statevecs: " << x << " " << y << " " << z << " " << vx << " " << vy << " " << vz << "\n";
 
 	// Note: the detection index vector is left empty, for now.
      
@@ -442,7 +429,7 @@ int main(int argc, char *argv[])
 	statevecs.push_back(vy);
 	statevecs.push_back(vz);
 	
-	clustan = clusteran04(clusterct,rmsvec,pairnum,timespan,ptnum,daysteps,clustmetric,rating,heliopar,statevecs,{});
+	clustan = clusteran04(clusterct,rmsvec,pairnum,timespan,ptnum,obsnights,clustmetric,rating,heliopar,statevecs,{});
 
 	// Read the associated lines from the cluster file, but retain only the
 	// indices to the det vector.
@@ -450,13 +437,11 @@ int main(int argc, char *argv[])
 	  if (!instream1.bad() && !instream1.fail() && !instream1.eof()) {
 	    // Read a line from the cluster file.
 	    getline(instream1,lnfromfile);
-	    if(DEBUG>=1) cout << lnfromfile << "\n";
 	    clustlinect++;
 	    while(lnfromfile.size()<40 && !instream1.bad() && !instream1.fail() && !instream1.eof()) {
 	      cerr << "WARNING: line " << clustlinect << " of cluster file " << clusternames[clusterfilect] << " is too short\n";
 	      // Read another line, maybe there's just a blank one.
 	      getline(instream1,lnfromfile);
-	      if(DEBUG>=1) cout << lnfromfile << "\n";
 	      clustlinect++;
 	    }
 	    badread=0;
@@ -466,49 +451,38 @@ int main(int argc, char *argv[])
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
-	      if(DEBUG>=1) cout << "stest 1 " << stest << "\n";
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
-	      if(DEBUG>=1) cout << "stest 2 " << stest << "\n";
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
-	      if(DEBUG>=1) cout << "stest 3 " << stest << "\n";
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
-	      if(DEBUG>=1) cout << "stest 4 " << stest << "\n";
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
-	      if(DEBUG>=1) cout << "stest 5 " << stest << "\n";
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
-	      if(DEBUG>=1) cout << "stest 6 " << stest << "\n";
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
-	      if(DEBUG>=1) cout << "stest 7 " << stest << "\n";
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
-	      if(DEBUG>=1) cout << "stest 8 " << stest << "\n";
 	      // Read the essential quantity: the index to the detection vector
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
-	      if(DEBUG>=1) cout << "this one is supposed to be i1 " << stest << "\n";
 	      if(endpoint>0) {
 		startpoint = endpoint+1;
 		i1 = stoi(stest);
 		clustan.clustind.push_back(i1);
-		if(DEBUG>=1) cout << "i1: " << i1 << "\n";
 	      } else badread=1;
 	      // Read and discard index2, which is currently irrelevant.
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) startpoint = endpoint+1;
 	      else badread=1;
-	      if(DEBUG>=1) cout << "stest 9 " << stest << "\n";
 	      // Read clusterct, and check it against the index read from the rms file
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	      if(endpoint>0) {
@@ -517,7 +491,6 @@ int main(int argc, char *argv[])
 		if(i2 != clustan.clusterct) {
 		  cerr << "ERROR: cluster count mismatch at rms line " << rmslinect << ", cluster file line " << clustlinect << "\n";
 		  return(1);
-		  if(DEBUG>=1) cout << "stest 10 " << stest << "\n";
 		}
 	      } else badread=1;
 	      // If there was a file read error, abort.
@@ -590,7 +563,7 @@ int main(int argc, char *argv[])
     if(clustanvec[clusterct].uniquepoints>=6 && clustanvec[clusterct].rmsvec[2]<=maxrms) {
       // This is a good cluster not already marked as used.
       goodclusternum++;
-      cout << "Accepted as good cluster " << goodclusternum << "\n";
+      cout << "Accepted good cluster " << goodclusternum << " with metric " << clustanvec[clusterct].clustermetric << "\n";
       // See whether cluster is pure or mixed.
       stringncopy01(rating,"PURE",SHORTSTRINGLEN);
       for(i=0; i<clustanvec[clusterct].clustind.size(); i++) {
@@ -606,12 +579,22 @@ int main(int argc, char *argv[])
       }
       // Write summary line to rms file
       outstream2  << fixed << setprecision(3) << goodclusternum << "," << clustanvec[clusterct].rmsvec[0] << "," << clustanvec[clusterct].rmsvec[1] << "," << clustanvec[clusterct].rmsvec[2] << "," << clustanvec[clusterct].pairnum << ",";
-      outstream2  << fixed << setprecision(6) << clustanvec[clusterct].timespan << "," << clustanvec[clusterct].clustind.size() << "," << clustanvec[clusterct].daysteps  << "," << clustanvec[clusterct].clustermetric << "," << clustanvec[clusterct].rating << ",";
+      outstream2  << fixed << setprecision(6) << clustanvec[clusterct].timespan << "," << clustanvec[clusterct].clustind.size() << "," << clustanvec[clusterct].obsnights  << "," << clustanvec[clusterct].clustermetric << "," << clustanvec[clusterct].rating << ",";
       outstream2  << fixed << setprecision(3) << clustanvec[clusterct].heliopar[0] << "," << clustanvec[clusterct].heliopar[1] << ",";
       outstream2  << fixed << setprecision(6) << clustanvec[clusterct].heliopar[2] << ",";
       outstream2  << fixed << setprecision(3)  << clustanvec[clusterct].statevecs[0] << "," << clustanvec[clusterct].statevecs[1] << "," << clustanvec[clusterct].statevecs[2] << ",";
       outstream2  << fixed << setprecision(6) << clustanvec[clusterct].statevecs[3] << ","   << clustanvec[clusterct].statevecs[4] << "," << clustanvec[clusterct].statevecs[5] << "\n";
-    } else cout << "Rejected as bad or else redundant with a better cluster\n";
+      for(i=0;i<clustanvec[clusterct].clustind.size();i++) {
+	// This point is in the chosen cluster, and cannot be in any other
+	detct = clustanvec[clusterct].clustind[i];
+	//cout << "Deduplicating detection " << detct << "\n";
+	// Mark all the clusters containing this point as already considered
+	for(j=0;j<detvec[detct].indvec.size();j++) {
+	  //cout << "         wiping cluster " << detvec[detct].indvec[j] << "\n";
+	  clustanvec[detvec[detct].indvec[j]].uniquepoints = 0;
+	}
+      }
+    } 
   }
   return(0);
 }

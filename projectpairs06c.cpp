@@ -1,7 +1,9 @@
 // March 15, 2022: projectpairs06c.cpp:
 // Like projectpairs06b.cpp, but reads the pairdets file in csv format
-// with a header, as output by maketrack04c.cpp.
-
+// with a header, as output by maketrack04c.cpp. Also replaces the
+// daysteps parameter with obsnights = daysteps+1 (on output).
+// The parameter daysteps is still used internally exactly as before.
+//
 // Note well that the format of the pair file (as opposed to the
 // pairdets file) has NOT changed. The pair file has an unavoidably
 // specialized format because of the need to handle both pairs and
@@ -209,6 +211,7 @@ int main(int argc, char *argv[])
   vector <long double> mjdstep;
   long double timespan = 0.0L;
   int numdaysteps=0;
+  int numobsnights=0;
   int clusterct=0;
   int realclusternum=0;
   string rating;
@@ -375,6 +378,7 @@ int main(int argc, char *argv[])
     cerr << "ERROR: unable to open input file " << indetfile << "\n";
     return(1);
   }
+  detvec={};
   // Skip header line
   getline(instream1,lnfromfile);
   cout << "Header line from input paired detection file " << indetfile << ":\n";
@@ -508,7 +512,7 @@ int main(int argc, char *argv[])
   ofstream outstream2 {outfile};
   ofstream outstream1 {rmsfile};
   outstream2 << "#ptct,MJD,RA,Dec,idstring,mag,band,obscode,index1,index2,clusternum\n";
-  outstream1 << "#clusternum,posRMS,velRMS,totRMS,pairnum,timespan,uniquepoints,daysteps,metric,rating,heliodist,heliovel,helioacc,posX,posY,posZ,velX,velY,velZ\n";
+  outstream1 << "#clusternum,posRMS,velRMS,totRMS,pairnum,timespan,uniquepoints,obsnights,metric,rating,heliodist,heliovel,helioacc,posX,posY,posZ,velX,velY,velZ\n";
   cout << "Writing to " << outfile << "\n";
   cout << "Read " << detvec.size() << " detections and " << pairvec.size() << " pairs.\n";
 
@@ -681,6 +685,7 @@ int main(int argc, char *argv[])
 	// Does cluster pass the criteria for a linked detection?
 	if(timespan >= MINSPAN && numdaysteps >= MINDAYSTEPS) {
 	  realclusternum++;
+	  numobsnights = numdaysteps+1;
 	  //cout << "Cluster passes discovery criteria: will be designated as cluster " << realclusternum << "\n";
 	  // Check whether cluster is composed purely of detections from
 	  // a single simulated object (i.e., would be a real discovery) or is a mixture
@@ -695,9 +700,9 @@ int main(int argc, char *argv[])
 	    outstream2  << fixed << setprecision(3) << detvec[pointind[i]].mag << "," << detvec[pointind[i]].band << "," << detvec[pointind[i]].obscode << "," << pointind[i] << "," << detvec[pointind[i]].index << "," << realclusternum << "\n";
 	  }
 	  // Write summary line to rms file
-	  clustmetric = double(pointind.size())*double(numdaysteps)*timespan/outclusters[clusterct].rmsvec[8];
+	  clustmetric = double(pointind.size())*double(numobsnights)*timespan/outclusters[clusterct].rmsvec[8];
 	  outstream1  << fixed << setprecision(3) << realclusternum << "," << outclusters[clusterct].rmsvec[6] << "," << outclusters[clusterct].rmsvec[7] << "," << outclusters[clusterct].rmsvec[8] << "," << outclusters[clusterct].numpoints << ",";
-	  outstream1  << fixed << setprecision(6) << timespan << "," << pointind.size() << "," << numdaysteps  << "," << clustmetric << "," << rating << ",";
+	  outstream1  << fixed << setprecision(6) << timespan << "," << pointind.size() << "," << numobsnights  << "," << clustmetric << "," << rating << ",";
 	  outstream1  << fixed << setprecision(3) << heliodist[accelct]/AU_KM << "," << heliovel[accelct]/SOLARDAY << ",";
 	  outstream1  << fixed << setprecision(6) << helioacc[accelct]*1000.0/SOLARDAY/SOLARDAY << ",";
 	  outstream1  << fixed << setprecision(3)  << outclusters[clusterct].meanvec[0] << "," << outclusters[clusterct].meanvec[1] << "," << outclusters[clusterct].meanvec[2] << ",";

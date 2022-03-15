@@ -635,14 +635,14 @@ public:
   int pairnum;
   float timespan;
   int uniquepoints;
-  int daysteps;
+  int obsnights;
   float clustermetric;
   char rating[SHORTSTRINGLEN];
   vector <float> heliopar;
   vector <float> statevecs;
   vector <int> clustind;
   
-  clusteran04(int clusterct, vector <float> rmsvec, int pairnum, float timespan, int uniquepoints, int daysteps, float clustermetric, const string &rating, vector <float> heliopar, vector <float> statevecs, vector <int> clustind) :clusterct(clusterct), rmsvec(rmsvec), pairnum(pairnum), timespan(timespan), uniquepoints(uniquepoints), daysteps(daysteps), clustermetric(clustermetric), heliopar(heliopar), statevecs(statevecs), clustind(clustind) {
+  clusteran04(int clusterct, vector <float> rmsvec, int pairnum, float timespan, int uniquepoints, int obsnights, float clustermetric, const string &rating, vector <float> heliopar, vector <float> statevecs, vector <int> clustind) :clusterct(clusterct), rmsvec(rmsvec), pairnum(pairnum), timespan(timespan), uniquepoints(uniquepoints), obsnights(obsnights), clustermetric(clustermetric), heliopar(heliopar), statevecs(statevecs), clustind(clustind) {
     // Copy input value for rating, making sure it's not too long
     assert(rating.size() < sizeof(this->rating));
     std::strncpy(this->rating, rating.c_str(), sizeof(this->rating));
