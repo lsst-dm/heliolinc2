@@ -377,12 +377,14 @@ int main(int argc, char *argv[])
   }
   // Skip header line
   getline(instream1,lnfromfile);
+  cout << "Header line from input paired detection file " << indetfile << ":\n";
+  cout << lnfromfile << "\n";
   // Read body of the file
   detfilelinect=0;
   while(!instream1.bad() && !instream1.fail() && !instream1.eof()) {
     // Read a line from the paired detections file, and load an object of class det_obsmag_indvec
     getline(instream1,lnfromfile);
-    cout << lnfromfile << "\n";
+    // cout << lnfromfile << "\n";
     detfilelinect++;
     badread=0;
     //while(instream1 >> MJD >> RA >> Dec >> X >> Y >> Z >> detid >> mag >> band >> obscode >> origind) {
@@ -447,8 +449,8 @@ int main(int argc, char *argv[])
       detvec.push_back(o1);
       if(MJD < minMJD) minMJD = MJD;
       if(MJD > maxMJD) maxMJD = MJD;
-    } else {
-      cerr << "WARNING: line " << detfilelinect << " of paired detection file" << indetfile << "was too short\n";
+    } else if(!instream1.bad() && !instream1.fail() && !instream1.eof()) {
+      cerr << "WARNING: line " << detfilelinect << " of paired detection file " << indetfile << " was too short\n";
     }
   }
   instream1.close();
