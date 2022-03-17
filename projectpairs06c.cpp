@@ -108,10 +108,11 @@
 #define CRAD_REF_GEODIST 1.0 // Value of geocentric distance to which the user-defined
                              // clustering radius is normalized (AU). In general, the
                              // clustering radius is scaled linearly with geocentric distance.
+#define DBSCAN_NPT 3  // Default value of npt (min cluster size) for DBSCAN algorithm.
 
 static void show_usage()
 {
-  cerr << "Usage: projectpairs04a -dets detfile -pairs pairfile -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad cluster_radius -out outfile -outrms rmsfile \n";
+  cerr << "Usage: projectpairs04a -dets detfile -pairs pairfile -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad cluster_radius -npt dbscan_npt -out outfile -outrms rmsfile \n";
 }
     
 int main(int argc, char *argv[])
@@ -229,6 +230,8 @@ int main(int argc, char *argv[])
   int badread=0;
   int startpoint=0;
   int endpoint=0;
+  int npt = DBSCAN_NPT;
+  int mindaysteps = MINDAYSTEPS;
   
   if(argc!=17)
     {
@@ -268,7 +271,7 @@ int main(int argc, char *argv[])
 	i++;
       }
       else {
-	cerr << "Pair file keyword supplied with no corresponding argument";
+	cerr << "Reference MJD keyword supplied with no corresponding argument";
 	show_usage();
 	return(1);
       }
@@ -301,7 +304,18 @@ int main(int argc, char *argv[])
 	i++;
       }
       else {
-	cerr << "Heliocentric distance, velocity, and acceleration\nfile keyword supplied with no corresponding argument\n";
+	cerr << "Clustering radius keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-npt" || string(argv[i]) == "-npoints" || string(argv[i]) == "-minpts" || string(argv[i]) == "-np" || string(argv[i]) == "--npt" || string(argv[i]) == "--dbscan_npt" || string(argv[i]) == "--DBSCANnpt") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	npt=stoi(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "Clustering radius keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
@@ -332,6 +346,7 @@ int main(int argc, char *argv[])
       i++;
     }
   }
+  if(mindaysteps > npt-1) mindaysteps = npt-1; // Otherwise the low setting of npt is not operative.
   
   cout.precision(17);  
   cout << "input detection file " << indetfile << "\n";
@@ -339,6 +354,9 @@ int main(int argc, char *argv[])
   cout << "input observer position file " << planetfile << "\n";
   cout << "input heliocentric distance, radial velocity, and radial acceleration file " << accelfile << "\n";
   cout << "input reference MJD " << mjdref << "\n";
+  cout << "input clustering radius " << cluster_radius << "km\n";
+  cout << "npt for DBSCAN is " << npt << "\n";
+  cout << "minimum number of unique nights is " << mindaysteps+1 << "\n";
   cout << "output file " << outfile << "\n";
 
   cout << "Heliocentric ephemeris for Earth is named " << planetfile << "\n";
@@ -635,7 +653,6 @@ int main(int argc, char *argv[])
       cout << "Created a KD tree with " << kdvec.size() << " branches\n";
 
       outclusters={};
-      int npt=3;
       int clusternum = DBSCAN_6i01(kdvec, cluster_radius*(georadcen/CRAD_REF_GEODIST)/INTEGERIZING_SCALE, npt, INTEGERIZING_SCALE, outclusters);
       cout << "DBSCAN_6i01 finished, with " << clusternum << " = " << outclusters.size() << " clusters found\n";
       for(clusterct=0; clusterct<outclusters.size(); clusterct++) {
@@ -683,7 +700,7 @@ int main(int argc, char *argv[])
 	}
 	//cout << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
 	// Does cluster pass the criteria for a linked detection?
-	if(timespan >= MINSPAN && numdaysteps >= MINDAYSTEPS) {
+	if(timespan >= MINSPAN && numdaysteps >= mindaysteps) {
 	  realclusternum++;
 	  numobsnights = numdaysteps+1;
 	  //cout << "Cluster passes discovery criteria: will be designated as cluster " << realclusternum << "\n";
