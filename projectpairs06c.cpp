@@ -698,12 +698,12 @@ int main(int argc, char *argv[])
 	for(i=0; i<mjdstep.size(); i++) {
 	  if(mjdstep[i]>INTRANIGHTSTEP) numdaysteps++;
 	}
-	//cout << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
+	cout << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
 	// Does cluster pass the criteria for a linked detection?
 	if(timespan >= MINSPAN && numdaysteps >= mindaysteps) {
 	  realclusternum++;
 	  numobsnights = numdaysteps+1;
-	  //cout << "Cluster passes discovery criteria: will be designated as cluster " << realclusternum << "\n";
+	  cout << "Cluster passes discovery criteria: will be designated as cluster " << realclusternum << "\n";
 	  // Check whether cluster is composed purely of detections from
 	  // a single simulated object (i.e., would be a real discovery) or is a mixture
 	  // of detections from two or more different simulated objects (i.e., spurious).
