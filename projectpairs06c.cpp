@@ -233,7 +233,7 @@ int main(int argc, char *argv[])
   int npt = DBSCAN_NPT;
   int mindaysteps = MINDAYSTEPS;
   
-  if(argc!=17)
+  if(argc<=17)
     {
       show_usage();
       return(1);
