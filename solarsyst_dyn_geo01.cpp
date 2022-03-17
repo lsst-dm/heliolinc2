@@ -5293,3 +5293,103 @@ int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint
   if(outstring.size() > 0) return(i-1); // Worked fine.
   else return(-1); // Error code
 }
+
+
+// MJD2mpcdate: March 16, 2022: C++ version of old C code for
+// converting an MJD to MPC date format.
+//
+// MJDtoMPCdate01: August 10, 2015: convert MJD to MPC-formatted
+// date: that is, year, month, and then decimal day.
+// Date must be after the year 1900. January 1, 1900 appears to
+// be MJD 15020, so December 31, 1899 must have been MJD 15019.
+// This date will be our reference.*/
+int mjd2mpcdate(double MJD,int &year,int &month,double &day)
+{
+  double daynum;
+  int dayct,yearct,leapcheck,cencheck,fourcheck;
+  int isleap,daymonth[13],daymonthleap[13],i;
+
+  daynum = MJD - (double)15019; /*Days since Dec 31, 1899*/
+  if(daynum<=0.0)
+    {
+      cerr << "ERROR: date before 1900! ABORTING!\n";
+      return(0);
+    }
+
+  daymonth[1] = 31;
+  daymonth[2] = 28;
+  daymonth[3] = 31;
+  daymonth[4] = 30;
+  daymonth[5] = 31;
+  daymonth[6] = 30;
+  daymonth[7] = 31;
+  daymonth[8] = 31;
+  daymonth[9] = 30;
+  daymonth[10] = 31;
+  daymonth[11] = 30;
+  daymonth[12] = 31;
+
+  for(i=1;i<=12;i++) daymonthleap[i] = daymonth[i];
+  daymonthleap[2] = 29;
+
+  dayct=daynum;
+  day = daynum-(double)dayct;
+
+  /*Now count up from 1900 to see what year it is*/
+  yearct=1900;
+  isleap=0;
+  while((isleap==0&&dayct>365)||(isleap==1&&dayct>366))
+    {
+      /*printf("year = %d, dayct = %d, isleap = %d\n",yearct,dayct,isleap);*/
+      /*Subtract the days for year number yearct*/
+      if(isleap==0) dayct-=365;
+      else if(isleap==1) dayct-=366;
+      /*Go on to the next year*/
+      yearct+=1;
+      /*Find out if it is a leap year*/
+      isleap = 0;
+      leapcheck = yearct/4;
+      if(yearct==(leapcheck*4))
+	{
+	  /*The year is evenly divisible by four: it's a leap year.*/
+	  isleap = 1;
+	  cencheck = yearct/100;
+	  if(yearct==(cencheck*100))
+	    {
+	      /*No, wait: it's also the turn of a century: it's
+                not a leap year.*/
+	      isleap = 0;
+	      fourcheck = yearct/400;
+	      /*Except if it's divisible by 400, it is a leap year
+                after all.*/
+	      if(yearct==(fourcheck*400)) isleap = 1;
+	    }
+	}
+    }
+  /*OK, yearct is now equal to the correct year, and
+    isleap correctly indicates whether or not this is
+    a leap year.*/
+  year = yearct;
+
+  /*Find out what month it is*/
+  i=1;
+  if(isleap==0)
+    {
+      while(dayct>daymonth[i])
+	{
+	  dayct-=daymonth[i];
+	  i+=1;
+	}
+    }
+  else if(isleap==1)
+    {
+      while(dayct>daymonthleap[i])
+	{
+	  dayct-=daymonthleap[i];
+	  i+=1;
+	}
+    }
+  month = i;
+  day+=(double)dayct; 
+ return(1);
+}

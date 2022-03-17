@@ -842,3 +842,4 @@ int arc2cel01(double racenter,double deccenter,double dist,double pa,double &out
 int obscode_lookup(const vector <observatory> &observatory_list, const char* obscode, double &obslon, double &plxcos,double &plxsin);
 string intzero01i(const int i, const int n);
 int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint);
+int mjd2mpcdate(double MJD,int &year,int &month,double &day);
