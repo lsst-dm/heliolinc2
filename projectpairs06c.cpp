@@ -112,7 +112,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: projectpairs04a -dets detfile -pairs pairfile -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad cluster_radius -npt dbscan_npt -out outfile -outrms rmsfile \n";
+  cerr << "Usage: projectpairs06c -dets detfile -pairs pairfile -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad cluster_radius -npt dbscan_npt -minobsnights minobsnights -mintimespan mintimespan -out outfile -outrms rmsfile \n";
 }
     
 int main(int argc, char *argv[])
@@ -232,6 +232,8 @@ int main(int argc, char *argv[])
   int endpoint=0;
   int npt = DBSCAN_NPT;
   int mindaysteps = MINDAYSTEPS;
+  int minobsnights = MINDAYSTEPS+1;
+  int mintimespan = MINSPAN;
   
   if(argc<=17)
     {
@@ -319,6 +321,29 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
+    } else if(string(argv[i]) == "-minobsnights" || string(argv[i]) == "-mon" || string(argv[i]) == "-minobs" || string(argv[i]) == "-minobsnight" || string(argv[i]) == "--minobsnights" || string(argv[i]) == "--minobsnight" || string(argv[i]) == "-minobsn") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	minobsnights=stoi(argv[++i]);
+	mindaysteps = minobsnights-1; // Nights are fenceposts, daysteps are the spaces in between.
+	i++;
+      }
+      else {
+	cerr << "Min. number of observing nights keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-mintimespan" || string(argv[i]) == "-mts" || string(argv[i]) == "-minspan" || string(argv[i]) == "-mintspan" || string(argv[i]) == "--mts" || string(argv[i]) == "--mintimespan" || string(argv[i]) == "--mintspan") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	mintimespan=stod(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "Clustering radius keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
     } else if(string(argv[i]) == "-out" || string(argv[i]) == "-outfile" || string(argv[i]) == "-o" || string(argv[i]) == "--outfile" || string(argv[i]) == "--outpair" || string(argv[i]) == "--outpairs") {
       if(i+1 < argc) {
 	//There is still something to read;
@@ -356,7 +381,9 @@ int main(int argc, char *argv[])
   cout << "input reference MJD " << mjdref << "\n";
   cout << "input clustering radius " << cluster_radius << "km\n";
   cout << "npt for DBSCAN is " << npt << "\n";
+  cout << "minimum number of DBSCAN points (i.e. min. cluster size) is " << npt << "\n";
   cout << "minimum number of unique nights is " << mindaysteps+1 << "\n";
+  cout << "minimum time span is " << mintimespan << "\n";
   cout << "output file " << outfile << "\n";
 
   cout << "Heliocentric ephemeris for Earth is named " << planetfile << "\n";
@@ -700,7 +727,7 @@ int main(int argc, char *argv[])
 	}
 	//cout << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
 	// Does cluster pass the criteria for a linked detection?
-	if(timespan >= MINSPAN && numdaysteps >= mindaysteps) {
+	if(timespan >= mintimespan && numdaysteps >= mindaysteps) {
 	  realclusternum++;
 	  numobsnights = numdaysteps+1;
 	  //cout << "Cluster passes discovery criteria: will be designated as cluster " << realclusternum << "\n";
