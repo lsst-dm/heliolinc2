@@ -1942,14 +1942,25 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
 	  // Close loop over the whole cluster
 	}
 	// Just finished loading a cluster.
-	// Calculate some cluster statistics.
-	meanvec = rmsvec = {};
-	trms = cluster_stats6i01(cluster, intconvscale, meanvec, rmsvec);
-	// Load cluster into oneclust.
-	oneclust = KD6i_clust(cluster.size(),clusterind,meanvec,rmsvec);
-	// Push oneclust onto output vector.
-	outclusters.push_back(oneclust);
+	if(cluster.size()>=npt) {	  
+	  // This cluster has enough points to be considered.
+	  // Calculate some cluster statistics.
+	  meanvec = rmsvec = {};
+	  trms = cluster_stats6i01(cluster, intconvscale, meanvec, rmsvec);
+	  // Load cluster into oneclust
+	  oneclust = KD6i_clust(cluster.size(),clusterind,meanvec,rmsvec);
+	  // Push oneclust onto output vector.
+	  outclusters.push_back(oneclust);
+	} else {
+	  cerr << "WARNING: DBSCAN_6i01 internal cluster " << clusternum << " is a dud, with only " << cluster.size() << " points of " << npt << " required.\n";
+	  clusternum --;
+	}
 	// Close statement testing for cluster vs. noise points.
+      } else {
+	// More than one point, but fewer than npt, lie within
+	// the clustering radius. Hence, we cannot assign a definitive
+	// status to any of the points yet. For now, do nothing.
+	;
       }
       // Close statement finding the next un-tested point.
     }
