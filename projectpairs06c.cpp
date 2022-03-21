@@ -110,6 +110,8 @@
                              // clustering radius is scaled linearly with geocentric distance.
 #define DBSCAN_NPT 3  // Default value of npt (min cluster size) for DBSCAN algorithm.
 
+#define DEBUG_A 1
+
 static void show_usage()
 {
   cerr << "Usage: projectpairs06c -dets detfile -pairs pairfile -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad cluster_radius -npt dbscan_npt -minobsnights minobsnights -mintimespan mintimespan -out outfile -outrms rmsfile \n";
@@ -684,12 +686,16 @@ int main(int argc, char *argv[])
       cout << "DBSCAN_6i01 finished, with " << clusternum << " = " << outclusters.size() << " clusters found\n";
       for(clusterct=0; clusterct<outclusters.size(); clusterct++) {
 	// Scale cluster RMS down to reference geocentric distance
+	if(DEBUG_A >= 1) cout << "scaling outclusters rms for cluster " << clusterct << " out of " << outclusters.size() << "\n";
+	fflush(stdout);
 	for(i=0;i<9;i++) outclusters[clusterct].rmsvec[i] *= CRAD_REF_GEODIST/georadcen;
 	// Note that RMS is scaled down for more distant clusters, to
 	// avoid bias against them in post-processing.
 	
 	// Map cluster to individual detections.
 	// create vector of unique detection indices.
+	if(DEBUG_A >= 1) cout << "Loading pointind for " << outclusters[clusterct].numpoints << " of " << clusterct <<  " out of " << outclusters.size() << "\n";
+	fflush(stdout);
 	pointind={};
 	for(i=0;i<outclusters[clusterct].numpoints;i++) {
 	  pairct=kdvec[outclusters[clusterct].clustind[i]].point.i1;
@@ -698,7 +704,11 @@ int main(int argc, char *argv[])
 	  }
 	}
 	// Sort vector of detection indices
+	if(DEBUG_A >= 1) cout << "About to sort pointind\n";
+	fflush(stdout);
 	sort(pointind.begin(), pointind.end());
+	if(DEBUG_A >= 1) cout << "Done sorting pointind\n";
+	fflush(stdout);
 	// Cull out duplicate entries
 	pointjunk = pointind;
 	pointind={};
@@ -706,31 +716,43 @@ int main(int argc, char *argv[])
 	for(i=1; i<pointjunk.size(); i++) {
 	  if(pointjunk[i]!=pointjunk[i-1]) pointind.push_back(pointjunk[i]);
 	}
+	if(DEBUG_A >= 1) cout << "Done culling pointind\n";
+	fflush(stdout);
 
 	// Load vector of detection MJD's
 	clustmjd = {};
 	for(i=0; i<pointind.size(); i++) {
 	  clustmjd.push_back(detvec[pointind[i]].MJD);
 	}
+	if(DEBUG_A >= 1) cout << "Done loading mjds\n";
+	fflush(stdout);
 	// Sort vector of MJD's
 	sort(clustmjd.begin(), clustmjd.end());
+	if(DEBUG_A >= 1) cout << "Done sorting mjds\n";
+	fflush(stdout);
 	timespan = clustmjd[clustmjd.size()-1] - clustmjd[0];
+	if(DEBUG_A >= 1) cout << "Timespan = " << timespan << "\n";
+	fflush(stdout);
 	// Load vector of MJD steps
 	mjdstep={};
 	for(i=1; i<clustmjd.size(); i++) {
 	  mjdstep.push_back(clustmjd[i]-clustmjd[i-1]);
 	}
+	if(DEBUG_A >= 1) cout << "Done loading vector of steps\n";
+	fflush(stdout);
 	// Count steps large enough to suggest a daytime period between nights.
 	numdaysteps=0;	
 	for(i=0; i<mjdstep.size(); i++) {
 	  if(mjdstep[i]>INTRANIGHTSTEP) numdaysteps++;
 	}
-	//cout << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
+	if(DEBUG_A >= 1) cout << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
 	// Does cluster pass the criteria for a linked detection?
 	if(timespan >= mintimespan && numdaysteps >= mindaysteps) {
 	  realclusternum++;
+	  if(DEBUG_A >= 1) cout << "Loading good cluster " << realclusternum << " with timespan " << timespan << " and numdaysteps " << numdaysteps << "\n";
+	  fflush(stdout);
 	  numobsnights = numdaysteps+1;
-	  //cout << "Cluster passes discovery criteria: will be designated as cluster " << realclusternum << "\n";
+	  if(DEBUG_A >= 1) cout << "Cluster passes discovery criteria: will be designated as cluster " << realclusternum << "\n";
 	  // Check whether cluster is composed purely of detections from
 	  // a single simulated object (i.e., would be a real discovery) or is a mixture
 	  // of detections from two or more different simulated objects (i.e., spurious).
@@ -738,11 +760,17 @@ int main(int argc, char *argv[])
 	  for(i=0; i<pointind.size(); i++) {
 	    if(i>0 && stringnmatch01(detvec[pointind[i]].idstring,detvec[pointind[i-1]].idstring,SHORTSTRINGLEN)!=0) rating="MIXED";
 	  }
+	  if(DEBUG_A >= 1) cout << "Rating is found to be " << rating << "\n";
+	  fflush(stdout);
 	  // Write all individual detections in this cluster to the output cluster file
 	  for(i=0; i<pointind.size(); i++) {
+	    if(DEBUG_A >= 1) cout << "Writing point " << i << " out of " << pointind.size() << " to cluster file\n";
+	    fflush(stdout);
 	    outstream2  << fixed << setprecision(6) << intzero01i(i,4) << "," << detvec[pointind[i]].MJD << "," << detvec[pointind[i]].RA << "," << detvec[pointind[i]].Dec << "," << detvec[pointind[i]].idstring << ",";
 	    outstream2  << fixed << setprecision(3) << detvec[pointind[i]].mag << "," << detvec[pointind[i]].band << "," << detvec[pointind[i]].obscode << "," << pointind[i] << "," << detvec[pointind[i]].index << "," << realclusternum << "\n";
 	  }
+	  if(DEBUG_A >= 1) cout << "Finished writing to cluster file\n";
+	  fflush(stdout);
 	  // Write summary line to rms file
 	  clustmetric = double(pointind.size())*double(numobsnights)*timespan/outclusters[clusterct].rmsvec[8];
 	  outstream1  << fixed << setprecision(3) << realclusternum << "," << outclusters[clusterct].rmsvec[6] << "," << outclusters[clusterct].rmsvec[7] << "," << outclusters[clusterct].rmsvec[8] << "," << outclusters[clusterct].numpoints << ",";
@@ -751,6 +779,8 @@ int main(int argc, char *argv[])
 	  outstream1  << fixed << setprecision(6) << helioacc[accelct]*1000.0/SOLARDAY/SOLARDAY << ",";
 	  outstream1  << fixed << setprecision(3)  << outclusters[clusterct].meanvec[0] << "," << outclusters[clusterct].meanvec[1] << "," << outclusters[clusterct].meanvec[2] << ",";
 	  outstream1  << fixed << setprecision(6) << outclusters[clusterct].meanvec[3]/chartimescale << ","   << outclusters[clusterct].meanvec[4]/chartimescale << "," << outclusters[clusterct].meanvec[5]/chartimescale << "\n";
+	  if(DEBUG_A >= 1) cout << "Finished writing to RMS file\n";
+	  fflush(stdout);
 	}
       }
       // Move on to the next bin in geocentric distance
