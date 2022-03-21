@@ -110,7 +110,7 @@
                              // clustering radius is scaled linearly with geocentric distance.
 #define DBSCAN_NPT 3  // Default value of npt (min cluster size) for DBSCAN algorithm.
 
-#define DEBUG_A 1
+#define DEBUG_A 0
 
 static void show_usage()
 {
