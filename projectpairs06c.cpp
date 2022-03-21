@@ -688,7 +688,12 @@ int main(int argc, char *argv[])
 	// Scale cluster RMS down to reference geocentric distance
 	if(DEBUG_A >= 1) cout << "scaling outclusters rms for cluster " << clusterct << " out of " << outclusters.size() << "\n";
 	fflush(stdout);
-	for(i=0;i<9;i++) outclusters[clusterct].rmsvec[i] *= CRAD_REF_GEODIST/georadcen;
+	for(i=0;i<9;i++) {
+	  if(DEBUG_A >= 1) cout << "scaling rmsvec point " << i << " out of " << outclusters[clusterct].rmsvec.size() << "\n";
+	  if(DEBUG_A >= 1) cout << "RMS = " << outclusters[clusterct].rmsvec[i];
+	  outclusters[clusterct].rmsvec[i] *= CRAD_REF_GEODIST/georadcen;
+	  if(DEBUG_A >= 1) cout << ", scales to " << outclusters[clusterct].rmsvec[i] << "\n";
+	}
 	// Note that RMS is scaled down for more distant clusters, to
 	// avoid bias against them in post-processing.
 	
