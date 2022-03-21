@@ -1932,7 +1932,9 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
 	      // This is a border point. Add it to the cluster, but
 	      // do not add its neighbors to queryout.
 	      clusterind.push_back(queryout[clustptct]);
-	      kdtree[queryout[clustptct]].flag = clusternum;
+	      // Also, do not flag border points: leave them free to be
+	      // claimed by multiple clusters.
+	      // kdtree[queryout[clustptct]].flag = clusternum;
 	      cluster.push_back(kdtree[queryout[clustptct]]);
 	    }
 	    // Move on to next point in queryout vector
