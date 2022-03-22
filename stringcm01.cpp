@@ -27,6 +27,10 @@ int main(int argc, char *argv[])
   ifstream instream1;
   ofstream outstream1;
   int i=0;
+  int badlines01=0;
+  int badlines02=0;
+  int stringnum=0;
+  vector <string> outstrings;
   
   if(argc!=7)
     {
@@ -52,7 +56,7 @@ int main(int argc, char *argv[])
     return(2);
   }
   
-  // Read file 1 for lines.
+  // Read file 1.
   instream1.open(file1);
   if(!instream1)  {
     cerr << "ERROR: unable to open input file " << file1 << "\n";
@@ -62,40 +66,32 @@ int main(int argc, char *argv[])
   while(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
     getline(instream1,lnfromfile);
     if(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
-      si1 = string_index(lnfromfile,linect1);
-      lines01.push_back(si1);
-      linect1++;
-    }
-  }
-  linenum1 = linect1;
-  cout << "File " << file1 << " appears to have " << linenum1 << " lines\n";
-  instream1.close();
-  // Read file 1 for string ID column
-  instream1.open(file1);
-  if(!instream1)  {
-    cerr << "ERROR: unable to open input file " << file1 << "\n";
-    return(1);
-  }
-  linect1=0;
-  while(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
-    // Skip lines up to the reference column
-    for(i=1;i<col1;i++) instream1 >> s1;
-    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
-      // Read reference column
-      instream1 >> idstring;
-      if(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
+      outstrings={};
+      stringnum = stringline01(lnfromfile, outstrings);
+      if(stringnum>=col1) {
+	// Load whole line into vector lines01
+	si1 = string_index(lnfromfile,linect1);
+	lines01.push_back(si1);
+	// Load string ID column into vector stringid01
+	idstring = outstrings[col1-1];
 	si1 = string_index(idstring,linect1);
 	stringid01.push_back(si1);
+	// Increment line count
 	linect1++;
-	// Read and discard remainder of the line
-	getline(instream1,lnfromfile);
-      }
+      } else badlines01++;
     }
   }
   instream1.close();
+
+  linenum1 = linect1;
+  cout << "File " << file1 << " appears to have " << linenum1 << " good lines\n";
+  if(badlines01>0) {
+    cerr << "WARNING: File " << file1 << " also has " << badlines01 << " bad lines, which were not read\n";
+  }
+
   cout << "Vector sizes from file1: " << lines01.size() << " and " << stringid01.size() << "\n"; 
   
-  // Read file 2 for lines.
+  // Read file 2.
   instream1.open(file2);
   if(!instream1)  {
     cerr << "ERROR: unable to open input file " << file2 << "\n";
@@ -105,39 +101,27 @@ int main(int argc, char *argv[])
   while(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
     getline(instream1,lnfromfile);
     if(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
-      si1 = string_index(lnfromfile,linect2);
-      lines02.push_back(si1);
-      linect2++;
-    }
-  }
-  linenum2 = linect2;
-  cout << "File " << file2 << " appears to have " << linenum2 << " lines\n";
-  instream1.close();
-  
-  // Read file 2 for string ID column
-  instream1.open(file2);
-  if(!instream1)  {
-    cerr << "ERROR: unable to open input file " << file2 << "\n";
-    return(1);
-  }
-  linect2=0;
-  while(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
-    // Skip lines up to the reference column
-    for(i=1;i<col2;i++) instream1 >> s1;
-    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
-      // Read reference column
-      instream1 >> idstring;
-      if(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
+      outstrings={};
+      stringnum = stringline01(lnfromfile, outstrings);
+      if(stringnum>=col2) {
+	si1 = string_index(lnfromfile,linect2);
+	lines02.push_back(si1);
+	// Load string ID column into vector stringid02
+	idstring = outstrings[col2-1];
 	si1 = string_index(idstring,linect2);
 	stringid02.push_back(si1);
+	// Increment line count
 	linect2++;
-	// Read and discard remainder of the line
-	getline(instream1,lnfromfile);
-      }
+      } else badlines02++;
     }
   }
-  cout << "Vector sizes from file2: " << lines02.size() << " and " << stringid02.size() << "\n"; 
   instream1.close();
+  linenum2 = linect2;
+  cout << "File " << file2 << " appears to have " << linenum2 << " good lines\n";
+  if(badlines02>0) {
+    cerr << "WARNING: File " << file2 << " also has " << badlines02 << " bad lines, which were not read\n";
+  }
+  cout << "Vector sizes from file2: " << lines02.size() << " and " << stringid02.size() << "\n"; 
 
   // Sort both string ID vectors
   sort(stringid01.begin(), stringid01.end(), lower_string_index());
