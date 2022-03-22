@@ -843,3 +843,5 @@ int obscode_lookup(const vector <observatory> &observatory_list, const char* obs
 string intzero01i(const int i, const int n);
 int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint);
 int mjd2mpcdate(double MJD,int &year,int &month,double &day);
+int stringline01(const string &lnfromfile, vector <string> &outstrings);
+

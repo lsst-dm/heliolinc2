@@ -5307,7 +5307,6 @@ int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint
   else return(-1); // Error code
 }
 
-
 // MJD2mpcdate: March 16, 2022: C++ version of old C code for
 // converting an MJD to MPC date format.
 //
@@ -5405,4 +5404,35 @@ int mjd2mpcdate(double MJD,int &year,int &month,double &day)
   month = i;
   day+=(double)dayct; 
  return(1);
+}
+
+// stringline01: March 22, 2022: Given an input string read
+// from a file, pull out individual pieces delimited by spaces,
+// commas, or tabs, and load them in an input string vector.
+// Return the number of distinct strings that were read.
+int stringline01(const string &lnfromfile, vector <string> &outstrings) {
+  char c='\0';
+  string onestring;
+  int i=0;
+  int linelen = lnfromfile.size();
+  int stringnum=0;
+  
+  outstrings={};
+  if(linelen<=0) return(0);
+
+  while(i<linelen) {
+    onestring="";
+    c=lnfromfile[i];
+    i++;
+    while(i<=linelen && c!=' ' && c!=',' && c!='\t' && c!='\n' && c!=EOF) {
+      onestring.push_back(c);
+      if(i<linelen) c=lnfromfile[i];
+      i++;
+    }
+    if(onestring.size()>0) {
+      stringnum++;
+      outstrings.push_back(onestring);
+    }
+  }
+  return(stringnum);
 }
