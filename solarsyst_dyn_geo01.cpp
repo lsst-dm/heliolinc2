@@ -5436,3 +5436,189 @@ int stringline01(const string &lnfromfile, vector <string> &outstrings) {
   }
   return(stringnum);
 }
+
+long double ldmedian(const vector <long double> &invec) {
+  vector <long double> invec2 = invec; // Mutable copy of immutable input.
+  int npts = invec2.size();
+  int pt;
+  pt=0;
+  if(npts<=0) {
+    cerr << "ERROR: ldmedian called on an input vector of length zero\n";
+    return(0.0L);
+  } else if(npts==1) {
+    return(invec[0]);
+  } else if(npts%2 == 0) {
+    // We have an even number of points
+    // Sort invec.
+    sort(invec2.begin(),invec2.end());
+    // Median is average of two middle points
+    pt = npts/2;
+    return((invec2[pt-1] + invec2[pt])/2.0L);
+  } else {
+    // We have an odd number of points.
+    // Sort invec.
+    sort(invec2.begin(),invec2.end());
+    // Median is value of the middle point
+    pt = (npts-1)/2;
+    return(invec2[pt]);
+  }
+}
+    
+int ldmedian_minmax(const vector <long double> &invec, long double &median, long double &min, long double &max) {
+  vector <long double> invec2 = invec; // Mutable copy of immutable input.
+  int npts = invec2.size();
+  int pt;
+  pt=0;
+  if(npts<=0) {
+    cerr << "ERROR: ldmedian_minmax called on an input vector of length zero\n";
+    median = min = max = 0.0L;
+    return(1);
+  } else if(npts==1) {
+    median = min = max = invec[0];
+    return(0);
+  } else {
+    // Sort invec.
+    sort(invec2.begin(),invec2.end());
+    min = invec2[0];
+    max = invec2[npts-1];
+    if(npts%2 == 0) {
+      // We have an even number of points
+      // Median is average of two middle points
+      pt = npts/2;
+      median = (invec2[pt-1] + invec2[pt])/2.0L;
+    } else {
+      // We have an odd number of points.
+      // Median is value of the middle point
+      pt = (npts-1)/2;
+      median = invec2[pt];
+    }
+    return(0);
+  }
+}
+    
+double dmedian(const vector <double> &invec) {
+  vector <double> invec2 = invec; // Mutable copy of immutable input.
+  int npts = invec2.size();
+  int pt;
+  pt=0;
+  if(npts<=0) {
+    cerr << "ERROR: dmedian called on an input vector of length zero\n";
+    return(0.0l);
+  } else if(npts==1) {
+    return(invec[0]);
+  } else if(npts%2 == 0) {
+    // We have an even number of points
+    // Sort invec.
+    sort(invec2.begin(),invec2.end());
+    // Median is average of two middle points
+    pt = npts/2;
+    return((invec2[pt-1] + invec2[pt])/2.0l);
+  } else {
+    // We have an odd number of points.
+    // Sort invec.
+    sort(invec2.begin(),invec2.end());
+    // Median is value of the middle point
+    pt = (npts-1)/2;
+    return(invec2[pt]);
+  }
+}
+    
+int dmedian_minmax(const vector <double> &invec, double &median, double &min, long double &max) {
+  vector <double> invec2 = invec; // Mutable copy of immutable input.
+  int npts = invec2.size();
+  int pt;
+  pt=0;
+  if(npts<=0) {
+    cerr << "ERROR: dmedian_minmax called on an input vector of length zero\n";
+    median = min = max = 0.0l;
+    return(1);
+  } else if(npts==1) {
+    median = min = max = invec[0];
+    return(0);
+  } else {
+    // Sort invec.
+    sort(invec2.begin(),invec2.end());
+    min = invec2[0];
+    max = invec2[npts-1];
+    if(npts%2 == 0) {
+      // We have an even number of points
+      // Median is average of two middle points
+      pt = npts/2;
+      median = (invec2[pt-1] + invec2[pt])/2.0l;
+    } else {
+      // We have an odd number of points.
+      // Median is value of the middle point
+      pt = (npts-1)/2;
+      median = invec2[pt];
+    }
+    return(0);
+  }
+}
+    
+float fmedian(const vector <float> &invec) {
+  vector <float> invec2 = invec; // Mutable copy of immutable input.
+  int npts = invec2.size();
+  int pt;
+  pt=0;
+  if(npts<=0) {
+    cerr << "ERROR: fmedian called on an input vector of length zero\n";
+    return(0.0);
+  } else if(npts==1) {
+    return(invec[0]);
+  } else if(npts%2 == 0) {
+    // We have an even number of points
+    // Sort invec.
+    sort(invec2.begin(),invec2.end());
+    // Median is average of two middle points
+    pt = npts/2;
+    return((invec2[pt-1] + invec2[pt])/2.0l);
+  } else {
+    // We have an odd number of points.
+    // Sort invec.
+    sort(invec2.begin(),invec2.end());
+    // Median is value of the middle point
+    pt = (npts-1)/2;
+    return(invec2[pt]);
+  }
+}
+    
+int fmedian_minmax(const vector <float> &invec, float &median, float &min, float &max) {
+  vector <float> invec2 = invec; // Mutable copy of immutable input.
+  int npts = invec2.size();
+  int pt;
+  pt=0;
+  if(npts<=0) {
+    cerr << "ERROR: fmedian_minmax called on an input vector of length zero\n";
+    median = min = max = 0.0;
+    return(1);
+  } else if(npts==1) {
+    median = min = max = invec[0];
+    return(0);
+  } else {
+    // Sort invec.
+    sort(invec2.begin(),invec2.end());
+    min = invec2[0];
+    max = invec2[npts-1];
+    if(npts%2 == 0) {
+      // We have an even number of points
+      // Median is average of two middle points
+      pt = npts/2;
+      median = (invec2[pt-1] + invec2[pt])/2.0l;
+    } else {
+      // We have an odd number of points.
+      // Median is value of the middle point
+      pt = (npts-1)/2;
+      median = invec2[pt];
+    }
+    return(0);
+  }
+}
+    
+
+    
+
+  
+
+    
+
+  

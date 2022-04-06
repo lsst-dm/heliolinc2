@@ -31,6 +31,8 @@ int main(int argc, char *argv[])
   int badlines02=0;
   int stringnum=0;
   vector <string> outstrings;
+  int dupline1=0;
+  int dupline2=0;
   
   if(argc!=7)
     {
@@ -134,8 +136,25 @@ int main(int argc, char *argv[])
     while(linect1<linenum1 && linect2<linenum2) {
       if(stringid01[linect1].selem==stringid02[linect2].selem) {
 	outstream1 << lines01[stringid01[linect1].index].selem << " | " << lines02[stringid02[linect2].index].selem << "\n";
-	linect1++;
-	linect2++;
+	// See if we have repeated lines in either file.
+	dupline1=dupline2=0;
+	if(linect1+1<linenum1 && stringid01[linect1+1].selem==stringid01[linect1].selem) dupline1=1;
+	if(linect2+1<linenum2 && stringid02[linect2+1].selem==stringid02[linect2].selem) dupline2=1;
+	if(dupline1==1 && dupline2==0) {
+	  // Increment linect1 only, so that all of the duplicated
+	  // lines in file1 can be matched with the same, non-duplicated line
+	  // in file2.
+	  linect1++;
+	} else if(dupline1==0 && dupline2==1) {
+	  // Incement linect2 only, so that all of the duplicated lines in file2
+	  // can be matched with the same, non-duplicated line in file1.
+	  linect2++;
+	} else {
+	  // Either neither file has duplicated lines or both do: increment
+	  // linect in both files
+	  linect1++;
+	  linect2++;
+	}
       } else if(stringid01[linect1].selem < stringid02[linect2].selem) {
 	// Increment linect1 to move forward and find a file1 entry that
 	// will match the current one in file2.
@@ -155,9 +174,26 @@ int main(int argc, char *argv[])
     while(linect1<linenum1 && linect2<linenum2) {
       if(stringid01[linect1].selem==stringid02[linect2].selem) {
 	// These lines match, so we are not interested in
-	// either one. Move forward in both files
-	linect1++;
-	linect2++;
+	// either one.
+	// See if we have repeated lines in either file.
+	dupline1=dupline2=0;
+	if(linect1+1<linenum1 && stringid01[linect1+1].selem==stringid01[linect1].selem) dupline1=1;
+	if(linect2+1<linenum2 && stringid02[linect2+1].selem==stringid02[linect2].selem) dupline2=1;
+	if(dupline1==1 && dupline2==0) {
+	  // Increment linect1 only, so that all of the duplicated
+	  // lines in file1 can be matched with the same, non-duplicated line
+	  // in file2.
+	  linect1++;
+	} else if(dupline1==0 && dupline2==1) {
+	  // Incement linect2 only, so that all of the duplicated lines in file2
+	  // can be matched with the same, non-duplicated line in file1.
+	  linect2++;
+	} else {
+	  // Either neither file has duplicated lines or both do: increment
+	  // linect in both files
+	  linect1++;
+	  linect2++;
+	}
       } else if(stringid01[linect1].selem < stringid02[linect2].selem) {
 	// File2 is already past this element of file1: there cannot
 	// be a match in file2. Write out the line from file 1, and
@@ -170,6 +206,16 @@ int main(int argc, char *argv[])
 	linect2++;
       } else {
 	cout << "WARNING: logically impossible case comparing " << stringid01[linect1].selem << " and " << stringid02[linect2].selem << "\n";
+      }
+    }
+    if(linect1<linenum1 && linect2>=linenum2) {
+      // See if there are additional unmatched lines in file 1
+      while(linect1<linenum1) {
+	// Since there are no lines left in file2, all remaining
+	// lines in file 1 must be unmatched.
+	// Write them all out.
+	outstream1 << lines01[stringid01[linect1].index].selem << "\n";
+	linect1++;
       }
     }
   }

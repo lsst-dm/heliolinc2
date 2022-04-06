@@ -844,4 +844,9 @@ string intzero01i(const int i, const int n);
 int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint);
 int mjd2mpcdate(double MJD,int &year,int &month,double &day);
 int stringline01(const string &lnfromfile, vector <string> &outstrings);
-
+long double ldmedian(const vector <long double> &invec);
+int ldmedian_minmax(const vector <long double> &invec, long double &median, long double &min, long double &max);
+double dmedian(const vector <double> &invec);
+int dmedian_minmax(const vector <double> &invec, double &median, double &min, long double &max);
+float fmedian(const vector <float> &invec);
+int fmedian_minmax(const vector <float> &invec, float &median, float &min, float &max);
