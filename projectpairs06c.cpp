@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
   int npt = DBSCAN_NPT;
   int mindaysteps = MINDAYSTEPS;
   int minobsnights = MINDAYSTEPS+1;
-  int mintimespan = MINSPAN;
+  double mintimespan = MINSPAN;
   
   if(argc<=17)
     {
