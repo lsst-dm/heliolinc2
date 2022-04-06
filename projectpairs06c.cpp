@@ -114,7 +114,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: projectpairs06c -dets detfile -pairs pairfile -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad cluster_radius -npt dbscan_npt -minobsnights minobsnights -mintimespan mintimespan -out outfile -outrms rmsfile \n";
+  cerr << "Usage: projectpairs06c -dets detfile -pairs pairfile -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad cluster_radius -npt dbscan_npt -minobsnights minobsnights -mintimespan mintimespan -mingeodist minium_geocentric_distance -maxgeodist maximum_geocentric_distance -geologstep logarithmic_step_size_for_geocentric_distance_bins -out outfile -outrms rmsfile \n";
 }
     
 int main(int argc, char *argv[])
@@ -342,7 +342,40 @@ int main(int argc, char *argv[])
 	i++;
       }
       else {
-	cerr << "Clustering radius keyword supplied with no corresponding argument\n";
+	cerr << "Minimum time span keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    }  else if(string(argv[i]) == "-mingeodist" || string(argv[i]) == "-mingd" || string(argv[i]) == "-mingeo" || string(argv[i]) == "-mingeod" || string(argv[i]) == "--mingeodist" || string(argv[i]) == "--minimum_geocentr_dist") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	mingeodist=stod(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "Minimum geocentric distance keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    }  else if(string(argv[i]) == "-maxgeodist" || string(argv[i]) == "-maxgd" || string(argv[i]) == "-maxgeo" || string(argv[i]) == "-maxgeod" || string(argv[i]) == "--maxgeodist" || string(argv[i]) == "--maximum_geocentr_dist") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	maxgeodist=stod(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "Maximum geocentric distance keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-geologstep" || string(argv[i]) == "-gls" || string(argv[i]) == "-geostep" || string(argv[i]) == "-glogstep" || string(argv[i]) == "--geologstep" || string(argv[i]) == "--geodistlogstep" || string(argv[i]) == "--geodiststep") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	geologstep=stod(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "Geocentric distance logarithmic step keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
@@ -386,6 +419,9 @@ int main(int argc, char *argv[])
   cout << "minimum number of DBSCAN points (i.e. min. cluster size) is " << npt << "\n";
   cout << "minimum number of unique nights is " << mindaysteps+1 << "\n";
   cout << "minimum time span is " << mintimespan << "\n";
+  cout << "minimum geocentric distance is " << mingeodist << " AU\n";
+  cout << "maximum geocentric distance is " << maxgeodist << " AU\n";
+  cout << "logarithmic step size for geocentric distance bins is " << geologstep << "\n";
   cout << "output file " << outfile << "\n";
 
   cout << "Heliocentric ephemeris for Earth is named " << planetfile << "\n";
@@ -646,7 +682,7 @@ int main(int argc, char *argv[])
     // adjusted accordingly.
     geobinct = 0;
     georadcen = mingeodist*intpowD(geologstep,geobinct);
-    while(georadcen<=MAXGEODIST) {
+    while(georadcen<=maxgeodist) {
       georadcen = mingeodist*intpowD(geologstep,geobinct);
       georadmin = georadcen/geologstep;
       georadmax = georadcen*geologstep;
