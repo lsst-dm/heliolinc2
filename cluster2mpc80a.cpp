@@ -416,7 +416,7 @@ int main(int argc, char *argv[])
 		cerr << "ERROR: cluster count mismatch at rms line " << rmslinect << ", cluster file line " << clustlinect << "\n";
 		return(1);
 	      } else {
-		// All good. Right this detection to the output file.
+		// All good. Write this detection to the output file.
 		outstream1 << "     "; // 5 initial spaces
 		stringstream ss;
 		ss << idprefix;
@@ -436,7 +436,7 @@ int main(int argc, char *argv[])
 		ramin = int(detvec[i1].RA*4.0l - double(rahr)*60.0l);
 		rasec = detvec[i1].RA*240.0l - double(rahr)*3600.0l - double(ramin)*60.0l;
 		if(detvec[i1].Dec>=0) {
-		  signstring=" ";
+		  signstring="+";
 		  Dec = detvec[i1].Dec;
 		} else {
 		  signstring="-";
