@@ -81,7 +81,8 @@ static void show_usage()
   cerr << "-pairs pairfile -pairdets paired detection file -colformat column format file/ \n";
   cerr << "-imrad image radius(deg) -maxtime max inter-image time interval (hr)/ \n";
   cerr << "-mintime min inter-image time interval (hr) -maxGCR maximum GRC -mintrkpts min. num. of tracklet points/\n";
-  cerr << "-maxvel maximum angular velocity (deg/day) -earth earthfile -obscode obscodefile\n";
+  cerr << "-minvel minimum angular velocity (deg/day) -maxvel maximum angular velocity (deg/day) \n";
+  cerr << "-minarc minimum total angular arc (arcsec) -earth earthfile -obscode obscodefile\n";
   cerr << "\nor, at minimum\n\n";
   cerr << "maketrack04b -dets detfile -earth earthfile -obscode obscodefile\n";
   cerr << "Note well that the minimum invocation will leave a bunch of things\n";
@@ -133,6 +134,9 @@ int main(int argc, char *argv[])
   MJD = RA = Dec = 0.0L;
   double mag = 0l;
   double maxvel = MAXVEL; // Max angular velocity in deg/day
+  double minvel = 0.0l; // Min angular velocity in deg/day
+  double minarc = 0.0l; // Min total angular arc in arcseconds
+  double angvel = 0.0l;
   double maxtime = MAXTIME; // Max time interval a tracklet could span,
                             // in days.
   double maxdist = MAXVEL*MAXTIME; // Max angular distance a tracklet
@@ -307,6 +311,22 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
+    } else if(string(argv[i]) == "-minvel") {
+      if(i+1 < argc) {
+	//There is still something to read;
+        minvel=stod(argv[++i]);
+	i++;
+	if(!isnormal(minvel) && minvel!=0.0l) {
+	  cerr << "Error: invalid minimum angular velocity\n";
+	  cerr << "(" << minvel << "deg/day) supplied.\n";
+	  return(2);
+	}
+      }
+      else {
+	cerr << "Minimum angular velocity\nkeyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
     } else if(string(argv[i]) == "-maxvel") {
       if(i+1 < argc) {
 	//There is still something to read;
@@ -319,11 +339,11 @@ int main(int argc, char *argv[])
 	}
       }
       else {
-	cerr << "Output maximum inter-image time interval\nkeyword supplied with no corresponding argument\n";
+	cerr << "Maximum angular velocity\nkeyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
-    }  else if(string(argv[i]) == "-maxGCR" || string(argv[i]) == "-maxgcr" ) {
+    } else if(string(argv[i]) == "-maxGCR" || string(argv[i]) == "-maxgcr" ) {
       if(i+1 < argc) {
 	//There is still something to read;
         maxgcr=stod(argv[++i]);
@@ -335,7 +355,23 @@ int main(int argc, char *argv[])
 	}
       }
       else {
-	cerr << "Output maximum inter-image time interval\nkeyword supplied with no corresponding argument\n";
+	cerr << "Output maximum Great Circle Residual\nkeyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    }  else if(string(argv[i]) == "-minarc") {
+      if(i+1 < argc) {
+	//There is still something to read;
+        minarc=stod(argv[++i]);
+	i++;
+	if(!isnormal(minarc) && minarc!=0.0l) {
+	  cerr << "Error: invalid minimum angular arc\n";
+	  cerr << "(" << minarc << " arcsec) supplied.\n";
+	  return(2);
+	}
+      }
+      else {
+	cerr << "Minimum angular arc\nkeyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
@@ -420,8 +456,10 @@ int main(int argc, char *argv[])
   cout << "image radius " << imrad << " degrees\n";
   cout << "max time interval " << maxtime*24.0 << " hours\n";
   cout << "min time interval " << mintime*24.0 << " hours\n";
+  cout << "minvel " << minvel << " deg/day\n";
   cout << "maxvel " << maxvel << " deg/day\n";
   cout << "minimum number of points per tracklet " << mintrkpts << "\n";
+  cout << "minarc " << minarc << " arcsec\n";
   cout << "maxGCR " << maxgcr << " arcsec\n";
   maxdist = maxtime*maxvel;
   
@@ -1187,6 +1225,10 @@ int main(int argc, char *argv[])
 	    cerr << "size, instep, rp1, rp2: " << timevec.size() << " " << instep << " " << rp1 << " " << rp2 << "\n";
 	    return(4);
 	  }
+	  // Calculate angular velocity in deg/day. The slope values
+	  // correspond to velocities in arcsec/day.
+	  angvel = sqrt(slopex*slopex + slopey*slopey)/3600.0l;
+	  
 	  // Determine improved RA, Dec based on tracklet fit for the representative points
 	  // Calculated projected x, y at rp1
 	  dx = timevec[rp1]*slopex + interceptx;
@@ -1221,22 +1263,30 @@ int main(int argc, char *argv[])
 	  dist = sqrt(dx*dx + dy*dy)/3600.0l; // renders distance in degrees, not arcsec.
 	  pa*=DEGPRAD; // position angle in degrees, not radians.
 	  arc2cel01(pairdets[pdct].RA, pairdets[pdct].Dec, dist, pa, outra2, outdec2);
-	  // Write out representative pair, followed by RA, Dec and the total number of constituent points
-	  // representative pair
-	  outstream1 << "T " << detindexvec[rp1] << " " <<  detindexvec[rp2] << " ";
-	  // RA1, Dec1, RA2, Dec2
-	  outstream1 << fixed << setprecision(6) << outra1 << " " << outdec1 << " " <<  outra2 << " " << outdec2 << " ";
-	  // Number of points in final, refined tracklet.
-	  outstream1 << detindexvec.size() << "\n";
-	  // Now write out the detection indices for this full number of points,
-	  // and wipe all the associated index vectors.
-	  for(j=0; j<detindexvec.size(); j++) {
-	    outstream1 << detindexvec[j] << "\n";
-	    pairdets[detindexvec[j]].indvec = {};
+	  // Calculate total angular arc
+	  distradec02(outra1, outdec1, outra2, outdec2, &dist, &pa);
+	  dist *= 3600.0l;
+	  if(dist>=minarc && angvel>=minvel && angvel<=maxvel) {
+	    // Write out representative pair, followed by RA, Dec and the total number of constituent points
+	    // representative pair
+	    outstream1 << "T " << detindexvec[rp1] << " " <<  detindexvec[rp2] << " ";
+	    // RA1, Dec1, RA2, Dec2
+	    outstream1 << fixed << setprecision(6) << outra1 << " " << outdec1 << " " <<  outra2 << " " << outdec2 << " ";
+	    // Number of points in final, refined tracklet.
+	    outstream1 << detindexvec.size() << "\n";
+	    // Now write out the detection indices for this full number of points,
+	    // and wipe all the associated index vectors.
+	    for(j=0; j<detindexvec.size(); j++) {
+	      outstream1 << detindexvec[j] << "\n";
+	      pairdets[detindexvec[j]].indvec = {};
+	    }
+	    istracklet=1;
+	    // Close if-statement confirming that a bona fide,
+	    // aligned tracklet was found and written to the output file.
+	  } else {
+	    istracklet=0;
+	    cout << "A tracklet was rejected: arc = " << dist << " < " << minarc << " or angvel = " << angvel << " < " << minvel << "\n";
 	  }
-   	  istracklet=1;
-	  // Close if-statement confirming that a bona fide,
-	  // aligned tracklet was found and written to the output file.
 	} else istracklet=0;
 	// Close else-statement confirming there was a candidate for
 	// being an aligned tracklet.
@@ -1248,8 +1298,14 @@ int main(int argc, char *argv[])
       // Write out all the pairs as normal
       for(j=0; j<pairdets[pdct].indvec.size(); j++) {
 	k=pairdets[pdct].indvec[j];
-	if(pairdets[k].indvec.size()>0 && k>pdct) {
+	// Calculate angular arc and angular velocity
+	distradec02(pairdets[pdct].RA,pairdets[pdct].Dec,pairdets[k].RA,pairdets[k].Dec, &dist, &pa);
+	angvel = dist/fabs(pairdets[pdct].MJD-pairdets[k].MJD); // Degrees per day
+	dist *= 3600.0l; // Arcseconds
+	if(pairdets[k].indvec.size()>0 && k>pdct && angvel>=minvel && dist>=minarc && angvel<=maxvel) {
 	  outstream1 << "P " <<  pdct << " " <<  k << "\n";
+	} else if(angvel<minvel || dist<minarc) {
+	  cout << "A pair was rejected: arc = " << dist << " < " << minarc << " or angvel = " << angvel << " < " << minvel << "\n";
 	}
       }
     }
