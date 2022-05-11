@@ -33,11 +33,14 @@ using namespace std;
 #define SOLARDAY 86400.0L
 #define NEPRA 270.0L //Right ascension of the North Ecliptic Pole.
 #define NEPDEC 66.560708333333L // Declination of the North Ecliptic Pole
+#define NGPRA 192.728L //Right ascension of the North Galactic Pole (Karim and Mamajek 2017)
+#define NGPDEC 26.863L // Declination of the North Galactic Pole (Karim and Mamajek 2017)
+#define NCPGAL_LON 122.928L // Galactic longitude of the North Celestial Pole (Karim and Mamajek 2017)
 #define MJDOFF 2400000.5L // Offset from Julian Days to Modified Julian days.
 #define EARTHEQUATRAD 6378.140L // Earth's equatorial radius.
 #define AU_KM 1.495978700e8L /*One AU in km*/
 #define AU 1.49597870700e11L /*One AU in meters*/
-
+#define EFOLDS_PER_MAG 0.921034037197618 // E-foldings per astronomical magnitude
 #define ZET0 2.5976176L /*precession formula constants in units of arcsec*/
 #define ZET1 2306.0809506L
 #define ZET2 0.3019015L
@@ -79,6 +82,12 @@ using namespace std;
 #define SHORTSTRINGLEN 20 // Standard size for a short-ish string, used, e.g. for detection idstring
 #define MEDSTRINGLEN 80 // Medium string length, should hold most file paths
 #define LONGSTRINGLEN 256 // Should hold any reasonable file path, use if not pressed for memory.
+#define RAND_MAX_64 18446744073709551616.0L
+
+#define PHASECONST_A1 3.33L // Constants from H-G system phase equation
+#define PHASECONST_A2 1.87L // for calculating asteroid apparent magnitudes.
+#define PHASECONST_B1 0.63L
+#define PHASECONST_B2 1.22L
 
 // String-handling stuff that has to be declared early because other things depend on it.
 void stringncopy01(char *dest, const string &source, int n);
@@ -91,6 +100,7 @@ public:
   double Dec;
   det_bsc(double mjd, double ra, double dec) :MJD(mjd), RA(ra), Dec(dec) { }
 };
+
 
 class det_index{ // Detection of some astronomical source with
                   // cross-reference index.
@@ -807,8 +817,10 @@ int celestial_to_stateunit(double RA, double Dec,point3d &baryvec);
 int celestial_to_stateunitLD(long double RA, long double Dec, point3LD &baryvec);
 int read_horizons_file(string infile, vector <double> &mjdvec, vector <point3d> &pos, vector <point3d> &vel);
 int read_horizons_fileLD(string infile, vector <long double> &mjdvec, vector <point3LD> &pos, vector <point3LD> &vel);
-int poleswitch01(const double &inRA, const double &inDec, const double &poleRA, const double &poleDec, const double &oldpoleRA, double *newRA, double *newDec);
-int poleswitch01LD(const long double &inRA, const long double &inDec, const long double &poleRA, const long double &poleDec, const long double &oldpoleRA, long double *newRA, long double *newDec);
+int poleswitch01(const double &inRA, const double &inDec, const double &poleRA, const double &poleDec, const double &oldpoleRA, double &newRA, double &newDec);
+int poleswitch01LD(const long double &inRA, const long double &inDec, const long double &poleRA, const long double &poleDec, const long double &oldpoleRA, long double &newRA, long double &newDec);
+int poleswitch02(const double &inRA, const double &inDec, const double &poleRA, const double &poleDec, const double &oldpoleRA, double &newRA, double &newDec);
+int poleswitch02LD(const long double &inRA, const long double &inDec, const long double &poleRA, const long double &poleDec, const long double &oldpoleRA, long double &newRA, long double &newDec);
 int precess01a(double ra1,double dec1,double mjd,double *ra2,double *dec2,int precesscon);
 int precess01aLD(long double ra1,long double dec1,long double mjd,long double *ra2,long double *dec2,int precesscon);
 int solvematrix01(const vector <vector <double>> &inmat, int eqnum, vector <double> &outvec, int verbose);
@@ -828,6 +840,8 @@ int accelcalc01LD(int planetnum, const vector <long double> &planetmasses, const
 int integrate_orbit_constac(int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel);
 long double kep_transcendental(long double q, long double e, long double tol);
 int Keplerint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
+long double hyp_transcendental(long double q, long double e, long double tol);
+int Hyper_Kepint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
 int integrate_orbit01LD(int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel);
 int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel);
 int iswhitespace(int c);
@@ -842,6 +856,7 @@ int arc2cel01(double racenter,double deccenter,double dist,double pa,double &out
 int obscode_lookup(const vector <observatory> &observatory_list, const char* obscode, double &obslon, double &plxcos,double &plxsin);
 string intzero01i(const int i, const int n);
 int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint);
+int get_col_vector01(const string &lnfromfile, vector <string> &outvec);
 int mjd2mpcdate(double MJD,int &year,int &month,double &day);
 int stringline01(const string &lnfromfile, vector <string> &outstrings);
 long double ldmedian(const vector <long double> &invec);
@@ -850,3 +865,12 @@ double dmedian(const vector <double> &invec);
 int dmedian_minmax(const vector <double> &invec, double &median, double &min, long double &max);
 float fmedian(const vector <float> &invec);
 int fmedian_minmax(const vector <float> &invec, float &median, float &min, float &max);
+int stateunit_to_celestial(point3d &baryvec, double &RA, double &Dec);
+int stateunitLD_to_celestial(point3LD &baryvec, long double &RA, long double &Dec);
+int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, const vector <long double> &obsMJD, point3LD startpos, point3LD startvel, long double mjdstart, vector <point3LD> &obspos, vector <point3LD> &obsvel);
+long double tortoisechi01(int polyorder, int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <double> &obsRA, const vector <double> &obsDec, const vector <double> &sigastrom, const vector <long double> &scalestate, long double timescale, long double mjdstart, vector <double> &fitRA, vector <double> &fitDec, vector <double> &resid);
+int integrate_orbit04LD(int polyorder, int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, point3LD startpos, point3LD startvel, int startpoint, int endpoint, vector <long double> &outMJD, vector <point3LD> &outpos, vector <point3LD> &outvel);
+double gaussian_deviate();
+int uvw_to_galcoord(const double &u, const double &v, const double &w, double &RA, double &Dec);
+long double unitvar(mt19937_64 &generator);
+double gaussian_deviate_mt(mt19937_64 &generator);

@@ -2039,7 +2039,8 @@ int celestial_to_stateunitLD(long double RA, long double Dec, point3LD &baryvec)
   baryvec.x = y;
   return(0);
 }
- 
+
+
 // read_horizons_file: November 2021:
 // Given an input state-vector ephemeris file downloaded directly
 // from JPL Horizons, read it into position and velocity vectors.
@@ -2415,7 +2416,7 @@ int read_horizons_fileLD(string infile, vector <long double> &mjdvec, vector <po
 // of a new coordinate system, calculates the position
 // of the point in the new coordinate system.  The desired
 // RA for the old pole in the new coordinates is also required.
-int poleswitch01(const double &inRA, const double &inDec, const double &poleRA, const double &poleDec, const double &oldpoleRA, double *newRA, double *newDec)
+int poleswitch01(const double &inRA, const double &inDec, const double &poleRA, const double &poleDec, const double &oldpoleRA, double &newRA, double &newDec)
 {
   double x,y,z,xp,yp,zp,thetap,phip;
   int badphip;
@@ -2481,8 +2482,8 @@ int poleswitch01(const double &inRA, const double &inDec, const double &poleRA, 
 	  badphip = 1;
 	}
     }
-  *newRA = phip;
-  *newDec = thetap;
+  newRA = phip;
+  newDec = thetap;
   return(0);
 }
 
@@ -2492,7 +2493,7 @@ int poleswitch01(const double &inRA, const double &inDec, const double &poleRA, 
 // of a new coordinate system, calculates the position
 // of the point in the new coordinate system.  The desired
 // RA for the old pole in the new coordinates is also required.
-int poleswitch01LD(const long double &inRA, const long double &inDec, const long double &poleRA, const long double &poleDec, const long double &oldpoleRA, long double *newRA, long double *newDec)
+int poleswitch01LD(const long double &inRA, const long double &inDec, const long double &poleRA, const long double &poleDec, const long double &oldpoleRA, long double &newRA, long double &newDec)
 {
   long double x,y,z,xp,yp,zp,thetap,phip;
   int badphip;
@@ -2558,8 +2559,155 @@ int poleswitch01LD(const long double &inRA, const long double &inDec, const long
 	  badphip = 1;
 	}
     }
-  *newRA = phip;
-  *newDec = thetap;
+  newRA = phip;
+  newDec = thetap;
+  return(0);
+}
+
+// poleswitch02: December 9, 2021: Exactly like poleswitch01, but all
+// angles are in degrees.
+int poleswitch02(const double &inRA, const double &inDec, const double &poleRA, const double &poleDec, const double &oldpoleRA, double &newRA, double &newDec)
+{
+  double x,y,z,xp,yp,zp,thetap,phip;
+  int badphip;
+  x=y=z=xp=yp=zp=thetap=phip = 0l;
+  
+  z = sin(inDec/DEGPRAD);
+  x = cos(inDec/DEGPRAD)*cos(inRA/DEGPRAD-poleRA/DEGPRAD);
+  y = cos(inDec/DEGPRAD)*sin(inRA/DEGPRAD-poleRA/DEGPRAD);
+
+  zp = z*sin(poleDec/DEGPRAD) + x*cos(poleDec/DEGPRAD);
+  xp = x*sin(poleDec/DEGPRAD) - z*cos(poleDec/DEGPRAD);
+  yp = y;
+
+  if(zp>1.0)
+    {
+      printf("WEIRD ERROR: POLESWITCH HAS z prime > 1.0!\n");
+      printf("THIS VIOLATES BASIC TRIGONOMETRY\n");
+      printf("zp-1.0 = %le\n",zp-1.0);
+      printf("inDec = %lf, inRA = %lf, poleDec=%lf, poleRA=%lf\n",inDec,inRA,poleDec,poleRA);
+      printf("xyz, xp yp zp = %lf %lf %lf %lf %lf %lf\n",x,y,z,xp,yp,zp);
+      printf("SETTING zp to exactly 1.0.\n");
+      zp = 1.0l;
+    }
+  thetap = asin(zp);
+
+  phip=0.0;
+  if(y==0.0)
+    {
+      if(x>=0.0)
+	{
+	  phip = 0.0;
+	}
+      else if(x<0.0)
+	{
+	  phip = M_PI;
+	}
+    }
+  else if(y>0.0)
+    {
+      phip = M_PI/2.0l - atan(xp/yp);
+    }
+  else if(y<0.0)
+    {
+      phip = 3.0l*M_PI/2.0l - atan(xp/yp);
+    }
+
+  fflush(stdout);
+
+  phip+=(oldpoleRA/DEGPRAD-M_PI);
+
+  badphip = 0;
+  if(phip<0.0||phip>=2.0l*M_PI)
+    {
+      badphip = 1;
+    }
+  while(badphip==1)
+    {
+      if(phip<0.0) phip+=2.0l*M_PI;
+      else if(phip>=2.0l*M_PI) phip-=2.0l*M_PI;
+      badphip = 0;
+      if(phip<0.0||phip>=2.0l*M_PI)
+	{
+	  badphip = 1;
+	}
+    }
+  newRA = phip*DEGPRAD;
+  newDec = thetap*DEGPRAD;
+  return(0);
+}
+
+
+// poleswitch02LD: May 03, 2022: Exactly like poleswitch01LD, but with
+// all angles in degrees.
+int poleswitch02LD(const long double &inRA, const long double &inDec, const long double &poleRA, const long double &poleDec, const long double &oldpoleRA, long double &newRA, long double &newDec)
+{
+  long double x,y,z,xp,yp,zp,thetap,phip;
+  int badphip;
+  x=y=z=xp=yp=zp=thetap=phip = 0L;
+  
+  z = sin(inDec/DEGPRAD);
+  x = cos(inDec/DEGPRAD)*cos(inRA/DEGPRAD-poleRA/DEGPRAD);
+  y = cos(inDec/DEGPRAD)*sin(inRA/DEGPRAD-poleRA/DEGPRAD);
+
+  zp = z*sin(poleDec/DEGPRAD) + x*cos(poleDec/DEGPRAD);
+  xp = x*sin(poleDec/DEGPRAD) - z*cos(poleDec/DEGPRAD);
+  yp = y;
+
+  if(zp>1.0L)
+    {
+      printf("WEIRD ERROR: POLESWITCH HAS z prime > 1.0!\n");
+      printf("THIS VIOLATES BASIC TRIGONOMETRY\n");
+      printf("zp-1.0 = %Le\n",zp-1.0L);
+      printf("inDec = %Lf, inRA = %Lf, poleDec=%Lf, poleRA=%Lf\n",inDec,inRA,poleDec,poleRA);
+      printf("xyz, xp yp zp = %Lf %Lf %Lf %Lf %Lf %Lf\n",x,y,z,xp,yp,zp);
+      printf("SETTING zp to exactly 1.0.\n");
+      zp = 1.0L;
+    }
+  thetap = asin(zp);
+
+  phip=0.0L;
+  if(y==0.0L)
+    {
+      if(x>=0.0L)
+	{
+	  phip = 0.0L;
+	}
+      else if(x<0.0L)
+	{
+	  phip = M_PI;
+	}
+    }
+  else if(y>0.0L)
+    {
+      phip = M_PI/2.0L - atan(xp/yp);
+    }
+  else if(y<0.0L)
+    {
+      phip = 3.0L*M_PI/2.0L - atan(xp/yp);
+    }
+
+  fflush(stdout);
+
+  phip+=(oldpoleRA/DEGPRAD-M_PI);
+
+  badphip = 0;
+  if(phip<0.0L||phip>=2.0L*M_PI)
+    {
+      badphip = 1;
+    }
+  while(badphip==1)
+    {
+      if(phip<0.0L) phip+=2.0L*M_PI;
+      else if(phip>=2.0L*M_PI) phip-=2.0L*M_PI;
+      badphip = 0;
+      if(phip<0.0L||phip>=2.0L*M_PI)
+	{
+	  badphip = 1;
+	}
+    }
+  newRA = phip*DEGPRAD;
+  newDec = thetap*DEGPRAD;
   return(0);
 }
 
@@ -4091,7 +4239,7 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   //cout << "Psuedo-celestial coords of original position: " << r0ra << " " << r0dec << "\n";
   // Transform the starting unit vector into a coordinate system with
   // the angular momentum vector at the pole, and the old pole at RA=0
-  poleswitch01LD(r0ra/DEGPRAD,r0dec/DEGPRAD,lra/DEGPRAD,ldec/DEGPRAD,0.0L,&newra,&newdec); // Output is radians
+  poleswitch01LD(r0ra/DEGPRAD,r0dec/DEGPRAD,lra/DEGPRAD,ldec/DEGPRAD,0.0L,newra,newdec); // Output is radians
   //cout << "Orbital plane coords of original position: " << newra*DEGPRAD << " " << newdec*DEGPRAD << "\n";
   // Rotate starting unit vector around the angular momentum axis by
   // the calculated angle.
@@ -4100,7 +4248,7 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   // The unit vector for the new position r1 is on the equator at this RA,
   // in the coordinate system that has the angular momentum vector at the pole.
   // Convert back to the original coordinate system.
-  poleswitch01LD(newra,0.0L,0.0L,ldec/DEGPRAD,lra/DEGPRAD,&r1ra,&r1dec); // Output is radians
+  poleswitch01LD(newra,0.0L,0.0L,ldec/DEGPRAD,lra/DEGPRAD,r1ra,r1dec); // Output is radians
   // Now for the velocity. If the velocity is at right angle to the vector r1,
   // the product v1*r1 is the angular momentum. Otherwise, l/(v1*r1) is the sine
   // of the angle between v1 and r1.
@@ -4119,7 +4267,7 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
     // Inward bound to perihelion
     newra += (M_PI - thetav);
   }
-  poleswitch01LD(newra,0.0L,0.0L,ldec/DEGPRAD,lra/DEGPRAD,&v1ra,&v1dec); // Output is radians
+  poleswitch01LD(newra,0.0L,0.0L,ldec/DEGPRAD,lra/DEGPRAD,v1ra,v1dec); // Output is radians
 
   // cout << "Psuedo-celestial coords of new position: " << r1ra*DEGPRAD << " " << r1dec*DEGPRAD << "\n";
   r1unit = celeproj01LD(r1ra*DEGPRAD,r1dec*DEGPRAD);
@@ -4135,7 +4283,219 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   return(0);
 }
 
+// hyp_transcendental: April 25, 2022:
+// Solve the hyperbolic form of the trancendental
+// Kepler Equation q = e*sinh(psi) - psi for psi given q and e,
+// returning a result guaranteed to be correct
+// within tol, unless KEPTRANSITMAX iterations
+// elapse without achieving this.
+long double hyp_transcendental(long double q, long double e, long double tol)
+{
+  int itct=0;
+  long double psi_guess = M_PI;
+  
+  if(tol<=0L) {
+    cerr << "ERROR: hyp_trancendental called with non-positive tolerance " << tol << "\n";
+    return(-99.9);
+  }
 
+  if(q>=0) psi_guess = 3.0;
+  else psi_guess = -3.0;
+  
+  long double fpsi = e*sinh(psi_guess) - psi_guess - q;
+  long double fprime = e*cosh(psi_guess) - 1.0L;
+  itct=0;
+  cout.precision(17);
+  while(itct<KEPTRANSITMAX && fabs(fpsi) > tol) {
+    psi_guess += -fpsi/fprime;
+    fpsi = e*sinh(psi_guess) - psi_guess - q;
+    fprime = e*cosh(psi_guess) - 1.0L;
+    // cout << "kep itct " << itct << "psi, fpsi, fprime: " << psi_guess << ", " << fpsi << ", " << fprime << "\n"; 
+    itct++;
+  }
+
+  if(itct>=KEPTRANSITMAX) {
+    cout.precision(21);
+    cout << "Warning: hyp_trancendental " << itct << " iters, still " << fpsi << " > tol = " << tol;
+    cout << " Call was q = " << q << ", e = " << e << "\n";
+  }
+  // cout << "hyp_transcendental obtained error of " << fpsi << " in only " << itct << " iterations\n";
+  return(psi_guess);
+}
+    
+// Hyper_Kepint: April 25, 2022:
+// Integrate a hyperbolic orbit assuming we have a Keplerian 2-body problem
+// with all the mass in the Sun, and the input position and velocity
+// are relative to the Sun.
+int Hyper_Kepint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel)
+{
+  long double e,E,a,lscalar,r0,v0,r1,v1;
+  point3LD lvec = point3LD(0L,0L,0L);
+  point3LD lunit = point3LD(0L,0L,0L);
+  point3LD r0unit = point3LD(0L,0L,0L);
+  point3LD r1unit = point3LD(0L,0L,0L);
+  point3LD v1unit = point3LD(0L,0L,0L);
+  e = E = a = lscalar = r0 = v0 = r1 = v1 = 0L;
+  long double coshH,H0,theta0,theta1,radvel,H;
+  coshH = H0 = theta0 = theta1 = radvel = H = 0L;
+  long double omega, t0omega, t0, t1omega, t1;
+  omega = t0omega = t0 = t1omega = t1 = 0L;
+  long double lra,ldec,r0ra,r0dec,r1ra,r1dec,newra,newdec;
+  lra = ldec = r0ra = r0dec = r1ra = r1dec = newra = newdec = 0L;
+  int status = 0;
+  long double x,y,junkra,junkdec,sinev,thetav,v1ra,v1dec;
+  x = y = junkra = junkdec = sinev = thetav = v1ra = v1dec = 0L;
+  int debug=2;
+  
+  // Calculate scalar input position
+  r0 = sqrt(dotprod3LD(startpos,startpos));
+  v0 = sqrt(dotprod3LD(startvel,startvel));
+  
+  // Calculate specific energy and angular momentum
+  E = 0.5L*v0*v0 - MGsun/r0;
+  lvec = crossprod3LD(startpos,startvel);
+  lscalar = sqrt(dotprod3LD(lvec,lvec));
+  if(debug>=2) cout << "Energy = " << E << ", angmom = " << lscalar << "\n";
+  if(E<=0L) {
+    //cerr << "ERROR: Hyper_Kepint finds negative total energy: " << E << "\n";
+    return(1);
+  }
+		 
+  // Calculate a and e: orbital semimajor axis and eccentricity.
+  cout.precision(17);
+  a = -MGsun*0.5L/E; // By convention, semimajor axis a is negative
+                     // for hyperbolic orbits.
+  e = sqrt(1.0L + 2.0L*E*lscalar*lscalar/MGsun/MGsun);
+  if(debug>=2) cout << "a = " << a/AU_KM << ", e = " << e << "\n";
+  
+  if(e<=1.0L) {
+    cerr << "ERROR: Hyper_Kepint finds eccentricity out of range: " << e << "\n";
+    return(1);
+  }
+
+  // Calculate the value of the hyperbolic anomaly H at the starting time
+  if(e>1.0L) {
+    coshH = (a-r0)/(a*e);
+    if(coshH>=1.0L) H0 = acosh(coshH);
+    else {
+      cerr << "ERROR: Hyper_Kepint finds cosh(H) = " << coshH << "\n";
+      return(1);
+    }
+  }
+  radvel = dotprod3LD(startpos,startvel)/r0;
+  if(debug>=2) cout << "H0 = " << H0 << ", radial velocity = " << radvel << " km/sec\n";
+  
+  if(radvel>=0) {
+    // We are moving outward from perihelion: H0 will be correct
+     ;
+  } else {
+    // We are moving inward towards perihelion: H0 needs adjustment.
+    H0 = -H0;
+   }
+  
+  if(debug>=2) cout << "H0 = " << H0 << ", radial velocity = " << radvel << " km/sec\n";
+
+  // Calculate the angle theta0 from perihelion using H0.
+  x = a*(cosh(H0)-e);
+  y = -a*sqrt(e*e-1)*sinh(H0);
+  if(y>0.0L) {
+    theta0 = M_PI/2.0L - atan(x/y);
+  } else if (y<0.0L) {
+    theta0 = 3.0L*M_PI/2.0L - atan(x/y);
+  } else {
+    // Presumably y==0. There's also the possibility that
+    // it could be a NAN, but we won't worry about that right here.
+    if(x<0) theta0 = M_PI;
+    else theta0 = 0.0L;
+  }
+  if(debug>=2) cout << "x = " << x/AU_KM << ", y = " << y/AU_KM << ", theta0 = " << theta0*M_PI/180.0 << "\n";
+
+  // Calculate time since perihelion using H0.
+  omega = sqrt(-MGsun/(a*a*a));
+  cout << "omega = " << omega << "\n";
+  t0omega = e*sinh(H0) - H0;
+  cout << "t0omega = " << t0omega << "\n";
+ 
+  // The new time t1 for which we want to re-evaluate psi is
+  // given by t0 + mjdend-mjdstart.
+  t1omega = t0omega + (mjdend-mjdstart)*SOLARDAY*omega;
+  cout << "t1omega = " << t1omega << "\n";
+  // Solve the hyperbolic form of Kepler's equation for H(t1)
+  H = hyp_transcendental(t1omega,e,KEPTRANSTOL);
+  cout << "H = " << H << "\n";
+
+  // Calculate r(t1) from H(t1)
+  r1 = a*(1.0L - e*cosh(H));
+  // Calculate v1 from r1 and the known energy
+  v1 = sqrt((E +  MGsun/r1)*2.0L);
+  
+  // Calculate the angle theta1 from perihelion from H(t1).
+  x = a*(cosh(H)-e);
+  y = -a*sqrt(e*e-1)*sinh(H);
+  if(y>0.0L) {
+    theta1 = M_PI/2.0L - atan(x/y);
+  } else if (y<0.0L) {
+    theta1 = 3.0L*M_PI/2.0L - atan(x/y);
+  } else {
+    // Presumably y==0. There's also the possibility that
+    // it could be a NAN, but we won't worry about that right here.
+    if(x<0) theta1 = M_PI;
+    else theta1 = 0.0L;
+  }
+
+  // Use vector algebra to find the full vector r(t1).
+  // This vector is perpendicular to lvec, and is angled by theta1-theta0
+  // relative to startpos.
+  // Convert angular momentum vector to spherical coordinates
+  celedeproj01LD(lvec,&lra,&ldec); // Note that output is in degrees.
+  //cout << "Psuedo-celestial coords of angular momentum vector: " << lra << " " << ldec << "\n";
+  celedeproj01LD(startpos,&r0ra,&r0dec); // Note that output is in degrees.
+  //cout << "Psuedo-celestial coords of original position: " << r0ra << " " << r0dec << "\n";
+  // Transform the starting unit vector into a coordinate system with
+  // the angular momentum vector at the pole, and the old pole at RA=0
+  poleswitch01LD(r0ra/DEGPRAD,r0dec/DEGPRAD,lra/DEGPRAD,ldec/DEGPRAD,0.0L,newra,newdec); // Output is radians
+  //cout << "Orbital plane coords of original position: " << newra*DEGPRAD << " " << newdec*DEGPRAD << "\n";
+  // Rotate starting unit vector around the angular momentum axis by
+  // the calculated angle.
+  newra += theta1-theta0;
+  // cout << "Orbital plane coords of new position " << newra*DEGPRAD << " " << newdec*DEGPRAD << "\n";
+  // The unit vector for the new position r1 is on the equator at this RA,
+  // in the coordinate system that has the angular momentum vector at the pole.
+  // Convert back to the original coordinate system.
+  poleswitch01LD(newra,0.0L,0.0L,ldec/DEGPRAD,lra/DEGPRAD,r1ra,r1dec); // Output is radians
+  // Now for the velocity. If the velocity is at right angle to the vector r1,
+  // the product v1*r1 is the angular momentum. Otherwise, l/(v1*r1) is the sine
+  // of the angle between v1 and r1.
+
+  sinev = lscalar/v1/r1;
+  if(sinev>=1.0L) thetav = 0.5L*M_PI;
+  else if(sinev<0.0L) {
+    cerr << "ERROR: negative angular momentum?\nv1,r1,v1*r1,lscalar,sinev = " << v1 << ", " << r1 << ", " << v1*r1 << ", " << lscalar << ", " << sinev << "\n";
+    thetav = 0.0L;
+  }
+  else thetav = asin(sinev);
+  if(theta1<=M_PI) {
+    // Outward bound from perihelion.
+    newra += thetav;
+  } else {
+    // Inward bound to perihelion
+    newra += (M_PI - thetav);
+  }
+  poleswitch01LD(newra,0.0L,0.0L,ldec/DEGPRAD,lra/DEGPRAD,v1ra,v1dec); // Output is radians
+
+  // cout << "Psuedo-celestial coords of new position: " << r1ra*DEGPRAD << " " << r1dec*DEGPRAD << "\n";
+  r1unit = celeproj01LD(r1ra*DEGPRAD,r1dec*DEGPRAD);
+  v1unit =celeproj01LD(v1ra*DEGPRAD,v1dec*DEGPRAD);
+  
+  endpos.x = r1unit.x*r1;
+  endpos.y = r1unit.y*r1;
+  endpos.z = r1unit.z*r1;
+  endvel.x = v1unit.x*v1;
+  endvel.y = v1unit.y*v1;
+  endvel.z = v1unit.z*v1;
+  
+  return(0);
+}
 
 // integrate_orbit01LD: December 01, 2021
 // Uses the approximation of linearly varying acceleration
@@ -4393,7 +4753,7 @@ int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double>
 	j++;
 	i++;
       } else if (planetmjd[pointafter+i] == mjdend) {
-	// Weird case where the requesed mjdend falls exactly on a timestep
+	// Weird case where the requested mjdend falls exactly on a timestep
 	temptime[j] = mjdend;
 	if(j<=polyorder) endhere=j;
 	planetsonce={};
@@ -4692,6 +5052,7 @@ int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double>
     }
     // Re-calculate accelerations using these revised positions
     for(j=1;j<=polyorder+1;j++) {
+      cout << "RECALCULATING ACCELERATIONS!\n";
       for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*j + i];
       accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
     }
@@ -5307,6 +5668,41 @@ int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint
   else return(-1); // Error code
 }
 
+// get_col_vector01: Given a line from a file, containing fields
+// delimited by spaces, tabs, or commas, load a string vector with
+// the strings corresponding to each individual column, and return
+// the total number of columns that were found. Note that only one
+// space, comma, or tab should be used between successive fields.
+// If, e.g., two spaces are used, get_col_vector01 will interpret
+// them as delimiting a field of zero length. The reason it is
+// designed to work this way is that in csv files, consecutive commas
+// are in fact frequently designed to indicate null fields.
+int get_col_vector01(const string &lnfromfile, vector <string> &outvec)
+{
+  int i=0;
+  int stringct=0;
+  char c='0';
+  string outstring;
+
+  if(lnfromfile.size()<=0) return(-1);
+
+  outvec={};
+  c = lnfromfile[i];
+  while(i<lnfromfile.size()) {
+    outstring=""; //Setup to read the string from the next column
+    while(i<lnfromfile.size() && c!=',' && c!=' ' && c!='\t' && c!='\n' && c!=EOF) {
+      if(c!=',' && c!=' ' && c!='\t' && c!='\n' && c!=EOF) outstring.push_back(c);
+      i++;
+      c=lnfromfile[i];
+    }
+    stringct++;
+    outvec.push_back(outstring);
+    i++;
+    c=lnfromfile[i];
+  }
+  return(stringct);
+}
+
 // MJD2mpcdate: March 16, 2022: C++ version of old C code for
 // converting an MJD to MPC date format.
 //
@@ -5614,11 +6010,1698 @@ int fmedian_minmax(const vector <float> &invec, float &median, float &min, float
   }
 }
     
+// stateunit_to_celestial: April 08, 2022:
+// Given an input unit vector in the solar system barycentric coordinate
+// system, calculate the RA, Dec coordinates to which it points.
+// Example: if the input unit vector is the relative position of
+// an asteroid relative to an observer in the barycentric system,
+// the output will be the asteroid's RA and Dec in the sky as seen
+// by that observer.
+int stateunit_to_celestial(point3d &baryvec, double &RA, double &Dec)
+{
+  double tempra,tempdec,newRA,newDec,poleRA,poleDec,oldpoleRA;
 
-    
+  /*Ecliptic polar coordinates*/  
+  if(baryvec.y>=0.0) tempra = M_PI/2.0L - atan(baryvec.x/baryvec.y);
+  else tempra = 3.0L*M_PI/2.0L - atan(baryvec.x/baryvec.y);
+  tempdec = atan(baryvec.z/sqrt(baryvec.x*baryvec.x + baryvec.y*baryvec.y));
 
+  poleRA=M_PI/2.0L;
+  poleDec = NEPDEC/DEGPRAD;
+  oldpoleRA = 1.5L*M_PI;
   
+  // Convert from ecliptic to celestial coordinates 
+  poleswitch01(tempra, tempdec, poleRA, poleDec, oldpoleRA, newRA, newDec);
 
-    
+  RA = newRA*DEGPRAD;
+  Dec = newDec*DEGPRAD;
+  return(0);
+}
+ 
+// stateunitLD_to_celestial: April 08, 2022:
+// Given an input unit vector in the solar system barycentric coordinate
+// system, calculate the RA, Dec coordinates to which it points.
+// Example: if the input unit vector is the relative position of
+// an asteroid relative to an observer in the barycentric system,
+// the output will be the asteroid's RA and Dec in the sky as seen
+// by that observer.
+int stateunitLD_to_celestial(point3LD &baryvec, long double &RA, long double &Dec)
+{
+  long double tempra,tempdec,newRA,newDec,poleRA,poleDec,oldpoleRA;
 
+  /*Ecliptic polar coordinates*/  
+  if(baryvec.y>=0.0) tempra = M_PI/2.0L - atan(baryvec.x/baryvec.y);
+  else tempra = 3.0L*M_PI/2.0L - atan(baryvec.x/baryvec.y);
+  tempdec = atan(baryvec.z/sqrt(baryvec.x*baryvec.x + baryvec.y*baryvec.y));
+
+  poleRA=M_PI/2.0L;
+  poleDec = NEPDEC/DEGPRAD;
+  oldpoleRA = 1.5L*M_PI;
   
+  // Convert from ecliptic to celestial coordinates 
+  poleswitch01LD(tempra, tempdec, poleRA, poleDec, oldpoleRA, newRA, newDec);
+
+  RA = newRA*DEGPRAD;
+  Dec = newDec*DEGPRAD;
+  return(0);
+}
+
+#define DEBUG 0
+
+// integrate_orbit03LD: April 08, 2022
+// Uses modeling of the acceleration as a polynomial of order n>1
+// to integrate the orbit of a massless test particle (e.g. asteroid)
+// under the gravity of multiple 'planets'. It is assumed that
+// in general these 'planets' will consist of the Sun, the
+// eight major planets, and the Moon (possibly needed for
+// cases of NEOs closely approaching the Earth). However,
+// more or fewer planets may be used as desired.
+// Note that the vector obsMJD is assumed to be time-sorted, and
+// serious failures will result if it is not.
+int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, const vector <long double> &obsMJD, point3LD startpos, point3LD startvel, long double mjdstart, vector <point3LD> &obspos, vector <point3LD> &obsvel)
+{
+  vector <point3LD> planetsalltimes;
+  vector <point3LD> planetsonce;
+  vector <point3LD> targaccel;
+  vector <point3LD> accelfit;
+  vector <point3LD> targvel;
+  vector <point3LD> targpos;
+  vector <point3LD> accelmod;
+  vector <long double> temptime;
+  vector <long double> ppxvec;
+  vector <long double> ppyvec;
+  vector <long double> ppfitvec;
+  vector <long double> obsMJD2 = obsMJD; // Mutable copy of immutable input vector.
+  point3LD singleaccel = point3LD(0L,0L,0L);
+  point3LD singlevel = point3LD(0L,0L,0L);
+  point3LD singlepos = point3LD(0L,0L,0L);
+  int i=0;
+  int j=0;
+  int k=0;
+  int obsnum=obsMJD.size();
+  int obsct=0;
+  int endhere=-1;
+  int planetpointnum = planetmjd.size();
+  vector <long double> forwardmjd;
+  vector <long double> backwardmjd;
+   int planetpointct = 0;
+  int pointafter=0;
+  int pointbefore=0;
+  int latestpoint=0;
+  int stepsin=0;
+  long double dt0=0L;
+  long double dt1=0L;
+  long double dt2=0L;
+  long double timemult=0L;
+  point3LD accelslope = point3LD(0L,0L,0L);
+  int obsbefore=0;
+  int obsafter=0;
+  long double lastobstime=0L;
+  long double firstobstime=0L;
+  int obspoint=0;
+
+  // Correct the input observed times, assumed to be UT1, by the
+  // corretion to TT (terrestrial time) used, e.g. by JPL Horizons.
+  for(obsct=0;obsct<obsnum;obsct++) {
+    obsMJD2[obsct] += TTDELTAT/SOLARDAY; // UT is always behind TT, hence UT must be adjusted forward.
+  }
+    
+  firstobstime = obsMJD2[0];
+  lastobstime = obsMJD2[obsnum-1];
+  if(DEBUG>1) cout << "Integration will span times from MJD " << firstobstime << " to " << lastobstime << "\n";
+
+  if(polyorder<2) {
+    cerr << "ERROR: integrate_orbit03LD called with polyorder = " << polyorder << "\n";
+    cerr << "polyorder must be at least 2!\n";
+    return(1);
+  }
+  
+  if(lastobstime<firstobstime) {
+    cerr << "ERROR: integrate_orbit03LD called with end time (" << lastobstime << ") before start time (" << firstobstime << ")\n";
+    return(1);
+  } else if(mjdstart<=planetmjd[1] || firstobstime<=planetmjd[1] || lastobstime>=planetmjd[planetpointnum-1]) {
+    cerr << "ERROR: integrate_orbit03LD called with start time " << mjdstart << " or time range )" << firstobstime << "-" << lastobstime << ") outside range of planet vectors (" << planetmjd[1] << "-" << planetmjd[planetpointnum-1] << ")\n";
+    return(1);
+  }
+  // Make sure that relevant vectors for the polynomial fitting
+  // are all large enough.
+  for(i=0;i<=polyorder+1;i++) {
+    targaccel.push_back(singleaccel);
+    accelfit.push_back(singleaccel);
+    targvel.push_back(singlevel);
+    targpos.push_back(singlepos);
+    accelmod.push_back(singleaccel);
+    temptime.push_back(0L);
+    ppfitvec.push_back(0L);
+  }
+
+  // Make sure the output vectors are large enough
+  obspos={};
+  obsvel={};
+  for(obsct=0;obsct<=obsnum;obsct++) {
+    obsvel.push_back(singlevel);
+    obspos.push_back(singlepos);
+  }
+  // Are the observations before or after the starting time, or both?
+  obsbefore=obsafter=0;
+  for(obsct=0;obsct<=obsnum;obsct++) {
+    if(obsMJD2[obsct]<mjdstart) obsbefore=1;
+    if(obsMJD2[obsct]>=mjdstart) obsafter=1;
+  }
+
+  if(DEBUG>1) cout << "Checking for forward integration\n";
+  if(obsafter==1) {
+  if(DEBUG>1) cout << "Forward integration will be performed\n";
+    // Integrate forward in time to find the position of
+    // the target asteroid at all positions after starttime.
+
+    // Load the initial time and planet position vectors
+    planetsonce={};
+    forwardmjd={};
+    planetsalltimes={};
+    temptime[0] = mjdstart;
+    forwardmjd.push_back(mjdstart);
+    nplanetpos01LD(temptime[0]-TTDELTAT/SOLARDAY,planetnum,5,planetmjd,planetpos,planetsonce);
+    for(i=0;i<planetnum;i++) planetsalltimes.push_back(planetsonce[i]);
+    if(DEBUG>1) cout  << fixed << setprecision(6) << "mjdstart = " << mjdstart << " loaded: " << forwardmjd[0] << "\n";
+ 
+    // Find the first observation time simultaneous with or after starttime
+    obsct=0;
+    while(obsMJD2[obsct]<mjdstart) obsct++;
+    obspoint=obsct;
+    
+    // Find the first point in the planet files that is after mjdstart
+    for(i=0;i<planetpointnum;i++) {
+      if(planetmjd[i]>mjdstart) break;
+    }
+    pointafter = i; // first point after mjdstart
+
+    if(DEBUG>1) cout  << fixed << setprecision(6) << "Starting points for forward integration:\n";
+    if(DEBUG>1) cout  << fixed << setprecision(6) << "Observations, point " << obspoint << ", time " << obsMJD2[obspoint] << "\n";
+    if(DEBUG>1) cout  << fixed << setprecision(6) << "Planet file, point " << pointafter << ", time " << planetmjd[pointafter] << "\n";
+    
+    // Load a vector with times and planet positions for all the planet file
+    // points spanning the times of the observations.
+    
+    dt0 = (planetmjd[pointafter+1] - planetmjd[pointafter])*SOLARDAY/sqrt(M_PI);
+    
+    j=1;
+    i=0;
+    obsct=obspoint;
+    // j counts elements actually loaded into forwardmjd and planetsalltimes
+    // i counts steps in the planetfile past pointafter
+    // obsct indexes the observation vector.
+    for(obsct=obspoint;obsct<obsnum;obsct++) {
+      while(planetmjd[pointafter+i]<obsMJD2[obsct]) {
+	// Load any planet file points until we get past obsMJD2[obsct]
+	forwardmjd.push_back(planetmjd[pointafter+i]);
+	if(DEBUG>1) cout << "obsMJD2[" << obsct << "] = " << obsMJD2[obsct] << " > planetmjd[" << pointafter+i << "] = " << planetmjd[pointafter+i] << ": loaded forwardmjd[" << j << "] = " << forwardmjd[j] << "\n";
+	planetsonce={};
+	nplanetgrab01LD(pointafter+i, planetnum, planetmjd, planetpos, planetsonce);
+	for(k=0;k<planetnum;k++) planetsalltimes.push_back(planetsonce[k]);
+	i++;
+	j++;
+      }
+      // Load the next observation point.
+      forwardmjd.push_back(obsMJD2[obsct]);
+      planetsonce={};
+      nplanetpos01LD(obsMJD2[obsct]-TTDELTAT/SOLARDAY,planetnum,5,planetmjd,planetpos,planetsonce);
+      for(k=0;k<planetnum;k++) planetsalltimes.push_back(planetsonce[k]);
+      j++;
+      if(DEBUG>1) cout << "obsMJD2[" << obsct << "] = " << obsMJD2[obsct] << " < planetmjd[" << pointafter+i << "] = " << planetmjd[pointafter+i] << ": loaded forwardmjd[" << j-1 << "] = " << forwardmjd[j-1] << "\n";
+    }
+    // Add extra planet points until we have polyorder+2
+    while(j<polyorder+2) {
+      forwardmjd.push_back(planetmjd[pointafter+i]);
+      planetsonce={};
+      nplanetgrab01LD(pointafter+i, planetnum, planetmjd, planetpos, planetsonce);
+      for(k=0;k<planetnum;k++) planetsalltimes.push_back(planetsonce[k]);
+      if(DEBUG>1) cout << "obsMJD2[" << obsct << "] = " << obsMJD2[obsct] << " < planetmjd[" << pointafter+i << "] = " << planetmjd[pointafter+i] << ": loaded forwardmjd[" << j-1 << "] = " << forwardmjd[j-1] << "\n";
+      i++;
+      j++;
+    }
+    if(DEBUG>1) {
+      cout << fixed << setprecision(6)  << "Loaded " << forwardmjd.size() << " points in forwardmjd\n";
+      for(i=0;i<forwardmjd.size();i++) {
+	cout  << fixed << setprecision(6) << "Forward MJD = " << forwardmjd[i] << "\n";
+      }
+    }
+    // Now we've loaded all the times we want for the forward integration
+    // Load temporary time vector
+    for(j=0;j<=polyorder+1;j++) temptime[j] = forwardmjd[j];
+
+    //cout << fixed << setprecision(6)  << "Loaded " << forwardmjd.size() << " points in forwardmjd\n";
+    //cout << fixed << setprecision(6)  << "Loaded " << planetsalltimes.size() << " points in planetsalltimes\n";
+    
+    // Load starting position and velocity
+    targvel[0] = startvel;
+    targpos[0] = startpos;
+    j=0;
+    //cout << temptime[j] << " " << targpos[j].x << " " << targpos[j].y << " " << targpos[j].z << " " << targvel[j].x << " " << targvel[j].y << " " << targvel[j].z << "\n";
+    // Bootstrap up to a fit of order polyorder.
+    // Calculate acceleration at starting point, loading planet positions from big vector.
+    for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[i];
+    accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[0], targaccel[0]);
+    dt1 = (temptime[1]-temptime[0])*SOLARDAY;
+    // First Approx: estimate next position, assuming constant acceleration.
+    targpos[1].x = targpos[0].x + targvel[0].x*dt1 + targaccel[0].x*0.5L*dt1*dt1;
+    targpos[1].y = targpos[0].y + targvel[0].y*dt1 + targaccel[0].y*0.5L*dt1*dt1;
+    targpos[1].z = targpos[0].z + targvel[0].z*dt1 + targaccel[0].z*0.5L*dt1*dt1;
+    // Calculate acceleration at this new position.
+    for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*1 + i];
+    accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[1], targaccel[1]);
+  
+    // Second approx: linearly varying acceleration.
+    accelslope.x = (targaccel[1].x-targaccel[0].x)/dt1;
+    accelslope.y = (targaccel[1].y-targaccel[0].y)/dt1;
+    accelslope.z = (targaccel[1].z-targaccel[0].z)/dt1;
+
+    // Improved position for next time step.
+    targpos[1].x = targpos[0].x + targvel[0].x*dt1 + targaccel[0].x*0.5L*dt1*dt1 + accelslope.x*dt1*dt1*dt1/6.0L;
+    targpos[1].y = targpos[0].y + targvel[0].y*dt1 + targaccel[0].y*0.5L*dt1*dt1 + accelslope.y*dt1*dt1*dt1/6.0L;
+    targpos[1].z = targpos[0].z + targvel[0].z*dt1 + targaccel[0].z*0.5L*dt1*dt1 + accelslope.z*dt1*dt1*dt1/6.0L;
+
+    // Re-calculate acceleration at this improved position.
+    accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[1], targaccel[1]);
+
+    // Re-calculate improved acceleration slope.
+    accelslope.x = (targaccel[1].x-targaccel[0].x)/dt1;
+    accelslope.y = (targaccel[1].y-targaccel[0].y)/dt1;
+    accelslope.z = (targaccel[1].z-targaccel[0].z)/dt1;
+  
+    // Improved velocity for next time step
+    targvel[1].x = targvel[0].x + targaccel[0].x*dt1 + accelslope.x*0.5L*dt1*dt1;
+    targvel[1].y = targvel[0].y + targaccel[0].y*dt1 + accelslope.y*0.5L*dt1*dt1;
+    targvel[1].z = targvel[0].z + targaccel[0].z*dt1 + accelslope.z*0.5L*dt1*dt1;
+
+    // Use linearly extrapolated acceleration to estimate position for
+    // the next time step.
+    dt1 = (temptime[2]-temptime[1])*SOLARDAY;
+    targpos[2].x = targpos[1].x + targvel[1].x*dt1 + targaccel[1].x*0.5L*dt1*dt1 + accelslope.x*dt1*dt1*dt1/6.0L;
+    targpos[2].y = targpos[1].y + targvel[1].y*dt1 + targaccel[1].y*0.5L*dt1*dt1 + accelslope.y*dt1*dt1*dt1/6.0L;
+    targpos[2].z = targpos[1].z + targvel[1].z*dt1 + targaccel[1].z*0.5L*dt1*dt1 + accelslope.z*dt1*dt1*dt1/6.0L;
+
+    // Calculate acceleration for this extrapolated position.
+    for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*2 + i];
+    accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[2], targaccel[2]);
+
+    // Now we have three acceleration points: can load for a full polynomial fit.
+    for(stepsin=3;stepsin<=polyorder+1;stepsin++) {
+      // Fit for x component of acceleration.
+      ppxvec={};
+      ppyvec={};
+      for(i=0;i<stepsin;i++) {
+	ppxvec.push_back((temptime[i] - temptime[0])*SOLARDAY/dt0);
+	ppyvec.push_back(targaccel[i].x);
+      }
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<stepsin;i++) accelfit[i].x = ppfitvec[i];
+      // Fit for y component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<stepsin;i++) ppyvec.push_back(targaccel[i].y);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<stepsin;i++) accelfit[i].y = ppfitvec[i];
+      // Fit for z component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<stepsin;i++) ppyvec.push_back(targaccel[i].z);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<stepsin;i++) accelfit[i].z = ppfitvec[i];
+      // Re-calculate all of the positions and velocities using this fit.
+      for(j=1;j<=stepsin;j++) {
+	dt2 = (temptime[j]-temptime[0])*SOLARDAY;
+	// Positions
+	targpos[j].x = targpos[0].x + targvel[0].x*dt2;
+	targpos[j].y = targpos[0].y + targvel[0].y*dt2;
+	targpos[j].z = targpos[0].z + targvel[0].z*dt2;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,2+i)*factorialLD(i)/factorialLD(2+i)/intpowLD(dt0,i);
+	  targpos[j].x += accelfit[i].x*timemult;
+	  targpos[j].y += accelfit[i].y*timemult;
+	  targpos[j].z += accelfit[i].z*timemult;
+	}
+	// Velocities
+	targvel[j].x = targvel[0].x;
+	targvel[j].y = targvel[0].y;
+	targvel[j].z = targvel[0].z;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,1+i)/intpowLD(dt0,i)/((long double)(1+i));
+	  targvel[j].x += accelfit[i].x*timemult;
+	  targvel[j].y += accelfit[i].y*timemult;
+	  targvel[j].z += accelfit[i].z*timemult;
+	}
+	// Accelerations
+	accelmod[j].x = 0L;
+	accelmod[j].y = 0L;
+	accelmod[j].z = 0L;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,i)/intpowLD(dt0,i);
+	  accelmod[j].x += accelfit[i].x*timemult;
+	  accelmod[j].y += accelfit[i].y*timemult;
+	  accelmod[j].z += accelfit[i].z*timemult;
+	}
+      }
+      // Re-calculate accelerations using these revised positions
+      for(j=1;j<=stepsin;j++) {
+	for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*j + i];
+	accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
+      }
+      cout.precision(17);
+  
+      // Perform new fits to revised accelerations
+      // Fit for x component of acceleration.
+      ppxvec={};
+      ppyvec={};
+      for(i=0;i<stepsin;i++) {
+	ppxvec.push_back((temptime[i] - temptime[0])*SOLARDAY/dt0);
+	ppyvec.push_back(targaccel[i].x);
+      }
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<stepsin;i++) accelfit[i].x = ppfitvec[i];
+      // Fit for y component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<stepsin;i++) ppyvec.push_back(targaccel[i].y);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<stepsin;i++) accelfit[i].y = ppfitvec[i];
+      // Fit for z component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<stepsin;i++) ppyvec.push_back(targaccel[i].z);
+      for(i=0;i<stepsin;i++) {
+      }
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<stepsin;i++) accelfit[i].z = ppfitvec[i];
+      // Re-calculate all of the positions and velocities using this fit.
+      for(j=1;j<=stepsin;j++) {
+	dt2 = (temptime[j]-temptime[0])*SOLARDAY;
+	// Positions
+	targpos[j].x = targpos[0].x + targvel[0].x*dt2;
+	targpos[j].y = targpos[0].y + targvel[0].y*dt2;
+	targpos[j].z = targpos[0].z + targvel[0].z*dt2;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,2+i)*factorialLD(i)/factorialLD(2+i)/intpowLD(dt0,i);
+	  targpos[j].x += accelfit[i].x*timemult;
+	  targpos[j].y += accelfit[i].y*timemult;
+	  targpos[j].z += accelfit[i].z*timemult;
+	}
+	// Velocities
+	targvel[j].x = targvel[0].x;
+	targvel[j].y = targvel[0].y;
+	targvel[j].z = targvel[0].z;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,1+i)/intpowLD(dt0,i)/((long double)(1+i));
+	  targvel[j].x += accelfit[i].x*timemult;
+	  targvel[j].y += accelfit[i].y*timemult;
+	  targvel[j].z += accelfit[i].z*timemult;
+	}
+	// Accelerations
+	accelmod[j].x = 0L;
+	accelmod[j].y = 0L;
+	accelmod[j].z = 0L;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,i)/intpowLD(dt0,i);
+	  accelmod[j].x += accelfit[i].x*timemult;
+	  accelmod[j].y += accelfit[i].y*timemult;
+	  accelmod[j].z += accelfit[i].z*timemult;
+	}
+      }
+      // Re-calculate accelerations using these revised positions
+      for(j=1;j<=stepsin;j++) {
+	for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*j + i];
+	accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
+      }
+    }
+
+    // We are now set up for a full-order polynomial integration.
+    // We have valid positions in targpos, targvel, and temptime
+    // for indices from 0 to polyorder+1.
+    // See if any of the target points have already been calculated
+    j=0;
+    obsct=obspoint;
+    while(j<=polyorder+1 && obsct<obsnum) {
+      if(obsMJD2[obsct]==temptime[j]) {
+	obspos[obsct]=targpos[j];
+	obsvel[obsct]=targvel[j];
+	j++;
+	obsct++;
+      } else if(obsMJD2[obsct]<temptime[j]) obsct++;
+      else if(temptime[j]<obsMJD2[obsct]) j++;
+      else {
+	cerr << "Impossible time comparison case: " << temptime[j] << " " << obsMJD2[obsct] << "\n";
+	return(4);
+      }
+    }
+    latestpoint=polyorder+1;
+    // Proceed with the full polynomial integration.
+    while(latestpoint<forwardmjd.size()-1) {
+      latestpoint++;
+      // Cycle the dynamical vectors
+      for(i=0;i<polyorder+1;i++) {
+	temptime[i] = temptime[i+1];
+	targaccel[i] = targaccel[i+1];
+	targvel[i] = targvel[i+1];
+	targpos[i] = targpos[i+1];
+      }
+      // Load a new point into temptime
+      temptime[polyorder+1] = forwardmjd[latestpoint];
+      // Fit for acceleration
+      // x component of acceleration.
+      ppxvec={};
+      ppyvec={};
+      for(i=0;i<polyorder+1;i++) {
+	ppxvec.push_back((temptime[i] - temptime[0])*SOLARDAY/dt0);
+	ppyvec.push_back(targaccel[i].x);
+      }
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<polyorder+1;i++) accelfit[i].x = ppfitvec[i];
+      // Fit for y component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<polyorder+1;i++) ppyvec.push_back(targaccel[i].y);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<polyorder+1;i++) accelfit[i].y = ppfitvec[i];
+      // Fit for z component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<polyorder+1;i++) ppyvec.push_back(targaccel[i].z);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<polyorder+1;i++) accelfit[i].z = ppfitvec[i];
+      // Re-calculate all of the positions and velocities using this fit.
+      for(j=1;j<=polyorder+1;j++) {
+	dt2 = (temptime[j]-temptime[0])*SOLARDAY;
+	// Positions
+	targpos[j].x = targpos[0].x + targvel[0].x*dt2;
+	targpos[j].y = targpos[0].y + targvel[0].y*dt2;
+	targpos[j].z = targpos[0].z + targvel[0].z*dt2;
+	for(i=0;i<polyorder+1;i++) {
+	  timemult = intpowLD(dt2,2+i)*factorialLD(i)/factorialLD(2+i)/intpowLD(dt0,i);
+	  targpos[j].x += accelfit[i].x*timemult;
+	  targpos[j].y += accelfit[i].y*timemult;
+	  targpos[j].z += accelfit[i].z*timemult;
+	}
+	// Velocities
+	targvel[j].x = targvel[0].x;
+	targvel[j].y = targvel[0].y;
+	targvel[j].z = targvel[0].z;
+	for(i=0;i<polyorder+1;i++) {
+	  timemult = intpowLD(dt2,1+i)/intpowLD(dt0,i)/((long double)(1+i));
+	  targvel[j].x += accelfit[i].x*timemult;
+	  targvel[j].y += accelfit[i].y*timemult;
+	  targvel[j].z += accelfit[i].z*timemult;
+	}
+	// Accelerations
+	accelmod[j].x = 0L;
+	accelmod[j].y = 0L;
+	accelmod[j].z = 0L;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,i)/intpowLD(dt0,i);
+	  accelmod[j].x += accelfit[i].x*timemult;
+	  accelmod[j].y += accelfit[i].y*timemult;
+	  accelmod[j].z += accelfit[i].z*timemult;
+	}
+      }
+      // Re-calculate accelerations using these revised positions
+      for(j=1;j<=polyorder+1;j++) {
+	for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*(latestpoint+j-polyorder-1) + i];
+	//cout << "Using planet point " << latestpoint+j-polyorder-1 << " Earth at x = " << planetsalltimes[planetnum*(latestpoint+j-polyorder-1) + 3].x << "\n";
+	accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
+      }
+
+      // Use these revised accelerations to re-do the fits
+      // x component of acceleration.
+      ppxvec={};
+      ppyvec={};
+      for(i=0;i<polyorder+1;i++) {
+	ppxvec.push_back((temptime[i] - temptime[0])*SOLARDAY/dt0);
+	ppyvec.push_back(targaccel[i].x);
+      }
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<polyorder+1;i++) accelfit[i].x = ppfitvec[i];
+      // Fit for y component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<polyorder+1;i++) ppyvec.push_back(targaccel[i].y);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<polyorder+1;i++) accelfit[i].y = ppfitvec[i];
+      // Fit for z component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<polyorder+1;i++) ppyvec.push_back(targaccel[i].z);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<polyorder+1;i++) accelfit[i].z = ppfitvec[i];
+      // Re-calculate all of the positions and velocities using this fit.
+      for(j=1;j<=polyorder+1;j++) {
+	dt2 = (temptime[j]-temptime[0])*SOLARDAY;
+	// Positions
+	targpos[j].x = targpos[0].x + targvel[0].x*dt2;
+	targpos[j].y = targpos[0].y + targvel[0].y*dt2;
+	targpos[j].z = targpos[0].z + targvel[0].z*dt2;
+	for(i=0;i<polyorder+1;i++) {
+	  timemult = intpowLD(dt2,2+i)*factorialLD(i)/factorialLD(2+i)/intpowLD(dt0,i);
+	  targpos[j].x += accelfit[i].x*timemult;
+	  targpos[j].y += accelfit[i].y*timemult;
+	  targpos[j].z += accelfit[i].z*timemult;
+	}
+	// Velocities
+	targvel[j].x = targvel[0].x;
+	targvel[j].y = targvel[0].y;
+	targvel[j].z = targvel[0].z;
+	for(i=0;i<polyorder+1;i++) {
+	  timemult = intpowLD(dt2,1+i)/intpowLD(dt0,i)/((long double)(1+i));
+	  targvel[j].x += accelfit[i].x*timemult;
+	  targvel[j].y += accelfit[i].y*timemult;
+	  targvel[j].z += accelfit[i].z*timemult;
+	}
+	// Accelerations
+	accelmod[j].x = 0L;
+	accelmod[j].y = 0L;
+	accelmod[j].z = 0L;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,i)/intpowLD(dt0,i);
+	  accelmod[j].x += accelfit[i].x*timemult;
+	  accelmod[j].y += accelfit[i].y*timemult;
+	  accelmod[j].z += accelfit[i].z*timemult;
+	}
+      }
+      // Re-calculate accelerations using these revised positions
+      for(j=1;j<=polyorder+1;j++) {
+	for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*(latestpoint+j-polyorder-1) + i];
+	accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
+	//cout << "Using planet point " << latestpoint+j-polyorder-1 << " Earth at x = " << planetsalltimes[planetnum*(latestpoint+j-polyorder-1) + 3].x << "\n";
+      }
+      j=polyorder+1;
+      //cout << temptime[j] << " " << targpos[j].x << " " << targpos[j].y << " " << targpos[j].z << " " << targvel[j].x << " " << targvel[j].y << " " << targvel[j].z << "\n";
+      // Load any target points that have newly been calculated,
+      // or re-calculated
+     j=0;
+      obsct=obspoint;
+       while(j<=polyorder+1 && obsct<obsnum) {
+	if(obsMJD2[obsct]==temptime[j]) {
+	  obspos[obsct]=targpos[j];
+	  obsvel[obsct]=targvel[j];
+	  j++;
+	  obsct++;
+	} else if(obsMJD2[obsct]<temptime[j]) obsct++;
+	else if(temptime[j]<obsMJD2[obsct]) j++;
+	else {
+	  cerr << "Impossible time comparison case: " << temptime[j] << " " << obsMJD2[obsct] << "\n";
+	  return(4);
+	}
+      }
+      // We have now gone through two iterations of extrapolation
+      // to predict the next acceleration point as accurately as possible.
+      // The next step of the loop will move the extrapolated point back
+      // by one step, and use it to start extrapolating a new point,
+      // at the same time refining the former extrapolated points.
+    }
+  } // END OF FORWARD INTEGRATION
+  if(DEBUG>1) {
+    cout << "Results of forward integration:\n";
+    for(j=0;j<temptime.size();j++) {
+      cout  << fixed << setprecision(6) << temptime[j] << " " << targpos[j].x/AU_KM << " " << targpos[j].y/AU_KM << " " << targpos[j].z/AU_KM << " " << targvel[j].x << " " << targvel[j].y << " " << targvel[j].z << "\n";
+    }
+  }
+
+  // NOW PEFORM BACKWARD INTEGRATION, IF NECESSARY
+  if(DEBUG>1) cout << "Checking for backward integration\n";
+  if(obsbefore==1) {
+  if(DEBUG>1) cout << "Backward integration will be performed\n";
+    // Integrate backward in time to find the position of
+    // the target asteroid at all positions before starttime.
+
+    // Load the initial time and planet position vectors
+    planetsonce={};
+    backwardmjd={};
+    planetsalltimes={};
+    temptime[0] = -mjdstart;
+    backwardmjd.push_back(-mjdstart);
+    nplanetpos01LD(mjdstart-TTDELTAT/SOLARDAY,planetnum,5,planetmjd,planetpos,planetsonce);
+    for(i=0;i<planetnum;i++) planetsalltimes.push_back(planetsonce[i]);
+    if(DEBUG>1) cout  << fixed << setprecision(6) << "mjdstart = " << mjdstart << " loaded: " << backwardmjd[0] << "\n";
+
+    // Find the first observation time before starttime
+    obsct=obsnum-1;
+    while(obsMJD2[obsct]>=mjdstart) obsct--;
+    obspoint=obsct;
+    
+    // Find the first point in the planet files that is before mjdstart
+    for(i=planetpointnum-1;i>0;i--) {
+      if(planetmjd[i]<mjdstart) break;
+    }
+    pointbefore = i; // first point before mjdstart
+
+    if(DEBUG>1) cout  << fixed << setprecision(6) << "Starting points for backward integration:\n";
+    if(DEBUG>1) cout  << fixed << setprecision(6) << "Observations, point " << obspoint << ", time " << obsMJD2[obspoint] << "\n";
+    if(DEBUG>1) cout  << fixed << setprecision(6) << "Planet file, point " << pointbefore << ", time " << planetmjd[pointbefore] << "\n";
+    
+    // Load a vector with times and planet positions for all the planet file
+    // points spanning the times of the observations.
+    
+    // Time scaling factor, designed to avoid integers or near-zero values
+    dt0 = (planetmjd[pointbefore+1] - planetmjd[pointbefore])*SOLARDAY/sqrt(M_PI);
+    
+    j=1;
+    i=0;
+    obsct=obspoint;
+    // j counts elements actually loaded into forwardmjd and planetsalltimes
+    // i counts steps in the planetfile before pointbefore
+    // obsct indexes the observation vector.
+    for(obsct=obspoint; obsct>=0; obsct--) {
+      while(planetmjd[pointbefore-i]>obsMJD2[obsct]) {
+	// Load any planet file points until we get to one before obsMJD2[obsct]
+      	backwardmjd.push_back(-planetmjd[pointbefore-i]);
+	if(DEBUG>1) cout << "obsMJD2[" << obsct << "] = " << obsMJD2[obsct] << " < planetmjd[" << pointbefore-i << "] = " << planetmjd[pointbefore-i] << ": loaded backwardmjd[" << j << "] = " << backwardmjd[j] << "\n";
+	planetsonce={};
+	nplanetgrab01LD(pointbefore-i, planetnum, planetmjd, planetpos, planetsonce);
+	for(k=0;k<planetnum;k++) planetsalltimes.push_back(planetsonce[k]);
+	i++;
+	j++;
+      }
+      // Load the next observation point.
+      backwardmjd.push_back(-obsMJD2[obsct]);
+      planetsonce={};
+      nplanetpos01LD(obsMJD2[obsct]-TTDELTAT/SOLARDAY,planetnum,5,planetmjd,planetpos,planetsonce);
+      for(k=0;k<planetnum;k++) planetsalltimes.push_back(planetsonce[k]);
+      j++;
+      if(DEBUG>1) cout << "obsMJD2[" << obsct << "] = " << obsMJD2[obsct] << " > planetmjd[" << pointbefore-i << "] = " << planetmjd[pointbefore-i] << ": loaded backwardmjd[" << j-1 << "] = " << backwardmjd[j-1] << "\n";
+    }
+    // Add extra planet points until we have polyorder+2
+    while(j<polyorder+2) {
+      backwardmjd.push_back(-planetmjd[pointbefore-i]);
+      planetsonce={};
+      nplanetgrab01LD(pointbefore-i, planetnum, planetmjd, planetpos, planetsonce);
+      for(k=0;k<planetnum;k++) planetsalltimes.push_back(planetsonce[k]);
+      if(DEBUG>1) cout << "obsMJD2[" << obsct << "] = " << obsMJD2[obsct] << " > planetmjd[" << pointbefore-i << "] = " << planetmjd[pointbefore-i] << ": loaded backwardmjd[" << j-1 << "] = " << backwardmjd[j-1] << "\n";
+      i++;
+      j++;
+    }
+    if(DEBUG>1) {
+      cout << fixed << setprecision(6)  << "Loaded " << backwardmjd.size() << " points in backwardmjd\n";
+      for(i=0;i<backwardmjd.size();i++) {
+	cout  << fixed << setprecision(6) << "Backward MJD = " << backwardmjd[i] << "\n";
+      }
+    }
+
+    // Now we've loaded all the times we want for the backward integration
+    // Load temporary time vector
+    for(j=0;j<=polyorder+1;j++) temptime[j] = backwardmjd[j];
+
+    // Load starting position and velocity, negative velocity for backward integration
+    targpos[0] = startpos;
+    targvel[0].x = -startvel.x;
+    targvel[0].y = -startvel.y;
+    targvel[0].z = -startvel.z;
+    // Bootstrap up to a fit of order polyorder.
+    // Calculate acceleration at starting point, loading planet positions from big vector.
+    for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[i];
+    accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[0], targaccel[0]);
+    dt1 = (temptime[1]-temptime[0])*SOLARDAY;
+    // First Approx: estimate next position, assuming constant acceleration.
+    targpos[1].x = targpos[0].x + targvel[0].x*dt1 + targaccel[0].x*0.5L*dt1*dt1;
+    targpos[1].y = targpos[0].y + targvel[0].y*dt1 + targaccel[0].y*0.5L*dt1*dt1;
+    targpos[1].z = targpos[0].z + targvel[0].z*dt1 + targaccel[0].z*0.5L*dt1*dt1;
+    // Calculate acceleration at this new position.
+    for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*1 + i];
+    accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[1], targaccel[1]);
+  
+    // Second approx: linearly varying acceleration.
+    accelslope.x = (targaccel[1].x-targaccel[0].x)/dt1;
+    accelslope.y = (targaccel[1].y-targaccel[0].y)/dt1;
+    accelslope.z = (targaccel[1].z-targaccel[0].z)/dt1;
+
+    // Improved position for next time step.
+    targpos[1].x = targpos[0].x + targvel[0].x*dt1 + targaccel[0].x*0.5L*dt1*dt1 + accelslope.x*dt1*dt1*dt1/6.0L;
+    targpos[1].y = targpos[0].y + targvel[0].y*dt1 + targaccel[0].y*0.5L*dt1*dt1 + accelslope.y*dt1*dt1*dt1/6.0L;
+    targpos[1].z = targpos[0].z + targvel[0].z*dt1 + targaccel[0].z*0.5L*dt1*dt1 + accelslope.z*dt1*dt1*dt1/6.0L;
+
+    // Re-calculate acceleration at this improved position.
+    accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[1], targaccel[1]);
+
+    // Re-calculate improved acceleration slope.
+    accelslope.x = (targaccel[1].x-targaccel[0].x)/dt1;
+    accelslope.y = (targaccel[1].y-targaccel[0].y)/dt1;
+    accelslope.z = (targaccel[1].z-targaccel[0].z)/dt1;
+  
+    // Improved velocity for next time step
+    targvel[1].x = targvel[0].x + targaccel[0].x*dt1 + accelslope.x*0.5L*dt1*dt1;
+    targvel[1].y = targvel[0].y + targaccel[0].y*dt1 + accelslope.y*0.5L*dt1*dt1;
+    targvel[1].z = targvel[0].z + targaccel[0].z*dt1 + accelslope.z*0.5L*dt1*dt1;
+
+    // Use linearly extrapolated acceleration to estimate position for
+    // the next time step.
+    dt1 = (temptime[2]-temptime[1])*SOLARDAY;
+    targpos[2].x = targpos[1].x + targvel[1].x*dt1 + targaccel[1].x*0.5L*dt1*dt1 + accelslope.x*dt1*dt1*dt1/6.0L;
+    targpos[2].y = targpos[1].y + targvel[1].y*dt1 + targaccel[1].y*0.5L*dt1*dt1 + accelslope.y*dt1*dt1*dt1/6.0L;
+    targpos[2].z = targpos[1].z + targvel[1].z*dt1 + targaccel[1].z*0.5L*dt1*dt1 + accelslope.z*dt1*dt1*dt1/6.0L;
+
+    // Calculate acceleration for this extrapolated position.
+    for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*2 + i];
+    accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[2], targaccel[2]);
+
+    // Now we have three acceleration points: can load for a full polynomial fit.
+    for(stepsin=3;stepsin<=polyorder+1;stepsin++) {
+      // Fit for x component of acceleration.
+      ppxvec={};
+      ppyvec={};
+      for(i=0;i<stepsin;i++) {
+	ppxvec.push_back((temptime[i] - temptime[0])*SOLARDAY/dt0);
+	ppyvec.push_back(targaccel[i].x);
+      }
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<stepsin;i++) accelfit[i].x = ppfitvec[i];
+      // Fit for y component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<stepsin;i++) ppyvec.push_back(targaccel[i].y);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<stepsin;i++) accelfit[i].y = ppfitvec[i];
+      // Fit for z component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<stepsin;i++) ppyvec.push_back(targaccel[i].z);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<stepsin;i++) accelfit[i].z = ppfitvec[i];
+      // Re-calculate all of the positions and velocities using this fit.
+      for(j=1;j<=stepsin;j++) {
+	dt2 = (temptime[j]-temptime[0])*SOLARDAY;
+	// Positions
+	targpos[j].x = targpos[0].x + targvel[0].x*dt2;
+	targpos[j].y = targpos[0].y + targvel[0].y*dt2;
+	targpos[j].z = targpos[0].z + targvel[0].z*dt2;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,2+i)*factorialLD(i)/factorialLD(2+i)/intpowLD(dt0,i);
+	  targpos[j].x += accelfit[i].x*timemult;
+	  targpos[j].y += accelfit[i].y*timemult;
+	  targpos[j].z += accelfit[i].z*timemult;
+	}
+	// Velocities
+	targvel[j].x = targvel[0].x;
+	targvel[j].y = targvel[0].y;
+	targvel[j].z = targvel[0].z;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,1+i)/intpowLD(dt0,i)/((long double)(1+i));
+	  targvel[j].x += accelfit[i].x*timemult;
+	  targvel[j].y += accelfit[i].y*timemult;
+	  targvel[j].z += accelfit[i].z*timemult;
+	}
+	// Accelerations
+	accelmod[j].x = 0L;
+	accelmod[j].y = 0L;
+	accelmod[j].z = 0L;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,i)/intpowLD(dt0,i);
+	  accelmod[j].x += accelfit[i].x*timemult;
+	  accelmod[j].y += accelfit[i].y*timemult;
+	  accelmod[j].z += accelfit[i].z*timemult;
+	}
+      }
+      // Re-calculate accelerations using these revised positions
+      for(j=1;j<=stepsin;j++) {
+	for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*j + i];
+	accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
+      }
+      cout.precision(17);
+  
+      // Perform new fits to revised accelerations
+      // Fit for x component of acceleration.
+      ppxvec={};
+      ppyvec={};
+      for(i=0;i<stepsin;i++) {
+	ppxvec.push_back((temptime[i] - temptime[0])*SOLARDAY/dt0);
+	ppyvec.push_back(targaccel[i].x);
+      }
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<stepsin;i++) accelfit[i].x = ppfitvec[i];
+      // Fit for y component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<stepsin;i++) ppyvec.push_back(targaccel[i].y);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<stepsin;i++) accelfit[i].y = ppfitvec[i];
+      // Fit for z component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<stepsin;i++) ppyvec.push_back(targaccel[i].z);
+      for(i=0;i<stepsin;i++) {
+      }
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<stepsin;i++) accelfit[i].z = ppfitvec[i];
+      // Re-calculate all of the positions and velocities using this fit.
+      for(j=1;j<=stepsin;j++) {
+	dt2 = (temptime[j]-temptime[0])*SOLARDAY;
+	// Positions
+	targpos[j].x = targpos[0].x + targvel[0].x*dt2;
+	targpos[j].y = targpos[0].y + targvel[0].y*dt2;
+	targpos[j].z = targpos[0].z + targvel[0].z*dt2;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,2+i)*factorialLD(i)/factorialLD(2+i)/intpowLD(dt0,i);
+	  targpos[j].x += accelfit[i].x*timemult;
+	  targpos[j].y += accelfit[i].y*timemult;
+	  targpos[j].z += accelfit[i].z*timemult;
+	}
+	// Velocities
+	targvel[j].x = targvel[0].x;
+	targvel[j].y = targvel[0].y;
+	targvel[j].z = targvel[0].z;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,1+i)/intpowLD(dt0,i)/((long double)(1+i));
+	  targvel[j].x += accelfit[i].x*timemult;
+	  targvel[j].y += accelfit[i].y*timemult;
+	  targvel[j].z += accelfit[i].z*timemult;
+	}
+	// Accelerations
+	accelmod[j].x = 0L;
+	accelmod[j].y = 0L;
+	accelmod[j].z = 0L;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,i)/intpowLD(dt0,i);
+	  accelmod[j].x += accelfit[i].x*timemult;
+	  accelmod[j].y += accelfit[i].y*timemult;
+	  accelmod[j].z += accelfit[i].z*timemult;
+	}
+      }
+      // Re-calculate accelerations using these revised positions
+      for(j=1;j<=stepsin;j++) {
+	for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*j + i];
+	accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
+      }
+      
+    }
+
+    // We are now set up for a full-order polynomial integration.
+    // We have valid positions in targpos, targvel, and temptime
+    // for indices from 0 to polyorder+1.
+    // See if any of the target points have already been calculated
+    j=0;
+    obsct=obspoint;
+    while(j<=polyorder+1 && obsct>=0) {
+      if(obsMJD2[obsct]==-temptime[j]) {
+	obspos[obsct]=targpos[j];
+	obsvel[obsct].x=-targvel[j].x;
+	obsvel[obsct].y=-targvel[j].y;
+	obsvel[obsct].z=-targvel[j].z;
+	j++;
+	obsct--;
+      } else if(obsMJD2[obsct]>-temptime[j]) obsct--;
+      else if(-temptime[j]>obsMJD2[obsct]) j++;
+      else {
+	cerr << "Impossible time comparison case: " << -temptime[j] << " " << obsMJD2[obsct] << "\n";
+	return(4);
+      }
+    }
+    latestpoint=polyorder+1;
+    // Proceed with the full polynomial integration.
+    while(latestpoint<backwardmjd.size()-1) {
+      latestpoint++;
+      // Cycle the dynamical vectors
+      for(i=0;i<polyorder+1;i++) {
+	temptime[i] = temptime[i+1];
+	targaccel[i] = targaccel[i+1];
+	targvel[i] = targvel[i+1];
+	targpos[i] = targpos[i+1];
+      }
+      // Load a new point into temptime
+      temptime[polyorder+1] = backwardmjd[latestpoint];
+      // Fit for acceleration
+      // x component of acceleration.
+      ppxvec={};
+      ppyvec={};
+      for(i=0;i<polyorder+1;i++) {
+	ppxvec.push_back((temptime[i] - temptime[0])*SOLARDAY/dt0);
+	ppyvec.push_back(targaccel[i].x);
+      }
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<polyorder+1;i++) accelfit[i].x = ppfitvec[i];
+      // Fit for y component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<polyorder+1;i++) ppyvec.push_back(targaccel[i].y);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<polyorder+1;i++) accelfit[i].y = ppfitvec[i];
+      // Fit for z component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<polyorder+1;i++) ppyvec.push_back(targaccel[i].z);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<polyorder+1;i++) accelfit[i].z = ppfitvec[i];
+      // Re-calculate all of the positions and velocities using this fit.
+      for(j=1;j<=polyorder+1;j++) {
+	dt2 = (temptime[j]-temptime[0])*SOLARDAY;
+	// Positions
+	targpos[j].x = targpos[0].x + targvel[0].x*dt2;
+	targpos[j].y = targpos[0].y + targvel[0].y*dt2;
+	targpos[j].z = targpos[0].z + targvel[0].z*dt2;
+	for(i=0;i<polyorder+1;i++) {
+	  timemult = intpowLD(dt2,2+i)*factorialLD(i)/factorialLD(2+i)/intpowLD(dt0,i);
+	  targpos[j].x += accelfit[i].x*timemult;
+	  targpos[j].y += accelfit[i].y*timemult;
+	  targpos[j].z += accelfit[i].z*timemult;
+	}
+	// Velocities
+	targvel[j].x = targvel[0].x;
+	targvel[j].y = targvel[0].y;
+	targvel[j].z = targvel[0].z;
+	for(i=0;i<polyorder+1;i++) {
+	  timemult = intpowLD(dt2,1+i)/intpowLD(dt0,i)/((long double)(1+i));
+	  targvel[j].x += accelfit[i].x*timemult;
+	  targvel[j].y += accelfit[i].y*timemult;
+	  targvel[j].z += accelfit[i].z*timemult;
+	}
+	// Accelerations
+	accelmod[j].x = 0L;
+	accelmod[j].y = 0L;
+	accelmod[j].z = 0L;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,i)/intpowLD(dt0,i);
+	  accelmod[j].x += accelfit[i].x*timemult;
+	  accelmod[j].y += accelfit[i].y*timemult;
+	  accelmod[j].z += accelfit[i].z*timemult;
+	}
+      }
+      // Re-calculate accelerations using these revised positions
+      for(j=1;j<=polyorder+1;j++) {
+	for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*(latestpoint+j-polyorder-1) + i];
+	accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
+      }
+
+      // Use these revised accelerations to re-do the fits
+      // x component of acceleration.
+      ppxvec={};
+      ppyvec={};
+      for(i=0;i<polyorder+1;i++) {
+	ppxvec.push_back((temptime[i] - temptime[0])*SOLARDAY/dt0);
+	ppyvec.push_back(targaccel[i].x);
+      }
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<polyorder+1;i++) accelfit[i].x = ppfitvec[i];
+      // Fit for y component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<polyorder+1;i++) ppyvec.push_back(targaccel[i].y);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<polyorder+1;i++) accelfit[i].y = ppfitvec[i];
+      // Fit for z component of acceleration. Note that we have
+      // already loaded the time vector ppxvec.
+      ppyvec={};
+      for(i=0;i<polyorder+1;i++) ppyvec.push_back(targaccel[i].z);
+      // Perform fit, and store in accelfit.
+      perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+      for(i=0;i<polyorder+1;i++) accelfit[i].z = ppfitvec[i];
+      // Re-calculate all of the positions and velocities using this fit.
+      for(j=1;j<=polyorder+1;j++) {
+	dt2 = (temptime[j]-temptime[0])*SOLARDAY;
+	// Positions
+	targpos[j].x = targpos[0].x + targvel[0].x*dt2;
+	targpos[j].y = targpos[0].y + targvel[0].y*dt2;
+	targpos[j].z = targpos[0].z + targvel[0].z*dt2;
+	for(i=0;i<polyorder+1;i++) {
+	  timemult = intpowLD(dt2,2+i)*factorialLD(i)/factorialLD(2+i)/intpowLD(dt0,i);
+	  targpos[j].x += accelfit[i].x*timemult;
+	  targpos[j].y += accelfit[i].y*timemult;
+	  targpos[j].z += accelfit[i].z*timemult;
+	}
+	// Velocities
+	targvel[j].x = targvel[0].x;
+	targvel[j].y = targvel[0].y;
+	targvel[j].z = targvel[0].z;
+	for(i=0;i<polyorder+1;i++) {
+	  timemult = intpowLD(dt2,1+i)/intpowLD(dt0,i)/((long double)(1+i));
+	  targvel[j].x += accelfit[i].x*timemult;
+	  targvel[j].y += accelfit[i].y*timemult;
+	  targvel[j].z += accelfit[i].z*timemult;
+	}
+	// Accelerations
+	accelmod[j].x = 0L;
+	accelmod[j].y = 0L;
+	accelmod[j].z = 0L;
+	for(i=0;i<stepsin;i++) {
+	  timemult = intpowLD(dt2,i)/intpowLD(dt0,i);
+	  accelmod[j].x += accelfit[i].x*timemult;
+	  accelmod[j].y += accelfit[i].y*timemult;
+	  accelmod[j].z += accelfit[i].z*timemult;
+	}
+      }
+      // Re-calculate accelerations using these revised positions
+      for(j=1;j<=polyorder+1;j++) {
+	for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*(latestpoint+j-polyorder-1) + i];
+	accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
+      }
+      j=polyorder+1;
+      //cout << temptime[j] << " " << targpos[j].x << " " << targpos[j].y << " " << targpos[j].z << " " << targvel[j].x << " " << targvel[j].y << " " << targvel[j].z << "\n";
+      // Load any target points that have newly been calculated,
+      // or re-calculated
+      j=0;
+      obsct=obspoint;
+      while(j<=polyorder+1 && obsct>=0) {
+	if(obsMJD2[obsct]==-temptime[j]) {
+	  obspos[obsct] = targpos[j];
+	  obsvel[obsct].x = -targvel[j].x;
+	  obsvel[obsct].y = -targvel[j].y;
+	  obsvel[obsct].z = -targvel[j].z;
+	  j++;
+	  obsct--;
+	} else if(obsMJD2[obsct]>-temptime[j]) obsct--;
+	else if(-temptime[j]>obsMJD2[obsct]) j++;
+	else {
+	  cerr << "Impossible time comparison case: " << -temptime[j] << " " << obsMJD2[obsct] << "\n";
+	  return(4);
+	}
+      }
+      // We have now gone through two iterations of extrapolation
+      // to predict the next acceleration point as accurately as possible.
+      // The next step of the loop will move the extrapolated point back
+      // by one step, and use it to start extrapolating a new point,
+      // at the same time refining the former extrapolated points.
+    }
+  } // Closes the statement doing backward integration.
+ 
+  return(0);
+}
+
+// tortoisechi01: April 11, 2022:
+// Get chi-square value based on an input simplex point.
+long double tortoisechi01(int polyorder, int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <double> &obsRA, const vector <double> &obsDec, const vector <double> &sigastrom, const vector <long double> &scalestate, long double timescale, long double mjdstart, vector <double> &fitRA, vector <double> &fitDec, vector <double> &resid)
+{
+  vector <point3LD> obspos;
+  vector <point3LD> obsvel;
+  int obsct;
+  int obsnum = obsMJD.size();
+  long double light_travel_time;
+  point3LD outpos = point3LD(0,0,0);
+  long double outRA=0L;
+  long double outDec=0L;
+  long double ldval=0L;
+  long double chisq=0L;
+  double dval;
+  resid = fitRA = fitDec = {};
+  
+  // Input point scalestate is supposed to hold a 6-D state vector
+  // in units of AU and AU/timescale, where timescale is a value in
+  // days used to convert velocity to distance units
+
+  // Convert to km and km/sec
+  point3LD startpos = point3LD(scalestate[0]*AU_KM,scalestate[1]*AU_KM,scalestate[2]*AU_KM);
+  point3LD startvel = point3LD(scalestate[3]*AU_KM/SOLARDAY/timescale,scalestate[4]*AU_KM/SOLARDAY/timescale,scalestate[5]*AU_KM/SOLARDAY/timescale);
+
+  // Integrate orbit.
+  integrate_orbit03LD(polyorder, planetnum, planetmjd, planetmasses, planetpos, obsMJD, startpos, startvel, mjdstart, obspos, obsvel);
+		  
+  for(obsct=0;obsct<obsnum;obsct++) {
+    // Initial approximation of the coordinates relative to the observer
+    outpos.x = obspos[obsct].x - observerpos[obsct].x;
+    outpos.y = obspos[obsct].y - observerpos[obsct].y;
+    outpos.z = obspos[obsct].z - observerpos[obsct].z;
+    // Initial approximation of the observer-target distance
+    ldval = sqrt(outpos.x*outpos.x + outpos.y*outpos.y + outpos.z*outpos.z);
+    // Convert to meters and divide by the speed of light to get the light travel time.
+    light_travel_time = ldval*1000.0/CLIGHT;
+    // Light-travel-time corrected version of coordinates relative to the observer
+    outpos.x = obspos[obsct].x - light_travel_time*obsvel[obsct].x - observerpos[obsct].x;
+    outpos.y = obspos[obsct].y - light_travel_time*obsvel[obsct].y - observerpos[obsct].y;
+    outpos.z = obspos[obsct].z - light_travel_time*obsvel[obsct].z - observerpos[obsct].z;
+    // Light-travel-time corrected observer-target distance
+    ldval = sqrt(outpos.x*outpos.x + outpos.y*outpos.y + outpos.z*outpos.z);
+    // Calculate unit vector
+    outpos.x /= ldval;
+    outpos.y /= ldval;
+    outpos.z /= ldval;
+    // Project onto the celestial sphere.
+    stateunitLD_to_celestial(outpos, outRA, outDec);
+    if(DEBUG>1) cout  << fixed << setprecision(6) << "Input MJD " << obsMJD[obsct] << ": " << obsRA[obsct] << " "  << obsDec[obsct] << " "  << " Output: " << outRA << ": " << outDec <<  "\n";
+    dval = distradec01(obsRA[obsct],obsDec[obsct],outRA,outDec);
+    dval *= 3600.0L; // Convert to arcsec
+    fitRA.push_back(outRA);
+    fitDec.push_back(outDec);
+    resid.push_back(dval);
+  }
+  chisq=0.0L;
+  for(obsct=0;obsct<obsnum;obsct++) {
+    chisq += LDSQUARE(resid[obsct]/sigastrom[obsct]);
+    if(DEBUG>0) cout << "Residual for point " << obsct << " is " << resid[obsct] << "\n";
+  }
+  return(chisq);
+}
+
+// integrate_orbit04LD: May 06, 2022: Like integrate_orbit03LD,
+// but less complex in that it outputs positions only at times
+// corresponding to the timesteps of the input planet files,
+// not at a customized input list of 'observations times',
+// and the start and end times MUST fall exactly on timesteps
+// of the planet files (indeed, they are specified not by floating-point
+// MJD values, but by integer indexes to the planet files, which must
+// be determined by the calling function.
+// The current program is simpler and faster
+// than integrate_orbit03LD, as long as customized times are not needed.
+//
+// Description of ancestor program integrate_orbit03LD:
+// Uses modeling of the acceleration as a polynomial of order n>1
+// to integrate the orbit of a massless test particle (e.g. asteroid)
+// under the gravity of multiple 'planets'. It is assumed that
+// in general these 'planets' will consist of the Sun, the
+// eight major planets, and the Moon (possibly needed for
+// cases of NEOs closely approaching the Earth). However,
+// more or fewer planets may be used as desired.
+// Note that the vector obsMJD is assumed to be time-sorted, and
+// serious failures will result if it is not.
+int integrate_orbit04LD(int polyorder, int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, point3LD startpos, point3LD startvel, int startpoint, int endpoint, vector <long double> &outMJD, vector <point3LD> &outpos, vector <point3LD> &outvel)
+{
+  vector <point3LD> planetsalltimes;
+  vector <point3LD> planetsonce;
+  vector <point3LD> targaccel;
+  vector <point3LD> accelfit;
+  vector <point3LD> targvel;
+  vector <point3LD> targpos;
+  vector <point3LD> accelmod;
+  vector <long double> temptime;
+  vector <long double> ppxvec;
+  vector <long double> ppyvec;
+  vector <long double> ppfitvec;
+  point3LD singleaccel = point3LD(0L,0L,0L);
+  point3LD singlevel = point3LD(0L,0L,0L);
+  point3LD singlepos = point3LD(0L,0L,0L);
+  int i=0;
+  int j=0;
+  int k=0;
+  int outnum = endpoint-startpoint+1;
+  int outct=0;
+  int endhere=-1;
+  int planetpointnum = planetmjd.size();
+   int planetpointct = 0;
+  int pointafter=0;
+  int pointbefore=0;
+  int latestpoint=0;
+  int stepsin=0;
+  long double dt0=0L;
+  long double dt2=0L;
+  long double timemult=0L;
+  point3LD accelslope = point3LD(0L,0L,0L);
+
+  if(polyorder<2) {
+    cerr << "ERROR: integrate_orbit04LD called with polyorder = " << polyorder << "\n";
+    cerr << "polyorder must be at least 4!\n";
+    return(1);
+  }
+  
+  if(endpoint<startpoint) {
+    cerr << "ERROR: integrate_orbit04LD called with end point (" << endpoint << ") before starting point (" << startpoint << ")\n";
+    return(1);
+  } else if(startpoint<0 || endpoint>=planetmjd.size()) {
+    cerr << "ERROR: integrate_orbit04LD called with starting point " << startpoint << " or endpoint" << endpoint << " outside range of planet vectors (0 - " << planetmjd.size() << ")\n";
+    return(1);
+  }
+  // Make sure that relevant vectors for the polynomial fitting
+  // are all large enough.
+  for(i=0;i<=polyorder+1;i++) {
+    targaccel.push_back(singleaccel);
+    accelfit.push_back(singleaccel);
+    targvel.push_back(singlevel);
+    targpos.push_back(singlepos);
+    accelmod.push_back(singleaccel);
+    temptime.push_back(0L);
+    ppfitvec.push_back(0L);
+  }
+
+  // Make sure the output vectors are large enough, and load
+  // outMJD with the actual output times.
+  outpos={};
+  outvel={};
+  outMJD={};
+  for(outct=0;outct<=outnum;outct++) {
+    outvel.push_back(singlevel);
+    outpos.push_back(singlepos);
+    outMJD.push_back(planetmjd[startpoint+outct]);
+  }
+
+  // Load the initial time vector
+  for(j=0;j<=polyorder+1;j++) temptime[j] = planetmjd[startpoint+j];
+    
+  // Load starting position and velocity
+  targvel[0] = startvel;
+  targpos[0] = startpos;
+  j=0;
+
+  // Bootstrap up to a fit of order polyorder.
+  // Calculate acceleration at starting point, loading planet positions from big vector.
+  planetsonce={};
+  nplanetgrab01LD(startpoint, planetnum, planetmjd, planetpos, planetsonce);
+  accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[0], targaccel[0]);
+  dt0 = (temptime[1]-temptime[0])*SOLARDAY;
+
+  // First Approx: estimate next position, assuming constant acceleration.
+  targpos[1].x = targpos[0].x + targvel[0].x*dt0 + targaccel[0].x*0.5L*dt0*dt0;
+  targpos[1].y = targpos[0].y + targvel[0].y*dt0 + targaccel[0].y*0.5L*dt0*dt0;
+  targpos[1].z = targpos[0].z + targvel[0].z*dt0 + targaccel[0].z*0.5L*dt0*dt0;
+
+  // Calculate acceleration at this new position.
+  planetsonce={};
+  nplanetgrab01LD(startpoint+1, planetnum, planetmjd, planetpos, planetsonce);
+  accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[1], targaccel[1]);
+  
+  // Second approx: linearly varying acceleration.
+  accelslope.x = (targaccel[1].x-targaccel[0].x)/dt0;
+  accelslope.y = (targaccel[1].y-targaccel[0].y)/dt0;
+  accelslope.z = (targaccel[1].z-targaccel[0].z)/dt0;
+
+  // Improved position for next time step.
+  targpos[1].x = targpos[0].x + targvel[0].x*dt0 + targaccel[0].x*0.5L*dt0*dt0 + accelslope.x*dt0*dt0*dt0/6.0L;
+  targpos[1].y = targpos[0].y + targvel[0].y*dt0 + targaccel[0].y*0.5L*dt0*dt0 + accelslope.y*dt0*dt0*dt0/6.0L;
+  targpos[1].z = targpos[0].z + targvel[0].z*dt0 + targaccel[0].z*0.5L*dt0*dt0 + accelslope.z*dt0*dt0*dt0/6.0L;
+
+  // Re-calculate acceleration at this improved position.
+  accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[1], targaccel[1]);
+
+  // Re-calculate improved acceleration slope.
+  accelslope.x = (targaccel[1].x-targaccel[0].x)/dt0;
+  accelslope.y = (targaccel[1].y-targaccel[0].y)/dt0;
+  accelslope.z = (targaccel[1].z-targaccel[0].z)/dt0;
+  
+  // Improved velocity for next time step
+  targvel[1].x = targvel[0].x + targaccel[0].x*dt0 + accelslope.x*0.5L*dt0*dt0;
+  targvel[1].y = targvel[0].y + targaccel[0].y*dt0 + accelslope.y*0.5L*dt0*dt0;
+  targvel[1].z = targvel[0].z + targaccel[0].z*dt0 + accelslope.z*0.5L*dt0*dt0;
+
+  // Use linearly extrapolated acceleration to estimate position for
+  // the next time step.
+  dt0 = (temptime[2]-temptime[1])*SOLARDAY;
+  targpos[2].x = targpos[1].x + targvel[1].x*dt0 + targaccel[1].x*0.5L*dt0*dt0 + accelslope.x*dt0*dt0*dt0/6.0L;
+  targpos[2].y = targpos[1].y + targvel[1].y*dt0 + targaccel[1].y*0.5L*dt0*dt0 + accelslope.y*dt0*dt0*dt0/6.0L;
+  targpos[2].z = targpos[1].z + targvel[1].z*dt0 + targaccel[1].z*0.5L*dt0*dt0 + accelslope.z*dt0*dt0*dt0/6.0L;
+  // Calculate acceleration for this extrapolated position.
+  planetsonce={};
+  nplanetgrab01LD(startpoint+2, planetnum, planetmjd, planetpos, planetsonce);
+  accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[2], targaccel[2]);
+
+  // Now we have three acceleration points: can load for a full polynomial fit.
+  for(stepsin=3;stepsin<=polyorder+1;stepsin++) {
+    // Fit for x component of acceleration.
+    ppxvec={};
+    ppyvec={};
+    for(i=0;i<stepsin;i++) {
+      ppxvec.push_back((temptime[i] - temptime[0])*SOLARDAY/dt0);
+      ppyvec.push_back(targaccel[i].x);
+    }
+    // Perform fit, and store in accelfit.
+    perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+    for(i=0;i<stepsin;i++) accelfit[i].x = ppfitvec[i];
+    // Fit for y component of acceleration. Note that we have
+    // already loaded the time vector ppxvec.
+    ppyvec={};
+    for(i=0;i<stepsin;i++) ppyvec.push_back(targaccel[i].y);
+    // Perform fit, and store in accelfit.
+    perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+    for(i=0;i<stepsin;i++) accelfit[i].y = ppfitvec[i];
+    // Fit for z component of acceleration. Note that we have
+    // already loaded the time vector ppxvec.
+    ppyvec={};
+    for(i=0;i<stepsin;i++) ppyvec.push_back(targaccel[i].z);
+    // Perform fit, and store in accelfit.
+    perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+    for(i=0;i<stepsin;i++) accelfit[i].z = ppfitvec[i];
+    // Re-calculate all of the positions and velocities using this fit.
+    for(j=1;j<=stepsin;j++) {
+      dt2 = (temptime[j]-temptime[0])*SOLARDAY;
+      // Positions
+      targpos[j].x = targpos[0].x + targvel[0].x*dt2;
+      targpos[j].y = targpos[0].y + targvel[0].y*dt2;
+      targpos[j].z = targpos[0].z + targvel[0].z*dt2;
+      for(i=0;i<stepsin;i++) {
+	timemult = intpowLD(dt2,2+i)*factorialLD(i)/factorialLD(2+i)/intpowLD(dt0,i);
+	targpos[j].x += accelfit[i].x*timemult;
+	targpos[j].y += accelfit[i].y*timemult;
+	targpos[j].z += accelfit[i].z*timemult;
+      }
+      // Velocities
+      targvel[j].x = targvel[0].x;
+      targvel[j].y = targvel[0].y;
+      targvel[j].z = targvel[0].z;
+      for(i=0;i<stepsin;i++) {
+	timemult = intpowLD(dt2,1+i)/intpowLD(dt0,i)/((long double)(1+i));
+	targvel[j].x += accelfit[i].x*timemult;
+	targvel[j].y += accelfit[i].y*timemult;
+	targvel[j].z += accelfit[i].z*timemult;
+      }
+      // Accelerations
+      accelmod[j].x = 0L;
+      accelmod[j].y = 0L;
+      accelmod[j].z = 0L;
+      for(i=0;i<stepsin;i++) {
+	timemult = intpowLD(dt2,i)/intpowLD(dt0,i);
+	accelmod[j].x += accelfit[i].x*timemult;
+	accelmod[j].y += accelfit[i].y*timemult;
+	accelmod[j].z += accelfit[i].z*timemult;
+      }
+    }
+    // Re-calculate accelerations using these revised positions
+    for(j=1;j<=stepsin;j++) {
+      planetsonce={};
+      nplanetgrab01LD(startpoint+j, planetnum, planetmjd, planetpos, planetsonce);
+      accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
+    }
+    cout.precision(17);
+  
+    // Perform new fits to revised accelerations
+    // Fit for x component of acceleration.
+    ppxvec={};
+    ppyvec={};
+    for(i=0;i<stepsin;i++) {
+      ppxvec.push_back((temptime[i] - temptime[0])*SOLARDAY/dt0);
+      ppyvec.push_back(targaccel[i].x);
+    }
+    // Perform fit, and store in accelfit.
+    perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+    for(i=0;i<stepsin;i++) accelfit[i].x = ppfitvec[i];
+    // Fit for y component of acceleration. Note that we have
+    // already loaded the time vector ppxvec.
+    ppyvec={};
+    for(i=0;i<stepsin;i++) ppyvec.push_back(targaccel[i].y);
+    // Perform fit, and store in accelfit.
+    perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+    for(i=0;i<stepsin;i++) accelfit[i].y = ppfitvec[i];
+    // Fit for z component of acceleration. Note that we have
+    // already loaded the time vector ppxvec.
+    ppyvec={};
+    for(i=0;i<stepsin;i++) ppyvec.push_back(targaccel[i].z);
+    for(i=0;i<stepsin;i++) {
+    }
+    // Perform fit, and store in accelfit.
+    perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+    for(i=0;i<stepsin;i++) accelfit[i].z = ppfitvec[i];
+    // Re-calculate all of the positions and velocities using this fit.
+    for(j=1;j<=stepsin;j++) {
+      dt2 = (temptime[j]-temptime[0])*SOLARDAY;
+      // Positions
+      targpos[j].x = targpos[0].x + targvel[0].x*dt2;
+      targpos[j].y = targpos[0].y + targvel[0].y*dt2;
+      targpos[j].z = targpos[0].z + targvel[0].z*dt2;
+      for(i=0;i<stepsin;i++) {
+	timemult = intpowLD(dt2,2+i)*factorialLD(i)/factorialLD(2+i)/intpowLD(dt0,i);
+	targpos[j].x += accelfit[i].x*timemult;
+	targpos[j].y += accelfit[i].y*timemult;
+	targpos[j].z += accelfit[i].z*timemult;
+      }
+      // Velocities
+      targvel[j].x = targvel[0].x;
+      targvel[j].y = targvel[0].y;
+      targvel[j].z = targvel[0].z;
+      for(i=0;i<stepsin;i++) {
+	timemult = intpowLD(dt2,1+i)/intpowLD(dt0,i)/((long double)(1+i));
+	targvel[j].x += accelfit[i].x*timemult;
+	targvel[j].y += accelfit[i].y*timemult;
+	targvel[j].z += accelfit[i].z*timemult;
+      }
+      // Accelerations
+      accelmod[j].x = 0L;
+      accelmod[j].y = 0L;
+      accelmod[j].z = 0L;
+      for(i=0;i<stepsin;i++) {
+	timemult = intpowLD(dt2,i)/intpowLD(dt0,i);
+	accelmod[j].x += accelfit[i].x*timemult;
+	accelmod[j].y += accelfit[i].y*timemult;
+	accelmod[j].z += accelfit[i].z*timemult;
+      }
+    }
+    // Re-calculate accelerations using these revised positions
+    for(j=1;j<=stepsin;j++) {
+      planetsonce={};
+      nplanetgrab01LD(startpoint+j, planetnum, planetmjd, planetpos, planetsonce);
+      accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
+    }
+  }
+
+  // We are now set up for a full-order polynomial integration.
+  // We have valid positions in targpos, targvel, and temptime
+  // for indices from 0 to polyorder+1.
+  // Load already calculated points into the output vectors
+  for(i=0;i<=polyorder+1;i++) {
+    outvel[i] = targvel[i];
+    outpos[i] = targpos[i];
+  }
+  // Define the current reference point.
+  latestpoint=polyorder+1;
+  // Proceed with the full polynomial integration.
+  while(latestpoint<outnum) {
+    latestpoint++;
+    // Cycle the dynamical vectors
+    for(i=0;i<polyorder+1;i++) {
+      temptime[i] = temptime[i+1];
+      targaccel[i] = targaccel[i+1];
+      targvel[i] = targvel[i+1];
+      targpos[i] = targpos[i+1];
+    }
+    // Load a new point into temptime
+    temptime[polyorder+1] = outMJD[latestpoint];
+    // Fit for acceleration
+    // x component of acceleration.
+    ppxvec={};
+    ppyvec={};
+    for(i=0;i<polyorder+1;i++) {
+      ppxvec.push_back((temptime[i] - temptime[0])*SOLARDAY/dt0);
+      ppyvec.push_back(targaccel[i].x);
+    }
+    // Perform fit, and store in accelfit.
+    perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+    for(i=0;i<polyorder+1;i++) accelfit[i].x = ppfitvec[i];
+    // Fit for y component of acceleration. Note that we have
+    // already loaded the time vector ppxvec.
+    ppyvec={};
+    for(i=0;i<polyorder+1;i++) ppyvec.push_back(targaccel[i].y);
+    // Perform fit, and store in accelfit.
+    perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+    for(i=0;i<polyorder+1;i++) accelfit[i].y = ppfitvec[i];
+    // Fit for z component of acceleration. Note that we have
+    // already loaded the time vector ppxvec.
+    ppyvec={};
+    for(i=0;i<polyorder+1;i++) ppyvec.push_back(targaccel[i].z);
+    // Perform fit, and store in accelfit.
+    perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+    for(i=0;i<polyorder+1;i++) accelfit[i].z = ppfitvec[i];
+    // Re-calculate all of the positions and velocities using this fit.
+    for(j=1;j<=polyorder+1;j++) {
+      dt2 = (temptime[j]-temptime[0])*SOLARDAY;
+      // Positions
+      targpos[j].x = targpos[0].x + targvel[0].x*dt2;
+      targpos[j].y = targpos[0].y + targvel[0].y*dt2;
+      targpos[j].z = targpos[0].z + targvel[0].z*dt2;
+      for(i=0;i<polyorder+1;i++) {
+	timemult = intpowLD(dt2,2+i)*factorialLD(i)/factorialLD(2+i)/intpowLD(dt0,i);
+	targpos[j].x += accelfit[i].x*timemult;
+	targpos[j].y += accelfit[i].y*timemult;
+	targpos[j].z += accelfit[i].z*timemult;
+      }
+      // Velocities
+      targvel[j].x = targvel[0].x;
+      targvel[j].y = targvel[0].y;
+      targvel[j].z = targvel[0].z;
+      for(i=0;i<polyorder+1;i++) {
+	timemult = intpowLD(dt2,1+i)/intpowLD(dt0,i)/((long double)(1+i));
+	targvel[j].x += accelfit[i].x*timemult;
+	targvel[j].y += accelfit[i].y*timemult;
+	targvel[j].z += accelfit[i].z*timemult;
+      }
+      // Accelerations
+      accelmod[j].x = 0L;
+      accelmod[j].y = 0L;
+      accelmod[j].z = 0L;
+      for(i=0;i<stepsin;i++) {
+	timemult = intpowLD(dt2,i)/intpowLD(dt0,i);
+	accelmod[j].x += accelfit[i].x*timemult;
+	accelmod[j].y += accelfit[i].y*timemult;
+	accelmod[j].z += accelfit[i].z*timemult;
+      }
+    }
+    // Re-calculate accelerations using these revised positions
+    for(j=1;j<=polyorder+1;j++) {
+      planetsonce={};
+      nplanetgrab01LD(latestpoint+j-polyorder-1, planetnum, planetmjd, planetpos, planetsonce);
+      accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
+    }
+
+    // Use these revised accelerations to re-do the fits
+    // x component of acceleration.
+    ppxvec={};
+    ppyvec={};
+    for(i=0;i<polyorder+1;i++) {
+      ppxvec.push_back((temptime[i] - temptime[0])*SOLARDAY/dt0);
+      ppyvec.push_back(targaccel[i].x);
+    }
+    // Perform fit, and store in accelfit.
+    perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+    for(i=0;i<polyorder+1;i++) accelfit[i].x = ppfitvec[i];
+    // Fit for y component of acceleration. Note that we have
+    // already loaded the time vector ppxvec.
+    ppyvec={};
+    for(i=0;i<polyorder+1;i++) ppyvec.push_back(targaccel[i].y);
+    // Perform fit, and store in accelfit.
+    perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+    for(i=0;i<polyorder+1;i++) accelfit[i].y = ppfitvec[i];
+    // Fit for z component of acceleration. Note that we have
+    // already loaded the time vector ppxvec.
+    ppyvec={};
+    for(i=0;i<polyorder+1;i++) ppyvec.push_back(targaccel[i].z);
+    // Perform fit, and store in accelfit.
+    perfectpoly01LD(ppxvec,ppyvec,ppfitvec);
+    for(i=0;i<polyorder+1;i++) accelfit[i].z = ppfitvec[i];
+    // Re-calculate all of the positions and velocities using this fit.
+    for(j=1;j<=polyorder+1;j++) {
+      dt2 = (temptime[j]-temptime[0])*SOLARDAY;
+      // Positions
+      targpos[j].x = targpos[0].x + targvel[0].x*dt2;
+      targpos[j].y = targpos[0].y + targvel[0].y*dt2;
+      targpos[j].z = targpos[0].z + targvel[0].z*dt2;
+      for(i=0;i<polyorder+1;i++) {
+	timemult = intpowLD(dt2,2+i)*factorialLD(i)/factorialLD(2+i)/intpowLD(dt0,i);
+	targpos[j].x += accelfit[i].x*timemult;
+	targpos[j].y += accelfit[i].y*timemult;
+	targpos[j].z += accelfit[i].z*timemult;
+      }
+      // Velocities
+      targvel[j].x = targvel[0].x;
+      targvel[j].y = targvel[0].y;
+      targvel[j].z = targvel[0].z;
+      for(i=0;i<polyorder+1;i++) {
+	timemult = intpowLD(dt2,1+i)/intpowLD(dt0,i)/((long double)(1+i));
+	targvel[j].x += accelfit[i].x*timemult;
+	targvel[j].y += accelfit[i].y*timemult;
+	targvel[j].z += accelfit[i].z*timemult;
+      }
+      // Accelerations
+      accelmod[j].x = 0L;
+      accelmod[j].y = 0L;
+      accelmod[j].z = 0L;
+      for(i=0;i<stepsin;i++) {
+	timemult = intpowLD(dt2,i)/intpowLD(dt0,i);
+	accelmod[j].x += accelfit[i].x*timemult;
+	accelmod[j].y += accelfit[i].y*timemult;
+	accelmod[j].z += accelfit[i].z*timemult;
+      }
+    }
+    // Re-calculate accelerations using these revised positions
+    for(j=1;j<=polyorder+1;j++) {
+      planetsonce={};
+      nplanetgrab01LD(latestpoint+j-polyorder-1, planetnum, planetmjd, planetpos, planetsonce);
+      accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
+      outvel[latestpoint+j-polyorder-1] = targvel[j];
+      outpos[latestpoint+j-polyorder-1] = targpos[j];
+    }
+
+    // We have now gone through two iterations of extrapolation
+    // to predict the next acceleration point as accurately as possible.
+    // The next step of the loop will move the extrapolated point back
+    // by one step, and use it to start extrapolating a new point,
+    // at the same time refining the former extrapolated points.
+  }
+ 
+  return(0);
+}
+
+
+#undef DEBUG
+
+double gaussian_deviate()
+{
+  long double x,y,rsq;
+  double g1;
+  rsq = 0.0L;
+  do {
+    x = 2.0L*rand()/RAND_MAX - 1.0L;
+    y = 2.0L*rand()/RAND_MAX - 1.0L;
+    rsq = x*x + y*y;
+  } while(rsq>=1.0L || rsq<=0.0L);
+  g1 = sqrt(-2.0l*log(rsq)/rsq);
+  return(x*g1);
+}
+
+int uvw_to_galcoord(const double &u, const double &v, const double &w, double &RA, double &Dec)
+{
+  double vtot = sqrt(u*u + v*v + w*w);
+  double sinedec = 0l;
+
+  if(vtot==0) {
+    RA=Dec=0l;
+    return(1);
+  }
+  sinedec = w/vtot;
+  if(sinedec>1.0l) {
+    cout << "Warning: attempting to take arcsine of w/vtot = 1.0 + " << sinedec-1.0l << "\n";
+    Dec = 90.0l;
+  } else if(sinedec<-1.0l) {
+    cout << "Warning: attempting to take arcsine of w/vtot = -1.0 - " << -sinedec-1.0l << "\n";
+    Dec = -90.0l;
+  } else if(isnormal(sinedec) || sinedec==0.0l) {
+    Dec = asin(sinedec)*180.0l/M_PI;
+  } else {
+    cerr << "ERROR: bad value for sinedec: w/vtot = " << w << "/" << vtot << " = " << sinedec << "\n";
+    RA=Dec=0l;
+    return(-1);
+  }
+  
+  if(v==0.0l && u>=0.0l) {
+    RA = 0.0l;
+  } else if(v==0.0l && u<0.0l) {
+    RA = 180.0l;
+  } else if(v>0.0l) {
+    RA = 90.0l - atan(u/v)*180.0l/M_PI;
+  } else if(v<0.0l) {
+    RA = 270.0l - atan(u/v)*180.0l/M_PI;
+  } else {
+    cerr << "ERROR: bad value for u or v, u = " << u << ", v = " << v << "\n";
+    RA=0l;
+    return(-1);
+  }
+  return(0);
+}
+
+// unitvar: May 05, 2022, generator of random variable
+// uniformly distributed from 0 to 1. Must be initialized
+// by calling function from a string seed as follows:
+//   seed_seq seed (stringseed.begin(),stringseed.end());
+//   mt19937_64 generator (seed);
+// Must be initialized only once: then any number of calls
+// may be made, not only to this function but also to any
+// others that use the mt19937_64 generator (e.g.,
+// gaussian_deviate_mt. It is an error to initialize the
+// generator more than once (e.g., in the entirely of main()).
+long double unitvar(mt19937_64 &generator)
+{
+  long double uv = (long double)(generator())/RAND_MAX_64;
+  return(uv);
+}
+
+double gaussian_deviate_mt(mt19937_64 &generator)
+{
+  long double x,y,rsq;
+  double g1;
+  rsq = 0.0L;
+  do {
+    x = 2.0L*(long double)(generator())/RAND_MAX_64 - 1.0L;
+    y = 2.0L*(long double)(generator())/RAND_MAX_64 - 1.0L;
+    rsq = x*x + y*y;
+  } while(rsq>=1.0L || rsq<=0.0L);
+  g1 = sqrt(-2.0l*log(rsq)/rsq);
+  return(x*g1);
+}
