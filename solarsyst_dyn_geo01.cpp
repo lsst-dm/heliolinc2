@@ -4345,7 +4345,7 @@ int Hyper_Kepint(const long double MGsun, const long double mjdstart, const poin
   int status = 0;
   long double x,y,junkra,junkdec,sinev,thetav,v1ra,v1dec;
   x = y = junkra = junkdec = sinev = thetav = v1ra = v1dec = 0L;
-  int debug=2;
+  int debug=0;
   
   // Calculate scalar input position
   r0 = sqrt(dotprod3LD(startpos,startpos));
