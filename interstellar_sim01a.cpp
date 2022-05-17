@@ -677,7 +677,17 @@ int main(int argc, char *argv[])
     vinf = sqrt(uvel*uvel + vvel*vvel + wvel*wvel);
     cout << "vinf = " << vinf << " km/sec\n";
     // assign the initial impact parameter.
-    impactpar = pow(bmax*bmax*bmax*unitvar(generator),0.333333);
+    impactpar = sqrt(bmax*bmax*unitvar(generator));
+    // This generates a differential distribution with probability
+    // density proportional to the impact parameter, which is
+    // appropriate because the differential area element is r*dr
+    // Previously I had used this one:
+    // impactpar = pow(bmax*bmax*bmax*unitvar(generator),0.333333);
+    // It gives probability density proportional to the square of the
+    // impact parameter, but is not correct because it is the cumulative
+    // distribution that goes as impactpar^2. The differential
+    // distribution, which is the relevant one here, is linearly
+    // proportional to impactpar.
     
     if(impactpar >= startdist) {
       cerr << "ERROR: you have enabled impact parameters up to " << bmax << " AU, and\n";
