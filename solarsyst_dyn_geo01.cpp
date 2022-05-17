@@ -4412,17 +4412,17 @@ int Hyper_Kepint(const long double MGsun, const long double mjdstart, const poin
 
   // Calculate time since perihelion using H0.
   omega = sqrt(-MGsun/(a*a*a));
-  cout << "omega = " << omega << "\n";
+  //cout << "omega = " << omega << "\n";
   t0omega = e*sinh(H0) - H0;
-  cout << "t0omega = " << t0omega << "\n";
+  //cout << "t0omega = " << t0omega << "\n";
  
   // The new time t1 for which we want to re-evaluate psi is
   // given by t0 + mjdend-mjdstart.
   t1omega = t0omega + (mjdend-mjdstart)*SOLARDAY*omega;
-  cout << "t1omega = " << t1omega << "\n";
+  //cout << "t1omega = " << t1omega << "\n";
   // Solve the hyperbolic form of Kepler's equation for H(t1)
   H = hyp_transcendental(t1omega,e,KEPTRANSTOL);
-  cout << "H = " << H << "\n";
+  //cout << "H = " << H << "\n";
 
   // Calculate r(t1) from H(t1)
   r1 = a*(1.0L - e*cosh(H));
