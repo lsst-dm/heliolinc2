@@ -468,7 +468,7 @@ int main(int argc, char *argv[])
     for(velct=0; velct<velnum; velct++) {
       hgp = heliogridpoint(mindist+diststep*(long double)distct, minvel+velstep*(long double)velct,{});
       gridvec.push_back(hgp);
-      cout << "Loaded point " << distct*velnum+velct << " = " << gridvec.size()-1 << "\n";
+      //cout << "Loaded point " << distct*velnum+velct << " = " << gridvec.size()-1 << "\n";
     }
   }
   
@@ -489,7 +489,7 @@ int main(int argc, char *argv[])
     // Calculate total velocity (vinf means infinite distance
     // from the sun: i.e., not yet altered by the sun's gravity).
     vinf = sqrt(uvel*uvel + vvel*vvel + wvel*wvel);
-    cout << "vinf = " << vinf << " km/sec\n";
+    //cout << "vinf = " << vinf << " km/sec\n";
     // assign the initial impact parameter.
     impactpar = sqrt(bmax*bmax*unitvar(generator));
     // This generates a differential distribution with probability
@@ -505,7 +505,7 @@ int main(int argc, char *argv[])
   
     // 4. Calculate encounter distance
     encounter_dist = impactpar*impactpar*AU_KM*AU_KM*vinf*vinf/(GMsun + sqrt(GMsun*GMsun + vinf*vinf*vinf*vinf*impactpar*impactpar*AU_KM*AU_KM));
-     cout << "encounter_dist = " << encounter_dist/AU_KM << " AU\n";
+    //cout << "encounter_dist = " << encounter_dist/AU_KM << " AU\n";
      
    // 5. Reject the object if the encounter distance is greater than the maximum distance
     // at which the object could be detected: i.e., there is no chance of a detection.
@@ -513,7 +513,7 @@ int main(int argc, char *argv[])
       // The object will get close enough to the sun to be of interest.
       E = 0.5L*vinf*vinf;
       lscalar = vinf*impactpar*AU_KM;
-      cout << "Energy = " << E << ", lscalar = " << lscalar << "\n";
+      //cout << "Energy = " << E << ", lscalar = " << lscalar << "\n";
 
       a = -GMsun*0.5L/E; // By convention, semimajor axis a is negative
                      // for hyperbolic orbits.
@@ -530,13 +530,13 @@ int main(int argc, char *argv[])
 	return(1);
       }
       t0 = (e*sinh(H0) - H0)/omega;
-      cout << "time since perihelion = " << t0 << " seconds = " << t0/86400.0L << " days = " << t0/31556952.0l << " years\n";
+      //cout << "time since perihelion = " << t0 << " seconds = " << t0/86400.0L << " days = " << t0/31556952.0l << " years\n";
       // Setup for Keplerian integration spanning the period when the object
       // is within a distance maxdist of the Sun.
       tnum=0;
       dist = maxdist*AU_KM;
       hrad = hvel = hacc = {};
-      cout << "maxdist = " << maxdist << "\n";
+      //cout << "maxdist = " << maxdist << "\n";
       while(tnum==0 || dist/AU_KM < maxdist) {
 	hrad.push_back(dist);
 	drdt = -a*e*omega*sinh(H0)/(e*cosh(H0)-1.0L);
@@ -548,7 +548,7 @@ int main(int argc, char *argv[])
 	H0=hyp_transcendental(tnow*omega,e,KEPTRANSTOL);
 	dist = a*(1.0L - e*cosh(H0));
       }
-      cout << "Loaded ephemeris vectors with " << hrad.size() << " = " << hvel.size() << " " << hacc.size() << " elements\n";
+      //cout << "Loaded ephemeris vectors with " << hrad.size() << " = " << hvel.size() << " " << hacc.size() << " elements\n";
       
       for(i=0;i<hrad.size();i++) {
 	if(i>0 && i<hrad.size()-1) {
