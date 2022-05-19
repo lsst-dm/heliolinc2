@@ -96,6 +96,7 @@ int main(int argc, char *argv[])
   vector <point3LD> targpos;
   vector <point3LD> targvel;
   point3LD targ_to_sun = point3LD(0,0,0);
+  point3LD targvel_to_sunvel = point3LD(0,0,0);
   point3LD targ_to_obs = point3LD(0,0,0);
   point3LD obs_to_sun = point3LD(0,0,0);
   point3LD Sunposnow = point3LD(0,0,0);
@@ -817,15 +818,18 @@ int main(int argc, char *argv[])
       // Loop over image times to see if the object might be on an image.
       for(imct=0;imct<imnum;imct++)
 	{
-	  planetpos01LD(imageMJD[imct],polyorder,targMJD,targpos,imagepos);
-	  planetpos01LD(imageMJD[imct],polyorder,planetmjd,Sunpos,Sunposnow);
-
+	  planetposvel01LD(imageMJD[imct],polyorder,targMJD,targpos,targvel,imagepos,imagevel);
+	  planetposvel01LD(imageMJD[imct],polyorder,planetmjd,Sunpos,Sunvel,Sunposnow,Sunvelnow);
+ 
 	  targ_to_obs.x = observerpos[imct].x - imagepos.x;
 	  targ_to_obs.y = observerpos[imct].y - imagepos.y;
 	  targ_to_obs.z = observerpos[imct].z - imagepos.z;
 	  targ_to_sun.x = Sunposnow.x - imagepos.x;
 	  targ_to_sun.y = Sunposnow.y - imagepos.y;
 	  targ_to_sun.z = Sunposnow.z - imagepos.z;
+	  targvel_to_sunvel.x = Sunvelnow.x - imagevel.x;
+	  targvel_to_sunvel.y = Sunvelnow.y - imagevel.y;
+	  targvel_to_sunvel.z = Sunvelnow.z - imagevel.z;
 
 	  obsdist = sqrt(targ_to_obs.x*targ_to_obs.x + targ_to_obs.y*targ_to_obs.y + targ_to_obs.z*targ_to_obs.z);
 	  sundist = sqrt(targ_to_sun.x*targ_to_sun.x + targ_to_sun.y*targ_to_sun.y + targ_to_sun.z*targ_to_sun.z);
@@ -892,7 +896,13 @@ int main(int argc, char *argv[])
 		outstream1 << "iso" << idnumstring << goodsimct << " " << absmag << " " << uvel << " " << vvel << " " << wvel << " " << vinf << " " << impactpar << " ";
 		outstream1 << a/AU_KM << " " << e << " " << encounter_dist/AU_KM << " " << mjd_perihelion << " ";
 		outstream1 << sundist/AU_KM << " " << obsdist/AU_KM << " " << sunelong*DEGPRAD << " " << phaseang*DEGPRAD << " ";
-		outstream1 << imageMJD[imct] << " " << outRA << " " << outDec << " " << obsmag << "\n";
+		outstream1 << imageMJD[imct] << " " << outRA << " " << outDec << " " << obsmag << " ";
+		// Note that we reverse the sign here because the previously calculated
+		// quantities are the negatives of the true state vectors: that is, their
+		// vector origin is at the object, pointing toward the sun. The negatives
+		// we apply here solve this problem and produce the correct sun-to-object state vectors.
+		outstream1 << -targ_to_sun.x << " " << -targ_to_sun.y << " " << -targ_to_sun.z << " ";
+		outstream1 << -targvel_to_sunvel.x << " " << -targvel_to_sunvel.y << " " << -targvel_to_sunvel.z << "\n";
 	      } else {
 		; // Object would have been bright enough to detect, but wasn't on the image
 	      }
