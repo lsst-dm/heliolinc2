@@ -642,7 +642,7 @@ int main(int argc, char *argv[])
 
   // Open output file and write header
   outstream1.open(outfile);
-  outstream1 << "stringID absmag uvel vvel wvel vinf impactpar a e encounter_dist mjd_perihelion sundist obsdist sunelong phaseang imageMJD outRA outDec obsmag\n";
+  outstream1 << "stringID absmag uvel vvel wvel vinf impactpar a e encounter_dist mjd_perihelion sundist obsdist sunelong phaseang imageMJD outRA outDec obsmag Obs-Sun(J2000x)(km) Obs-Sun(J2000y)(km) Obs-Sun(J2000z)(km) Obs-Sun(J2000vx)(km/s) Obs-Sun(J2000vy)(km/s) Obs-Sun(J2000vz)(km/s)\n";
 
   // Keep track of leading zeros for string IDs
   idnl = IDNUMLEN-1;
