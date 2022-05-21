@@ -1,4 +1,4 @@
-// May 02, 2022: interstellar_sim01a.cpp
+/// May 02, 2022: interstellar_sim01a.cpp
 // Fit an input observations file using the downhill simplex method.
 // The observation file must contain MJD, RA, Dec,
 // astrometric uncertainty, obscode.
@@ -31,7 +31,7 @@
 // uncertainty must be in arcseconds.
 static void show_usage()
 {
-  cerr << "Usage: interstellar_sim01a -cfg configfile -ranseed random_number_seed -images imfile -imrad image radius(deg) -mjdstart mjdstart -mjdend mjdend -simnum simnum -outfile outfile \n";
+  cerr << "Usage: interstellar_sim01a -cfg configfile -ranseed random_number_seed -images imfile -imrad image radius(deg) -mjdstart mjdstart -mjdend mjdend -astromerr 1-D astrometric error (arcsec) -simnum simnum -outfile outfile \n";
 }
     
 int main(int argc, char *argv[])
@@ -145,6 +145,7 @@ int main(int argc, char *argv[])
   int Deccol = 3;
   ofstream outstream1;
   long double random_number;
+  long double astromsigma=0.1L;
   string seedstring;
   int goodsimct=0;
   int evergood=0;
@@ -448,6 +449,17 @@ int main(int argc, char *argv[])
 	  cerr << "Error reading config file\n";
 	  return(1);
 	} else cout << "Latest allowed time of perihelion read as MJD " << mjd_perihelion_max << "\n";
+	// Read astrometric error in arcseconds
+	status=readconfigLD(instream1,&astromsigma);
+	while(status==1) {
+	  // The line we have just read is a pure comment line,
+	  // so we just want to skip to the next one.
+	  status=readconfigLD(instream1,&astromsigma);
+	}
+	if(status<0) {
+	  cerr << "Error reading config file\n";
+	  return(1);
+	} else cout << "Latest allowed time of perihelion read as MJD " << mjd_perihelion_max << "\n";
 	// Close input stream that was reading the config file.
 	instream1.close();
 	configread=1;
@@ -523,16 +535,38 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    }  else if(string(argv[i]) == "-simnum" || string(argv[i]) == "-sn" || string(argv[i]) == "-snum" || string(argv[i]) == "--simnum") {
+    }   else if(string(argv[i]) == "-mjdend" || string(argv[i]) == "-me" || string(argv[i]) == "-MJDend" || string(argv[i]) == "--mjdend" || string(argv[i]) == "--MJDend" || string(argv[i]) == "--ModifiedJulianDayend" || string(argv[i]) == "--modifiedjuliandayend") {
       if(i+1 < argc) {
 	//There is still something to read;
-	simnum=stol(argv[++i]);
+	mjdend=stold(argv[++i]);
 	i++;
       }
       else {
-	cerr << "Simulation number keyword supplied with too few corresponding arguments\n";
+	cerr << "MJD end keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
+      }
+    }  else if(string(argv[i]) == "-astromerr" || string(argv[i]) == "-astromsig" || string(argv[i]) == "-as"  || string(argv[i]) == "-sigast"  || string(argv[i]) == "-sigastrom" || string(argv[i]) == "--astromerror" || string(argv[i]) == "--astromsigma") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	astromsigma=stold(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "Astrometric error keyword supplied with too few corresponding arguments\n";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-simnum" || string(argv[i]) == "-sn" || string(argv[i]) == "-snum" || string(argv[i]) == "--simnum") {
+      if(i+1 < argc) {
+        //There is still something to read;
+        simnum=stol(argv[++i]);
+        i++;
+      }
+      else {
+        cerr << "Simulation number keyword supplied with too few corresponding arguments\n";
+        show_usage();
+        return(1);
       }
     } else if(string(argv[i]) == "-out" || string(argv[i]) == "-outfile" || string(argv[i]) == "-o" || string(argv[i]) == "--outfile" || string(argv[i]) == "--outorb" || string(argv[i]) == "--outorbits") {
       if(i+1 < argc) {
@@ -563,8 +597,9 @@ int main(int argc, char *argv[])
   cout << "starting heliocentric distance: " << startdist << " AU\n";
   cout << "min and max H magnitudes: " << Hmin << " " << Hmax << "\n";
   cout << "power law slope for H magnitude: " << Hslope << "\n";
+  cout << "1-D Gaussian error added to output astrometry: " << astromsigma << " arcsec\n";
   cout << "number of encounters to simulate: " << simnum << "\n";
-  cout << "output file " << outfile << "\n";
+ cout << "output file " << outfile << "\n";
 
   // Match mjdstart and mjdend to planet file.
   
@@ -642,7 +677,7 @@ int main(int argc, char *argv[])
 
   // Open output file and write header
   outstream1.open(outfile);
-  outstream1 << "stringID absmag uvel vvel wvel vinf impactpar a e encounter_dist mjd_perihelion sundist obsdist sunelong phaseang imageMJD outRA outDec obsmag Obs-Sun(J2000x)(km) Obs-Sun(J2000y)(km) Obs-Sun(J2000z)(km) Obs-Sun(J2000vx)(km/s) Obs-Sun(J2000vy)(km/s) Obs-Sun(J2000vz)(km/s)\n";
+  outstream1 << "stringID absmag uvel vvel wvel vinf impactpar a e encounter_dist mjd_perihelion sundist obsdist sunelong phaseang imageMJD outRA outDec obsmag Ast-Sun(J2000x)(km) Ast-Sun(J2000y)(km) Ast-Sun(J2000z)(km) Ast-Sun(J2000vx)(km/s) Ast-Sun(J2000vy)(km/s) Ast-Sun(J2000vz)(km/s) perfectRA perfectDec\n";
 
   // Keep track of leading zeros for string IDs
   idnl = IDNUMLEN-1;
@@ -896,13 +931,14 @@ int main(int argc, char *argv[])
 		outstream1 << "iso" << idnumstring << goodsimct << " " << absmag << " " << uvel << " " << vvel << " " << wvel << " " << vinf << " " << impactpar << " ";
 		outstream1 << a/AU_KM << " " << e << " " << encounter_dist/AU_KM << " " << mjd_perihelion << " ";
 		outstream1 << sundist/AU_KM << " " << obsdist/AU_KM << " " << sunelong*DEGPRAD << " " << phaseang*DEGPRAD << " ";
-		outstream1 << imageMJD[imct] << " " << outRA << " " << outDec << " " << obsmag << " ";
+		outstream1 << imageMJD[imct] << " " << outRA + astromsigma*gaussian_deviate_mt(generator)/3600.0L/cos(outDec/DEGPRAD) << " " << outDec + astromsigma*gaussian_deviate_mt(generator)/3600.0L << " " << obsmag << " ";
 		// Note that we reverse the sign here because the previously calculated
 		// quantities are the negatives of the true state vectors: that is, their
 		// vector origin is at the object, pointing toward the sun. The negatives
 		// we apply here solve this problem and produce the correct sun-to-object state vectors.
 		outstream1 << -targ_to_sun.x << " " << -targ_to_sun.y << " " << -targ_to_sun.z << " ";
-		outstream1 << -targvel_to_sunvel.x << " " << -targvel_to_sunvel.y << " " << -targvel_to_sunvel.z << "\n";
+		outstream1 << -targvel_to_sunvel.x << " " << -targvel_to_sunvel.y << " " << -targvel_to_sunvel.z << " ";
+		outstream1 << outRA << " " << outDec << "\n";
 	      } else {
 		; // Object would have been bright enough to detect, but wasn't on the image
 	      }
