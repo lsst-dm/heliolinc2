@@ -26,9 +26,9 @@
 using namespace std;
 
 #define DEGPRAD (180.0L/M_PI) /*Degrees per radian*/
-#define LSQUARE(x) long(x)*long(x)
-#define DSQUARE(x) double(x)*double(x)
-#define LDSQUARE(x) ((long double)x)*((long double)x)
+#define LSQUARE(x) (long(x)*long(x))
+#define DSQUARE(x) (double(x)*double(x))
+#define LDSQUARE(x) (((long double)x)*((long double)x))
 
 #define SOLARDAY 86400.0L
 #define NEPRA 270.0L //Right ascension of the North Ecliptic Pole.
@@ -76,8 +76,10 @@ using namespace std;
 #define LARGERR 1e30L // Large number supposed to be a safe initialization
                       // for most minimum-finding problems.
 #define GMSUN_KM3_SEC2 132712440041.279419L // GM for the Sun: that is, the Universal
-                                           // Gravitational Constant times the solar mass,
-                                           // in units of km^3/sec^2. 
+                                            // Gravitational Constant times the solar mass,
+                                            // in units of km^3/sec^2. 
+#define KCONST 0.0172020989484485L // Mean daily motion in radians for an orbit around
+                                   // the sun with a semimajor axis of 1AU.
 #define MINSTRINGLEN 5 // Minimum size of character array we use: e.g., for filter bandpass or obscode.
 #define SHORTSTRINGLEN 20 // Standard size for a short-ish string, used, e.g. for detection idstring
 #define MEDSTRINGLEN 80 // Medium string length, should hold most file paths
@@ -763,6 +765,18 @@ public:
   }
 };
 
+class keplerian_orbit{
+public:
+  long double semimaj_axis; // in AU
+  long double eccentricity; // unitless
+  long double inclination;  // in degrees
+  long double long_ascend_node; // Longitude of the ascending node, in degrees
+  long double arg_perihelion;   // Argument of perihelion, in degrees
+  long double mean_anom;        // Mean anomaly at the epoch, in degrees
+  long double mjd_epoch;        // Epoch for the orbit in MJD
+  long double mean_daily_motion; // in degrees/day
+  keplerian_orbit(long double semimaj_axis, long double eccentricity, long double inclination, long double long_ascend_node, long double arg_perihelion, long double mean_anom, long double mjd_epoch, long double mean_daily_motion) :semimaj_axis(semimaj_axis), eccentricity(eccentricity), inclination(inclination), long_ascend_node(long_ascend_node), arg_perihelion(arg_perihelion), mean_anom(mean_anom), mjd_epoch(mjd_epoch), mean_daily_motion(mean_daily_motion) {}
+};
 
 void make_ivec(int nx, vector <int> &ivec);
 void make_imat(int nx, int ny, vector <vector <int>> &imat);
@@ -840,6 +854,7 @@ int accelcalc01LD(int planetnum, const vector <long double> &planetmasses, const
 int integrate_orbit_constac(int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel);
 long double kep_transcendental(long double q, long double e, long double tol);
 int Keplerint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
+int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD &outpos,  point3LD &outvel);
 long double hyp_transcendental(long double q, long double e, long double tol);
 int Hyper_Kepint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
 int integrate_orbit01LD(int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel);

@@ -4283,6 +4283,153 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   return(0);
 }
 
+// Kepler2dyn: May 31, 2022:
+// Given Keplerian orbital parameters and a starting MJD,
+// convert the Keplerian orbital parameters to barycentric
+// Cartesian state vectors at the instant of the MJD.
+int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD &outpos,  point3LD &outvel)
+{
+  long double meananom,theta,psi,cospsi,costheta;
+  long double heliodist,ellipsearea,Period,sweeprate;
+  long double radvel,angvel,tanvel,poleRA,poleDec,oldpoleRA;
+  long double newRA,newDec,totalvel,thetaoc;
+  int verbose=1;
+  long double vtheta1,vtheta2,posRA,posDec,velRA,velDec;
+  long double GMsun=0.0L;
+  long double omega=0.0L;
+  long double E=0.0L;
+  // keporb.semimaj_axis        in AU
+  // keporb.eccentricity        unitless
+  // keporb.inclination         in degrees
+  // keporb.long_ascend_node    Longitude of the ascending node, in degrees
+  // keporb.arg_perihelion      Argument of perihelion, in degrees
+  // keporb.mean_anom           Mean anomaly at the epoch, in degrees
+  // keporb.mjd_epoch           Epoch for the orbit in MJD
+  // keporb.mean_daily_motion   in degrees/day
+
+  meananom = keporb.mean_anom + (mjdnow-keporb.mjd_epoch)*keporb.mean_daily_motion;
+  //cout << "keporb.meananom = " << keporb.mean_anom << " meananom = " << meananom << "\n";
+  
+  // Solve Kepler's equation for psi (the true anomaly) given the mean anomaly.
+  psi = kep_transcendental(meananom/DEGPRAD,keporb.eccentricity,KEPTRANSTOL);
+  //cout << "New psi = " << psi*DEGPRAD;
+  cospsi = cos(psi);
+  //cout << " New cospsi = " << cospsi << "\n";
+  // Calculate theta from psi
+  if(1.0L - keporb.eccentricity*cospsi != 0.0L) {
+    costheta = (cospsi - keporb.eccentricity)/(1.0L - keporb.eccentricity*cospsi);
+    if(costheta >= -1.0L && costheta <= 1.0L) theta = acos(costheta);
+    else if(costheta < -1.0L) {
+      cout << "Warning: costheta = " << costheta << "\n";
+      theta = M_PI;
+    } else {
+      cout << "Warning: costheta = " << costheta << "\n";
+      theta = 0.0L;
+    }
+    if(psi>M_PI && theta<=M_PI) theta = 2.0L*M_PI - theta;
+  } else {
+    cerr << "Warning: e*cos(psi) = " << keporb.eccentricity*cospsi << " so 1 - e*cos(psi) = " << 1.0L - keporb.eccentricity*cospsi << "\n";
+    theta = 0.0L;
+  }
+  while(theta<0.0L) theta += 2.0L*M_PI;
+  while(theta>=2.0L*M_PI) theta -= 2.0L*M_PI;
+
+  // Calculate heliodist from psi
+  heliodist = keporb.semimaj_axis*(1.0L - keporb.eccentricity*cospsi);
+  //cout << "keporb.semimaj_axis = " << keporb.semimaj_axis << " keporb.eccentricity = " << keporb.eccentricity << " heliodist = " << heliodist <<"\n";
+  // Now effectively we have the asteroid's position fully
+  //  specified in a coordinate system for which the asteroid's
+  //  orbit defines the equatorial plane and its perihelion defines
+  //  zero longitude. The current longitude is theta1, the 
+  //  latitude is zero by definition, and heliodist
+  //  is the radius. Two steps remain: (1) Calculate the velocity
+  //  in this orbital coordinate system, and (2) tranform both
+  //  position and velocity into heliocentric coordinates.
+
+  // Calculate the Velocity
+  ellipsearea = M_PI*keporb.semimaj_axis*keporb.semimaj_axis*sqrt(1.0L - LDSQUARE(keporb.eccentricity));
+  // This area is in AU^2. The period of the orbit is:
+  Period = 360.0L/keporb.mean_daily_motion;
+  //cout << "Period = " << Period << " days\n";
+  // This is the period in days, because keporb.mean_daily_motion is the
+  //  mean daily motion in degrees/day
+  sweeprate = ellipsearea/Period;
+  // This is the rate at which area is swept out, in terms
+  //  of AU^2/day. This will allow us to find the instantaneous
+  //  angular velocity
+  // Area of triangle swept out in time dt is r^2 * dt * angvel / 2.0
+  //cout << "heliodist = " << heliodist << "\n";
+  angvel = sweeprate*2.0L/LDSQUARE(heliodist);
+  //cout << "angvel = " << angvel << " rad/day = " << angvel*DEGPRAD << " deg/day = " << angvel*DEGPRAD*150.0L << "arcsec/hr\n";
+  // This is the angular velocity in radians/day 
+  // All we need now is the radial component. 
+  radvel = angvel*keporb.semimaj_axis*(1.0L - LDSQUARE(keporb.eccentricity))*(keporb.eccentricity*sin(theta)/LDSQUARE(1.0L + keporb.eccentricity*cos(theta)));
+  // This is the radial velocity in AU/day. The formula is 
+  //  derived in my October 05, 2016 notebook entry.
+  tanvel = angvel*heliodist;
+  //cout << "radvel, tanvel = " << radvel << " " << tanvel << "\n";
+  // Calculate the angle of the velocity relative
+  //  to the position vector
+  if(tanvel>0.0) vtheta1 = M_PI/2.0L - atan(radvel/tanvel);
+  else if(tanvel==0.0 && radvel>=0.0) vtheta1 = 0.0;
+  else if(tanvel==0.0 && radvel<0.0) vtheta1 = M_PI;
+  else if(tanvel<0.0) vtheta1 = 3.0L*M_PI/2.0L - atan(radvel/tanvel);
+
+  // Convert to degrees
+  vtheta1*=DEGPRAD;
+  // Add in the angle of the position vector
+  vtheta1 += theta*DEGPRAD;
+  // Calculate the total velocity
+  totalvel = sqrt(radvel*radvel + tanvel*tanvel);
+  // Note that at this point, vtheta1 is in degrees
+  //  and total vel is in AU/day.
+
+  // Reckon from the line of nodes (intersection of the
+  //  asteroidal orbit with the plane of the ecliptic)
+  
+  // Position vector:
+  thetaoc = keporb.arg_perihelion+theta*DEGPRAD;
+  while(thetaoc>=360.0L) thetaoc-=360.0L;
+  // Velocity vector
+  vtheta2 = keporb.arg_perihelion+vtheta1;
+  while(vtheta2>=360.0L) vtheta2-=360.0L;
+
+  //cout << "The angle from perihelion is " << theta*DEGPRAD << " degrees.\n";
+  //cout << "The angle from the line of nodes is " << thetaoc << " degrees.\n";
+  // Now in orbital coordinates, the asteroid's position
+  //  has a 'declination' of zero (by definition) and a
+  //  'right ascension' equal to thetaoc
+  // RA in orbital coords
+  posRA = thetaoc/DEGPRAD;
+  velRA = vtheta2/DEGPRAD;
+  // Dec in orbital coords
+  posDec = 0.0L;
+  velDec = 0.0L;
+  // Now I need the orbital coordinates of the ecliptic pole.
+  //  Since I have defined the line of nodes as the RA reference
+  //  in orbital coordinates, and this line has to be perpendicular
+  //  to the vector to the ecliptic pole, it follows that the
+  //  orbital RA of the ecliptic pole is 90.0 degrees.
+  //  The orbital declination of the ecliptic pole is ninety
+  //  degrees minus the inclination.
+  poleRA = M_PI/2.0L;
+  poleDec = (90.0L - keporb.inclination)/DEGPRAD;
+  // Now I need the right ascension of the old pole
+  //  in the new coordinates.  This is equal to the
+  //  longitude of the ascending node minus 90 degrees.
+  oldpoleRA = (keporb.long_ascend_node - 90.0L)/DEGPRAD;
+  poleswitch01LD(posRA,posDec,poleRA,poleDec,oldpoleRA,newRA,newDec); // Output is radians
+  outpos.x = heliodist*cos(newDec)*cos(newRA);
+  outpos.y = heliodist*cos(newDec)*sin(newRA);
+  outpos.z = heliodist*sin(newDec);
+  poleswitch01LD(velRA,velDec,poleRA,poleDec,oldpoleRA,newRA,newDec); // Output is radians  
+  outvel.x = totalvel*cos(newDec)*cos(newRA);
+  outvel.y = totalvel*cos(newDec)*sin(newRA);
+  outvel.z = totalvel*sin(newDec);
+  
+  return(0);
+}
+
 // hyp_transcendental: April 25, 2022:
 // Solve the hyperbolic form of the trancendental
 // Kepler Equation q = e*sinh(psi) - psi for psi given q and e,
