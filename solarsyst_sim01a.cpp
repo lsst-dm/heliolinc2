@@ -712,10 +712,7 @@ int main(int argc, char *argv[])
  
     // 7. Convert Keplerian orbital elements to dynamical state vectors.
     Kepler2dyn(mjdstart, keporb, outpos, outvel);
-    cout << "simulated object " << simct << ", state vectors in AU and AU/day:\n";
-    cout << outpos.x << " " << outpos.y << " " << outpos.z << "\n";
-    cout << outvel.x << " " << outvel.y << " " << outvel.z << "\n";
-    // Convert from AU and AU/day to km and km/sec
+   // Convert from AU and AU/day to km and km/sec
     outpos.x*=AU_KM;
     outpos.y*=AU_KM;
     outpos.z*=AU_KM;
@@ -758,7 +755,7 @@ int main(int argc, char *argv[])
 	// Calculate observed magnitude not accounting for phase
 	obsmag = absmag + 2.5*log10(obsdist*obsdist*sundist*sundist/AU_KM/AU_KM/AU_KM/AU_KM);
 	if(obsmag<limiting_mag  && (sundist/AU_KM)<=maxdetdist) {
-	  cout << simct << ": obsmag = " << obsmag << ", sundist = " << sundist/AU_KM << ", obsdist = " << obsdist/AU_KM << "\n";
+	  //cout << simct << ": obsmag = " << obsmag << ", sundist = " << sundist/AU_KM << ", obsdist = " << obsdist/AU_KM << "\n";
 	  // Note: maxdetdisk is designed to enable the artificial
 	  // imposition of a maximum heliocentric distance, beyond which
 	  // objects are simply not considered. The original planned use
