@@ -3897,7 +3897,20 @@ int helioproj01(point3d unitbary, point3d obsbary,double heliodist,double &geodi
   return(-1);
 }
 
-
+// helioproj01LD: Given a unit vector unitbary giving the direction
+// toward which an object was seen; a vector obsbary giving the full
+// 3-D location of the observer; and a distance heliodist giving the
+// object's distance from the origin (e.g., the sun or the barycenter),
+// find out where the vector unitbary, extended indefinitely in the
+// positive direction, intersects the sphere of radius heliodist.
+// Provides the distance from the observer to the intersection point
+// in geodist, and the full 3-D coordinates of the intersection point
+// in projbary. Returns 0 if a valid solution was found, or -1 if
+// there was no solution.
+// NOTE: helioproj01LD considers only a solution where the vector is EXITING
+// the sphere. Hence, for cases where the vector originates outside
+// the sphere and intesects it twice, helioproj01LD will solve for
+// and return only one of the two intersections.
 int helioproj01LD(point3LD unitbary, point3LD obsbary, long double heliodist, long double &geodist, point3LD &projbary)
 {
   long double a,b,c;
@@ -3947,6 +3960,89 @@ int helioproj01LD(point3LD unitbary, point3LD obsbary, long double heliodist, lo
       }
       else return(-1);
     }
+  return(-1);
+}
+
+// helioproj02LD: June 22, 2022:
+// Like helioproj01LD, but correctly solves cases where the vector
+// originates outside the heliocentric sphere and interesects it twice.
+// If valid solutions exist, returns the number of solutions found
+// (either 1 or 2), with the solutions stored in the ouput vectors geodist
+// and projbary. If no solution exists, returns -1 with output vectors
+// empty.
+int helioproj02LD(point3LD unitbary, point3LD obsbary, long double heliodist, vector <long double> &geodist, vector <point3LD> &projbary)
+{
+  long double a,b,c;
+  long double alphapos,alphaneg;
+  long double opdistcos,sunelong,barydist;
+  long double obsdot,opelong;
+  point3LD barypos = point3LD(0.0L,0.0L,0.0L);
+  
+  barydist = sqrt(dotprod3LD(obsbary,obsbary));
+  obsdot = dotprod3LD(unitbary,obsbary);
+  opdistcos = obsdot/barydist;
+  opelong = acos(opdistcos)*DEGPRAD;
+  if(opelong < 0.0L) opelong = 90.0L - opelong;
+  sunelong = 180.0L - opelong;
+
+  // Make sure output vectors start out empty
+  geodist = {};
+  projbary = {};
+
+  a = 1.0L;
+  b = 2.0L*obsdot;
+  c = barydist*barydist - heliodist*heliodist;
+  
+  if((b*b-4.0L*a*c)>=0.0L) {
+    // Quadratic has two real solutions for geocentric distance.
+    alphapos = (-b + sqrt(b*b-4.0L*a*c))/2.0L/a;
+    if(alphapos>0.0L) {
+      // The first solution is positive, and hence physically possible
+      geodist.push_back(alphapos);
+      barypos.x = obsbary.x + alphapos*unitbary.x;
+      barypos.y = obsbary.y + alphapos*unitbary.y;
+      barypos.z = obsbary.z + alphapos*unitbary.z;
+      projbary.push_back(barypos);
+      alphaneg = (-b - sqrt(b*b-4.0L*a*c))/2.0L/a;
+      if(alphaneg>0.0L) {
+	// The second solution is also positive, so they are both physically possible
+	geodist.push_back(alphaneg);
+	barypos.x = obsbary.x + alphaneg*unitbary.x;
+	barypos.y = obsbary.y + alphaneg*unitbary.y;
+	barypos.z = obsbary.z + alphaneg*unitbary.z;
+	projbary.push_back(barypos);
+	// Sanity check before we return
+	if(geodist.size()==2 || projbary.size()==2) {
+	  return(2);
+	} else {
+	  cerr << "ERROR: vector sizes don't match number of real solutions!\n";
+	  cerr << "Sizes: " << geodist.size() << " " << projbary.size() << " should both be exactly 2\n";
+	} 
+      } else {
+	// Only the first solution was positive.
+	if(geodist.size()==1 || projbary.size()==1) {
+	  return(1);
+	} else {
+	  cerr << "ERROR: vector sizes don't match number of real solutions!\n";
+	  cerr << "Sizes: " << geodist.size() << " " << projbary.size() << " should both be exactly 1\n";
+	} 
+      }
+    } else {
+      // There were no positive real solutions for geocentric distance.
+      // Since scalar distance cannot be negative, this means the quadratic
+      // has no physical solution: the vector unitbary has no intersection
+      // with the heliocentric sphere of radius heliodist in the positive direction.
+      return(-1);
+    }
+  } else {
+    // Quadratic equation for object's distance from the
+    // observer has no real solution: this unit vector extending
+    // from Earth can never intersect this heliocentric
+    // sphere. Most likely, the heliocentric sphere lies
+    // entirely inside the vector from Earth.
+    return(-1);
+  }
+  // Should never reach this point, but return anyway just in case.
   return(-1);
 }
 
