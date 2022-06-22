@@ -659,10 +659,10 @@ int main(int argc, char *argv[])
 	// Did helioproj find two solutions in both cases, or only one?
 	num_dist_solutions = status1;
 	if(num_dist_solutions > status2) num_dist_solutions = status2;
-	if(num_dist_solutions == 2) {
-	  cout << "Two solutions found at solar dist " << heliodist[accelct]/AU_KM << "\n";
-	  cout << "geodist = " << deltavec1[0]/AU_KM << " to " << deltavec2[0]/AU_KM << " OR " << deltavec1[1]/AU_KM << " to " << deltavec2[1]/AU_KM << "\n";
-	}
+	//if(num_dist_solutions == 2) {
+	//  cout << "Two solutions found at solar dist " << heliodist[accelct]/AU_KM << "\n";
+	//  cout << "geodist = " << deltavec1[0]/AU_KM << " to " << deltavec2[0]/AU_KM << " OR " << deltavec1[1]/AU_KM << " to " << deltavec2[1]/AU_KM << "\n";
+	// }
 	// Loop over solutions (num_dist_solutions can only be 1 or 2).
 	for(solnct=0; solnct<num_dist_solutions; solnct++) {
 	  targpos1 = targposvec1[solnct];
