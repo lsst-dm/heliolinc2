@@ -11,7 +11,6 @@ int main(int argc, char *argv[]) {
     img_log03 imlog = img_log03(0.0, 0.0, 0.0, "I11", 0, 0);
     vector<img_log03> img_log_tmp = {};
     vector<img_log03> img_log = {};
-    longpair onepair = longpair(0, 0);
     vector<longpair> pairvec = {};
     point3d p3 = point3d(0, 0, 0);
     point3d p3avg = point3d(0, 0, 0);
@@ -65,35 +64,7 @@ int main(int argc, char *argv[]) {
     double plxcos = 0.865020L;
     double plxsin = -0.500901L;
     long lct = 0;
-    long_index ppn = long_index(0, 0);
-    vector<long_index> pair_partner_num = {};
-    vector<long_index> tracklet_check = {};
-    double dt, dtref, dx, dy;
-    dt = dtref = dx = dy = 0.0l;
-    xy_index xyind = xy_index(0.0, 0.0, 0);
-    vector<xy_index> axyvec = {};
-    double dist, pa;
-    dist = pa = 0.0;
-    int dettarg = 0;
-    vector<double> timevec;
-    vector<double> xvec;
-    vector<double> yvec;
-    vector<long> detindexvec;
-    int biggest_tracklet = -1;
-    int tracklet_size = 0;
-    double slopex, slopey, interceptx, intercepty, worsterr;
-    vector<double> fiterr = {};
-    vector<double> fiterr2 = {};
-    int worstpoint = -1;
-    int istracklet = 0;
-    int rp1, rp2, instep;
-    rp1 = rp2 = instep = 0;
-    double outra1, outra2, outdec1, outdec2;
-    outra1 = outra2 = outdec1 = outdec2 = 0.0l;
-    point3d_index p3di = point3d_index(0l, 0l, 0l, 0);
-    vector<point3d_index> track_mrdi_vec;
     double mintime = IMAGETIMETOL / SOLARDAY;
-    int trkptnum, istimedup = 1;
     double maxgcr = MAX_GCR;
     int idcol = IDCOL;
     int mjdcol = MJDCOL;
@@ -798,6 +769,24 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    makeTracklets(detvec, img_log, pairvec, pairdets, outpairfile, pairdetfile);
+    buildTracklets(detvec, img_log, pairvec, pairdets, outpairfile, pairdetfile);
+
+    cout << "Writing paired detections file\n";
+    outstream1.open(pairdetfile);
+    outstream1 << "#MJD,RA,Dec,observerX,observerY,observerZ,stringID,mag,band,obscode,origindex\n";
+    for (size_t i = 0; i < pairdets.size(); i++) {
+        outstream1 << fixed << setprecision(7) << pairdets[i].MJD << "," << pairdets[i].RA << ","
+                   << pairdets[i].Dec << ",";
+        outstream1 << fixed << setprecision(3) << pairdets[i].x << "," << pairdets[i].y << ","
+                   << pairdets[i].z << ",";
+        outstream1 << fixed << setprecision(3) << pairdets[i].idstring << "," << pairdets[i].mag << ","
+                   << pairdets[i].band << ",";
+        outstream1 << pairdets[i].obscode << "," << pairdets[i].index << "\n";
+    }
+    outstream1.close();
+
+    // This does some output for now; need to disentangle.
+    refineTracklets(pairdets, outpairfile, mintrkpts, maxgcr, minarc, minvel, maxvel);
+
     return 0;
 }
