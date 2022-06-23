@@ -1,4 +1,6 @@
-# Standard C++ gitignore from github: https://github.com/github/gitignore/blob/main/C++.gitignore
+.vscode/
+
+# Below is Standard C++ gitignore from github: https://github.com/github/gitignore/blob/main/C++.gitignore
 
 # Prerequisites
 *.d
