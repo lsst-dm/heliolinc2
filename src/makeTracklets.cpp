@@ -1,6 +1,7 @@
 #include "makeTracklets.h"
 
 void buildTracklets(
+    MakeTrackletsConfig config,
     std::vector<det_obsmag_indvec> detvec,
     std::vector<img_log03> img_log,
     std::vector<longpair> &pairvec,
@@ -19,15 +20,15 @@ void buildTracklets(
     long double MJD, RA, Dec;
     MJD = RA = Dec = 0.0L;
     double mag = 0l;
-    double maxvel = MAXVEL;  // Max angular velocity in deg/day
+    double maxvel = config.maxvel;  // Max angular velocity in deg/day
     double minvel = 0.0l;    // Min angular velocity in deg/day
     double minarc = 0.0l;    // Min total angular arc in arcseconds
     double angvel = 0.0l;
-    double maxtime = MAXTIME;           // Max time interval a tracklet could span,
+    double maxtime = config.maxtime;           // Max time interval a tracklet could span,
                                         // in days.
-    double maxdist = MAXVEL * MAXTIME;  // Max angular distance a tracklet
+    double maxdist = maxvel * maxtime;  // Max angular distance a tracklet
                                         // could span, in degrees.
-    double imrad = IMAGERAD;            // radius from image center to most distant corner (deg).
+    double imrad = config.imagerad;            // radius from image center to most distant corner (deg).
     double obslon = 289.26345L;
     double plxcos = 0.865020L;
     double plxsin = -0.500901L;
@@ -36,8 +37,8 @@ void buildTracklets(
     double dist, pa;
     dist = pa = 0.0;
     int dettarg = 0;
-    double mintime = IMAGETIMETOL / SOLARDAY;
-    double maxgcr = MAX_GCR;
+    double mintime = config.imagetimetol / SOLARDAY;
+    double maxgcr = config.maxgcr;
     int mintrkpts = 2;
 
     // PERFORM PAIRING
@@ -203,6 +204,7 @@ void buildTracklets(
 }
 
 void refineTracklets(
+    MakeTrackletsConfig config,
     std::vector<det_obsmag_indvec> &pairdets,
     string outpairfile,
     int mintrkpts,
@@ -390,7 +392,7 @@ void refineTracklets(
                     istimedup = 0;
                     int j = 1;
                     while (j < timevec.size() && istimedup == 0) {
-                        if (fabs(timevec[j] - timevec[j - 1]) < IMAGETIMETOL / SOLARDAY) {
+                        if (fabs(timevec[j] - timevec[j - 1]) < config.imagetimetol / SOLARDAY) {
                             istimedup = 1;  // Point j and j-1 are time-duplicates.
                             // Mark for rejection whichever one has the largest fitting error
                             if (fiterr[j] >= fiterr[j - 1])

@@ -2,6 +2,7 @@
 #include "cmath"
 
 int main(int argc, char *argv[]) {
+    MakeTrackletsConfig config;
     det_obsmag_indvec o1 = det_obsmag_indvec(0L, 0l, 0l, 0L, 0L, 0L, "null", 0l, "V", "I11", 0, {});
     vector<det_obsmag_indvec> detvec = {};
     vector<det_obsmag_indvec> pairdets = {};
@@ -43,15 +44,15 @@ int main(int argc, char *argv[]) {
     long double MJD, RA, Dec;
     MJD = RA = Dec = 0.0L;
     double mag = 0l;
-    double maxvel = MAXVEL;  // Max angular velocity in deg/day
+    double maxvel = config.maxvel;  // Max angular velocity in deg/day
     double minvel = 0.0l;    // Min angular velocity in deg/day
     double minarc = 0.0l;    // Min total angular arc in arcseconds
     double angvel = 0.0l;
-    double maxtime = MAXTIME;           // Max time interval a tracklet could span,
+    double maxtime = config.maxtime;           // Max time interval a tracklet could span,
                                         // in days.
-    double maxdist = MAXVEL * MAXTIME;  // Max angular distance a tracklet
+    double maxdist = maxvel * maxtime;  // Max angular distance a tracklet
                                         // could span, in degrees.
-    double imrad = IMAGERAD;            // radius from image center to most distant corner (deg).
+    double imrad = config.imagerad;            // radius from image center to most distant corner (deg).
     string indetfile;
     string inimfile;
     string outimfile;
@@ -64,15 +65,15 @@ int main(int argc, char *argv[]) {
     double plxcos = 0.865020L;
     double plxsin = -0.500901L;
     long lct = 0;
-    double mintime = IMAGETIMETOL / SOLARDAY;
-    double maxgcr = MAX_GCR;
-    int idcol = IDCOL;
-    int mjdcol = MJDCOL;
-    int racol = RACOL;
-    int deccol = DECCOL;
-    int magcol = MAGCOL;
-    int bandcol = BANDCOL;
-    int obscodecol = OBSCODECOL;
+    double mintime = config.imagetimetol / SOLARDAY;
+    double maxgcr = config.maxgcr;
+    int idcol = config.idcol;
+    int mjdcol = config.mjdcol;
+    int racol = config.racol;
+    int deccol = config.deccol;
+    int magcol = config.magcol;
+    int bandcol = config.bandcol;
+    int obscodecol = config.obscodecol;
     int colreadct = 0;
     ifstream instream1;
     ofstream outstream1;
@@ -359,7 +360,7 @@ int main(int argc, char *argv[]) {
             return (1);
         }
         colreadct = 0;
-        while (!instream1.eof() && !instream1.fail() && !instream1.bad() && colreadct < COLS_TO_READ) {
+        while (!instream1.eof() && !instream1.fail() && !instream1.bad() && colreadct < config.cols_to_read) {
             instream1 >> stest;
             if (stest == "IDCOL") {
                 instream1 >> idcol;
@@ -387,8 +388,8 @@ int main(int argc, char *argv[]) {
             }
         }
         instream1.close();
-        if (colreadct < COLS_TO_READ) {
-            cout << "WARNING: only " << colreadct << " column specifications, of " << COLS_TO_READ
+        if (colreadct < config.cols_to_read) {
+            cout << "WARNING: only " << colreadct << " column specifications, of " << config.cols_to_read
                  << " expected, were read from column format file " << colformatfile << ".\n";
         }
     }
@@ -582,14 +583,14 @@ int main(int argc, char *argv[]) {
         detct = 0;
         for (imct = 0; imct < img_log_tmp.size(); imct++) {
             while (detct < detvec.size() &&
-                   detvec[detct].MJD < img_log_tmp[imct].MJD - IMAGETIMETOL / SOLARDAY)
+                   detvec[detct].MJD < img_log_tmp[imct].MJD - config.imagetimetol / SOLARDAY)
                 detct++;  // Not on any image
             if (detct < detvec.size() &&
-                fabs(detvec[detct].MJD - img_log_tmp[imct].MJD) <= IMAGETIMETOL / SOLARDAY) {
+                fabs(detvec[detct].MJD - img_log_tmp[imct].MJD) <= config.imagetimetol / SOLARDAY) {
                 // This should be the first detection on image imct.
                 img_log_tmp[imct].startind = detct;
                 while (detct < detvec.size() &&
-                       fabs(detvec[detct].MJD - img_log_tmp[imct].MJD) <= IMAGETIMETOL / SOLARDAY)
+                       fabs(detvec[detct].MJD - img_log_tmp[imct].MJD) <= config.imagetimetol / SOLARDAY)
                     detct++;  // Still on this same image
                 // This should be the first detection on the next image
                 img_log_tmp[imct].endind = detct;
@@ -607,7 +608,7 @@ int main(int argc, char *argv[]) {
         startind = 0;
         for (i = 1; i < detvec.size(); i++) {
             tdelt = detvec[i].MJD - detvec[i - 1].MJD;
-            if (tdelt < IMAGETIMETOL / SOLARDAY &&
+            if (tdelt < config.imagetimetol / SOLARDAY &&
                 stringnmatch01(detvec[i].obscode, detvec[i - 1].obscode, 3) == 0) {
                 // This point corresponds to the same image as the previous one.
                 mjdmean += detvec[i].MJD;
@@ -666,7 +667,7 @@ int main(int argc, char *argv[]) {
             vector<det_obsmag_indvec> imobs = {};
             num_dets = 0;
             p3avg = point3d(0, 0, 0);
-            while (detct < detnum && detvec[detct].MJD < img_log[imct].MJD + IMAGETIMETOL / SOLARDAY) {
+            while (detct < detnum && detvec[detct].MJD < img_log[imct].MJD + config.imagetimetol / SOLARDAY) {
                 num_dets++;                      // Keep count of detections on this image
                 imobs.push_back(detvec[detct]);  // Load vector of observations for this image
                 p3 = celeproj01(detvec[detct].RA, detvec[detct].Dec);  // Project current detection
@@ -769,7 +770,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    buildTracklets(detvec, img_log, pairvec, pairdets, outpairfile, pairdetfile);
+    buildTracklets(config, detvec, img_log, pairvec, pairdets, outpairfile, pairdetfile);
 
     cout << "Writing paired detections file\n";
     outstream1.open(pairdetfile);
@@ -786,7 +787,7 @@ int main(int argc, char *argv[]) {
     outstream1.close();
 
     // This does some output for now; need to disentangle.
-    refineTracklets(pairdets, outpairfile, mintrkpts, maxgcr, minarc, minvel, maxvel);
+    refineTracklets(config, pairdets, outpairfile, mintrkpts, maxgcr, minarc, minvel, maxvel);
 
     return 0;
 }
