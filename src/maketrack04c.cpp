@@ -28,7 +28,7 @@
 // MAGCOL 32
 // BANDCOL 26
 // OBSCODECOL 38
-// 
+//
 // January 18, 2022: maketrack04a.cpp:
 // Description of ancestor program maketrack03a.cpp:
 // Like maketrack02b.cpp, but saves more information in the paired
@@ -42,14 +42,14 @@
 //
 // November 15, 2021: maketrack02a.cpp
 // Like maketrack01b.cpp, but uses a k-d tree to speed up pairing.
-// 
+//
 // November 10, 2021: maketrack01b.cpp
 // Like maketrack01a.cpp, but projects celestial positions onto an
 // x-y plane centered on the primary image prior to matching.
 // This means that the distance calculation can use fast 2-D Cartesian
 // distance rather than spherical geometry, which speeds up the
 // program by a factor of a few.
-// 
+//
 // Description of ancestor program maketrack01a.cpp:
 // Read a csv file of detections of astronomical objects, test
 // crude n^2 pairing based on image matching.
@@ -74,7 +74,6 @@
 #define MAX_GCR 0.5 // Default maximum Great Circle Residual allowed for a valid tracklet
 #define DEBUG 0
 
-      
 static void show_usage()
 {
   cerr << "Usage: maketrack04b -dets detfile -imgs imfile -outimgs output image file/ \n";
@@ -88,7 +87,7 @@ static void show_usage()
   cerr << "Note well that the minimum invocation will leave a bunch of things\n";
   cerr << "set to defaults that may not be what you want.\n";
 }
-    
+
 int main(int argc, char *argv[])
 {
   det_obsmag_indvec o1 = det_obsmag_indvec(0L,0l,0l,0L,0L,0L,"null",0l,"V","I11",0,{});
@@ -196,13 +195,13 @@ int main(int argc, char *argv[])
   ofstream outstream1;
   string stest;
   int mintrkpts=2;
-  
+
   if(argc<7)
     {
       show_usage();
       return(1);
     }
-  
+
   i=1;
   while(i<argc) {
     cout << "Checking out argv[" << i << "] = " << argv[i] << ".\n";
@@ -288,7 +287,7 @@ int main(int argc, char *argv[])
 	  cerr << "Error: invalid maximum inter-image time interval\n";
 	  cerr << "(" << maxtime << " hr) supplied: must be strictly positive.\n";
 	  return(2);
-	}      
+	}
       } else {
 	cerr << "Maximum inter-image time interval\nkeyword supplied with no corresponding argument\n";
 	show_usage();
@@ -298,14 +297,14 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
         mintime=stod(argv[++i]);
-	i++;	
+	i++;
 	if((isnormal(mintime) || mintime==0.0) && mintime>=0.0) {
 	  mintime/=24.0; // Convert from hours to days
 	} else {
 	  cerr << "Error: invalid minimum inter-image time interval\n";
 	  cerr << "(" << mintime << " hr) supplied: must be non-negative.\n";
 	  return(2);
-	}      
+	}
       } else {
 	cerr << "Minimum inter-image time interval\nkeyword supplied with no corresponding argument\n";
 	show_usage();
@@ -436,15 +435,15 @@ int main(int argc, char *argv[])
     show_usage();
     return(1);
   }
-  
+
   if(obscodefile.size()<=0) {
     cerr << "Please supply a observatory code file:\n\n";
     show_usage();
     return(1);
   }
-  
+
   if(mintrkpts<2) mintrkpts=2;
-  
+
   cout << "indet file " << indetfile << "\n";
   cout << "inimage file " << inimfile << "\n";
   cout << "column formatting file " << colformatfile << "\n";
@@ -462,7 +461,7 @@ int main(int argc, char *argv[])
   cout << "minarc " << minarc << " arcsec\n";
   cout << "maxGCR " << maxgcr << " arcsec\n";
   maxdist = maxtime*maxvel;
-  
+
   // Read the column formatting file, if any
   if(colformatfile.size()>0)
     {
@@ -536,13 +535,13 @@ int main(int argc, char *argv[])
     }
   instream1.close();
   cout << "Read " << observatory_list.size() << " lines from observatory code file " << obscodefile << ":\n";
-  
+
   if(DEBUG>=2) {
     for(i=0;i<observatory_list.size();i++) {
       cout << observatory_list[i].obscode << " " << observatory_list[i].obslon << " " << observatory_list[i].plxcos << " " << observatory_list[i].plxsin << "\n";
     }
   }
-  
+
   // Read input detection file.
   instream1.open(indetfile);
   if(!instream1) {
@@ -592,25 +591,25 @@ int main(int argc, char *argv[])
     }
   }
   instream1.close();
-  if(reachedeof==1) { 
+  if(reachedeof==1) {
     cout << "File read successfully to the end.\n";
   }
   else if(reachedeof==-1) cout << "Warning: file read failed\n";
   else if(reachedeof==-2) cout << "Warning: file possibly corrupted\n";
   else cout << "Warning: unknown file read problem\n";
 
-  cout << "Last two obscodes: " << detvec[detvec.size()-2].obscode << " and " << detvec[detvec.size()-1].obscode << "\n"; 
-  
+  cout << "Last two obscodes: " << detvec[detvec.size()-2].obscode << " and " << detvec[detvec.size()-1].obscode << "\n";
+
   // time-sort the detection vector
   sort(detvec.begin(), detvec.end(), early_det_obsmag_indvec());
-  
-  cout << "Last two obscodes: " << detvec[detvec.size()-2].obscode << " and " << detvec[detvec.size()-1].obscode << "\n"; 
+
+  cout << "Last two obscodes: " << detvec[detvec.size()-2].obscode << " and " << detvec[detvec.size()-1].obscode << "\n";
 
   //Print out sorted detvec for debugging.
   //for(i=0;i<detvec.size();i++) {
   //   cout << "det# " << i << ": " << detvec[i].MJD << " " << detvec[i].RA << " " << detvec[i].Dec << " " << detvec[i].idstring << " " << detvec[i].mag << " " << detvec[i].band << " " << detvec[i].obscode << " " << detvec[i].index << "\n";
   // }
-  
+
   // Get image information.
   if(inimfile.size()>0) {
     // Read input image file: MJD, RA, Dec, obscode:
@@ -653,7 +652,7 @@ int main(int argc, char *argv[])
 	img_log_tmp.push_back(imlog);
       }
     }
-    if(reachedeof==1) { 
+    if(reachedeof==1) {
       cout << "File read successfully to the end.\n";
     }
     else if(reachedeof==-1) cout << "Warning: file read failed\n";
@@ -728,7 +727,7 @@ int main(int argc, char *argv[])
     //We've now loaded the mean MJDs and the starting and ending
     //detection table indices for each image; it still remains to
     //get the mean RA and Dec.
-   
+
     detnum = detvec.size();
     imnum = img_log.size();
     cout << img_log.size() << " unique images were identified.\n";
@@ -778,7 +777,7 @@ int main(int argc, char *argv[])
 	cout << "Image " << imct << " of " << img_log.size() << ": " << num_dets << " = " << img_log[imct].endind-img_log[imct].startind ;
 	cout << " from " << img_log[imct].startind << " to " << img_log[imct].endind << " of " << detvec.size() << ".\n";
 	fflush(stdout);
-      }	
+      }
       imct++;
     }
   }
@@ -797,7 +796,7 @@ int main(int argc, char *argv[])
     }
     outstream1.close();
   }
-  
+
   if(outimfile.size()>0)
     {
       // Write and print image log table
@@ -965,14 +964,14 @@ int main(int argc, char *argv[])
 	}
 	// Close loop over image B candidates
       }
-      // Close if-statement checking if any images could match image A      
+      // Close if-statement checking if any images could match image A
     }
     if(DEBUG>=1) cout << "Image " << imct << ": found " << adetct << " newly paired detections and a total of " << apct << " pairs.\n";
     // Close loop over images for image A
   }
   if(DEBUG>=1) cout << "Test count of paired detections: " << pdct << " " << pairdets.size() << "\n";
   if(DEBUG>=1) cout << "Test count of pairs: " << pairct << " " << pairvec.size() << "\n";
-  
+
   // Write paired detections vector to file
   cout << "Writing paired detections file\n";
   outstream1.open(pairdetfile);
@@ -981,7 +980,7 @@ int main(int argc, char *argv[])
     outstream1 << fixed << setprecision(7) << pairdets[i].MJD << "," << pairdets[i].RA << "," << pairdets[i].Dec << ",";
     outstream1 << fixed << setprecision(3) << pairdets[i].x << "," << pairdets[i].y << "," << pairdets[i].z << ",";
     outstream1 << fixed << setprecision(3) << pairdets[i].idstring << "," << pairdets[i].mag << "," << pairdets[i].band << ",";
-    outstream1 << pairdets[i].obscode << "," << pairdets[i].index << "\n"; 
+    outstream1 << pairdets[i].obscode << "," << pairdets[i].index << "\n";
   }
   outstream1.close();
 
@@ -992,7 +991,7 @@ int main(int argc, char *argv[])
   }
   // Sort the new vector by number of pair-partners
   sort(pair_partner_num.begin(), pair_partner_num.end(), lower_long_index());
-  
+
   // Analyze paired detections in order of decreasing number of partners.
   // At the same time, write the output pair file, distinguishing
   // between real pairs comprising just two detections (indicated
@@ -1001,7 +1000,7 @@ int main(int argc, char *argv[])
   // consistent trajectory.
   cout << "Constructing tracklets, and writing pairs to output file\n";
   outstream1.open(outpairfile);
-  
+
   for(i=pairdets.size()-1; i>=0 ;i--) {
     pdct=pair_partner_num[i].index;
     istracklet=0; // Assume there is no tracklet unless one is confirmed to exist.
@@ -1140,7 +1139,7 @@ int main(int argc, char *argv[])
 	    if(fabs(timevec[j] - timevec[j-1]) < IMAGETIMETOL/SOLARDAY) {
 	      istimedup=1; // Point j and j-1 are time-duplicates.
 	      // Mark for rejection whichever one has the largest fitting error
-	      if(fiterr[j]>=fiterr[j-1]) worstpoint = j; 
+	      if(fiterr[j]>=fiterr[j-1]) worstpoint = j;
 	      else worstpoint = j-1;
 	    }
 	    j++;
@@ -1171,7 +1170,7 @@ int main(int argc, char *argv[])
 	    }
 	  }
 	}
-	// Find worst error.  
+	// Find worst error.
 	worsterr = 0.0l;
 	for(j=0; j<timevec.size(); j++) {
 	  if(fiterr[j]>worsterr) {
@@ -1194,7 +1193,7 @@ int main(int argc, char *argv[])
 	  timevec.resize(trkptnum);
 	  xvec.resize(trkptnum);
 	  yvec.resize(trkptnum);
-	  detindexvec.resize(trkptnum);	  
+	  detindexvec.resize(trkptnum);
 	  // Perform fit to projected x coordinate as a function of time
 	  linfituw01(timevec, xvec, slopex, interceptx);
 	  // Perform fit to projected y coordinate as a function of time
@@ -1204,7 +1203,7 @@ int main(int argc, char *argv[])
 	  for(j=0; j<timevec.size(); j++) {
 	    fiterr.push_back(sqrt(DSQUARE(timevec[j]*slopex+interceptx-xvec[j]) + DSQUARE(timevec[j]*slopey+intercepty-yvec[j])));
 	  }
-	  // Find worst error.  
+	  // Find worst error.
 	  worsterr = 0.0l;
 	  for(j=0; j<timevec.size(); j++) {
 	    if(fiterr[j]>worsterr) {
@@ -1228,7 +1227,7 @@ int main(int argc, char *argv[])
 	  // Calculate angular velocity in deg/day. The slope values
 	  // correspond to velocities in arcsec/day.
 	  angvel = sqrt(slopex*slopex + slopey*slopey)/3600.0l;
-	  
+
 	  // Determine improved RA, Dec based on tracklet fit for the representative points
 	  // Calculated projected x, y at rp1
 	  dx = timevec[rp1]*slopex + interceptx;
