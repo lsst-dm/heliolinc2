@@ -1,40 +1,35 @@
 #include "solarsyst_dyn_geo01.h"
 
-int const NUMPOS = 3;
-int const IDCOL = 1;
-int const MJDCOL = 3;
-int const RACOL = 6;
-int const DECCOL = 8;
-int const MAGCOL = 32;
-int const BANDCOL = 26;
-int const OBSCODECOL = 38;
-int const COLS_TO_READ = 7;
-double const IMAGETIMETOL = 1.0;    // Tolerance for matching image time, in seconds
-double const MAXVEL = 1.5;          // Default max angular velocity in deg/day.
-double const MAXTIME = 1.5 / 24.0;  // Default max inter-image time interval
-                                    // for tracklets, in days.
-double const IMAGERAD = 2.0;        // radius from image center to most distant corner (deg)
-double const MAX_GCR = 0.5;         // Default maximum Great Circle Residual allowed for a valid tracklet
-
 #define DEBUG 0
 
+struct MakeTrackletsConfig {
+int mintrkpts = 2;
+double imagetimetol = 1.0;    // Tolerance for matching image time, in seconds
+double maxvel = 1.5l;         // Default max angular velocity in deg/day.
+double minvel = 0.0l;         // Min angular velocity in deg/day
+double minarc = 0.0l;         // Min total angular arc in arcseconds
+double maxtime = 1.5 / 24.0;  // Default max inter-image time interval
+                              // for tracklets, in days.
+double mintime = 1.0 / SOLARDAY;
+double angvel = 0.0l;
+double maxdist = 1.5 * 1.5 / 24.0;  // Max angular distance a tracklet
+                                    // could span, in degrees.
+double imagerad = 2.0;        // radius from image center to most distant corner (deg)
+double maxgcr = 0.5;         // Default maximum Great Circle Residual allowed for a valid tracklet
+};
+
 void buildTracklets(
+    MakeTrackletsConfig config,
     std::vector<det_obsmag_indvec> detvec,
     std::vector<img_log03> img_log,
     std::vector<longpair> &pairvec,
-    std::vector<det_obsmag_indvec> &pairdets,
-    string outpairfile,
-    string pairdetfile
+    std::vector<det_obsmag_indvec> &pairdets
 );
 
 void refineTracklets(
+    MakeTrackletsConfig config,
     std::vector<det_obsmag_indvec> &pairdets,
-    string outpairfile,
-    int mintrkpts,
-    long double maxgcr,
-    long double minarc,
-    long double minvel,
-    long double maxvel
+    string outpairfile
 );
 
 static void show_usage() {

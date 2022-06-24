@@ -5,9 +5,7 @@ void buildTracklets(
     std::vector<det_obsmag_indvec> detvec,
     std::vector<img_log03> img_log,
     std::vector<longpair> &pairvec,
-    std::vector<det_obsmag_indvec> &pairdets,
-    string outpairfile,
-    string pairdetfile
+    std::vector<det_obsmag_indvec> &pairdets
 ) {
     longpair onepair = longpair(0, 0);
     int i = 0;
@@ -39,7 +37,7 @@ void buildTracklets(
     int dettarg = 0;
     double mintime = config.imagetimetol / SOLARDAY;
     double maxgcr = config.maxgcr;
-    int mintrkpts = 2;
+    int mintrkpts = config.mintrkpts;
 
     // PERFORM PAIRING
     long pdct = 0;    // count of detections that have been paired
@@ -206,12 +204,7 @@ void buildTracklets(
 void refineTracklets(
     MakeTrackletsConfig config,
     std::vector<det_obsmag_indvec> &pairdets,
-    string outpairfile,
-    int mintrkpts,
-    long double maxgcr,
-    long double minarc,
-    long double minvel,
-    long double maxvel
+    string outpairfile
 ) {
     ofstream outstream1;
     vector<long_index> pair_partner_num = {};
@@ -219,6 +212,11 @@ void refineTracklets(
     double outra1, outra2, outdec1, outdec2;
     int worstpoint = -1;
     long pdct = 0;
+    long double maxgcr = config.maxgcr;
+    long double minarc = config.minarc;
+    long double maxvel = config.maxvel;
+    long double minvel = config.minvel;
+    int mintrkpts = config.mintrkpts;
 
     // Load a vector storing the number of pair-partners found for each detection.
     for (size_t i = 0; i < pairdets.size(); i++) {

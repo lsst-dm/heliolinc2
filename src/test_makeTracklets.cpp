@@ -45,9 +45,9 @@ int main(int argc, char *argv[]) {
     MJD = RA = Dec = 0.0L;
     double mag = 0l;
     double maxvel = config.maxvel;  // Max angular velocity in deg/day
-    double minvel = 0.0l;    // Min angular velocity in deg/day
-    double minarc = 0.0l;    // Min total angular arc in arcseconds
-    double angvel = 0.0l;
+    double minvel = config.minvel;    // Min angular velocity in deg/day
+    double minarc = config.minarc;    // Min total angular arc in arcseconds
+    double angvel = config.angvel;
     double maxtime = config.maxtime;           // Max time interval a tracklet could span,
                                         // in days.
     double maxdist = maxvel * maxtime;  // Max angular distance a tracklet
@@ -65,20 +65,21 @@ int main(int argc, char *argv[]) {
     double plxcos = 0.865020L;
     double plxsin = -0.500901L;
     long lct = 0;
-    double mintime = config.imagetimetol / SOLARDAY;
+    double mintime = config.mintime;
     double maxgcr = config.maxgcr;
-    int idcol = config.idcol;
-    int mjdcol = config.mjdcol;
-    int racol = config.racol;
-    int deccol = config.deccol;
-    int magcol = config.magcol;
-    int bandcol = config.bandcol;
-    int obscodecol = config.obscodecol;
+    int idcol = 1;
+    int mjdcol = 3;
+    int racol = 6;
+    int deccol = 8;
+    int magcol = 32;
+    int bandcol = 26;
+    int obscodecol = 38;
+    int cols_to_read = 7;
     int colreadct = 0;
     ifstream instream1;
     ofstream outstream1;
     string stest;
-    int mintrkpts = 2;
+    int mintrkpts = config.mintrkpts;
 
     if (argc < 7) {
         show_usage();
@@ -150,6 +151,7 @@ int main(int argc, char *argv[]) {
             if (i + 1 < argc) {
                 // There is still something to read;
                 imrad = stod(argv[++i]);
+                config.imagerad = imrad;
                 i++;
                 if (!isnormal(imrad) || imrad <= 0.0) {
                     cerr << "Error: invalid image radius (" << imrad << " deg) supplied.\n";
@@ -165,9 +167,11 @@ int main(int argc, char *argv[]) {
             if (i + 1 < argc) {
                 // There is still something to read;
                 maxtime = stod(argv[++i]);
+                config.maxtime = maxtime;
                 i++;
                 if (isnormal(maxtime) && maxtime > 0.0) {
                     maxtime /= 24.0;  // Convert from hours to days.
+                    config.maxtime /= 24.0;
                 } else {
                     cerr << "Error: invalid maximum inter-image time interval\n";
                     cerr << "(" << maxtime << " hr) supplied: must be strictly positive.\n";
@@ -183,6 +187,7 @@ int main(int argc, char *argv[]) {
             if (i + 1 < argc) {
                 // There is still something to read;
                 mintime = stod(argv[++i]);
+                config.mintime = mintime;
                 i++;
                 if ((isnormal(mintime) || mintime == 0.0) && mintime >= 0.0) {
                     mintime /= 24.0;  // Convert from hours to days
@@ -201,6 +206,7 @@ int main(int argc, char *argv[]) {
             if (i + 1 < argc) {
                 // There is still something to read;
                 minvel = stod(argv[++i]);
+                config.minvel = minvel;
                 i++;
                 if (!isnormal(minvel) && minvel != 0.0l) {
                     cerr << "Error: invalid minimum angular velocity\n";
@@ -216,6 +222,7 @@ int main(int argc, char *argv[]) {
             if (i + 1 < argc) {
                 // There is still something to read;
                 maxvel = stod(argv[++i]);
+                config.maxvel = maxvel;
                 i++;
                 if (!isnormal(maxvel) || maxvel <= 0.0) {
                     cerr << "Error: invalid maximum angular velocity\n";
@@ -231,6 +238,7 @@ int main(int argc, char *argv[]) {
             if (i + 1 < argc) {
                 // There is still something to read;
                 maxgcr = stod(argv[++i]);
+                config.maxgcr = maxgcr;
                 i++;
                 if (!isnormal(maxgcr) || maxgcr <= 0.0) {
                     cerr << "Error: invalid maximum Great Circle residual\n";
@@ -247,6 +255,7 @@ int main(int argc, char *argv[]) {
             if (i + 1 < argc) {
                 // There is still something to read;
                 minarc = stod(argv[++i]);
+                config.minarc = minarc;
                 i++;
                 if (!isnormal(minarc) && minarc != 0.0l) {
                     cerr << "Error: invalid minimum angular arc\n";
@@ -277,6 +286,7 @@ int main(int argc, char *argv[]) {
             if (i + 1 < argc) {
                 // There is still something to read;
                 mintrkpts = stoi(argv[++i]);
+                config.mintrkpts = mintrkpts;
                 i++;
             } else {
                 cerr << "Earth file keyword supplied with no corresponding argument\n";
@@ -332,7 +342,10 @@ int main(int argc, char *argv[]) {
         return (1);
     }
 
-    if (mintrkpts < 2) mintrkpts = 2;
+    if (mintrkpts < 2) {
+        mintrkpts = 2;
+        config.mintrkpts = mintrkpts;
+    }
 
     cout << "indet file " << indetfile << "\n";
     cout << "inimage file " << inimfile << "\n";
@@ -351,6 +364,7 @@ int main(int argc, char *argv[]) {
     cout << "minarc " << minarc << " arcsec\n";
     cout << "maxGCR " << maxgcr << " arcsec\n";
     maxdist = maxtime * maxvel;
+    config.maxdist = maxdist;
 
     // Read the column formatting file, if any
     if (colformatfile.size() > 0) {
@@ -360,7 +374,7 @@ int main(int argc, char *argv[]) {
             return (1);
         }
         colreadct = 0;
-        while (!instream1.eof() && !instream1.fail() && !instream1.bad() && colreadct < config.cols_to_read) {
+        while (!instream1.eof() && !instream1.fail() && !instream1.bad() && colreadct < cols_to_read) {
             instream1 >> stest;
             if (stest == "IDCOL") {
                 instream1 >> idcol;
@@ -388,8 +402,8 @@ int main(int argc, char *argv[]) {
             }
         }
         instream1.close();
-        if (colreadct < config.cols_to_read) {
-            cout << "WARNING: only " << colreadct << " column specifications, of " << config.cols_to_read
+        if (colreadct < cols_to_read) {
+            cout << "WARNING: only " << colreadct << " column specifications, of " << cols_to_read
                  << " expected, were read from column format file " << colformatfile << ".\n";
         }
     }
@@ -770,7 +784,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    buildTracklets(config, detvec, img_log, pairvec, pairdets, outpairfile, pairdetfile);
+    buildTracklets(config, detvec, img_log, pairvec, pairdets);
 
     cout << "Writing paired detections file\n";
     outstream1.open(pairdetfile);
@@ -787,7 +801,7 @@ int main(int argc, char *argv[]) {
     outstream1.close();
 
     // This does some output for now; need to disentangle.
-    refineTracklets(config, pairdets, outpairfile, mintrkpts, maxgcr, minarc, minvel, maxvel);
+    refineTracklets(config, pairdets, outpairfile);
 
     return 0;
 }
