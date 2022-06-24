@@ -1,6 +1,20 @@
 #include "makeTracklets.h"
 #include "cmath"
 
+static void show_usage() {
+    cerr << "Usage: maketrack04b -dets detfile -imgs imfile -outimgs output image file/ \n";
+    cerr << "-pairs pairfile -pairdets paired detection file -colformat column format file/ \n";
+    cerr << "-imrad image radius(deg) -maxtime max inter-image time interval (hr)/ \n";
+    cerr << "-mintime min inter-image time interval (hr) -maxGCR maximum GRC -mintrkpts min. num. of "
+            "tracklet points/\n";
+    cerr << "-minvel minimum angular velocity (deg/day) -maxvel maximum angular velocity (deg/day) \n";
+    cerr << "-minarc minimum total angular arc (arcsec) -earth earthfile -obscode obscodefile\n";
+    cerr << "\nor, at minimum\n\n";
+    cerr << "maketrack04b -dets detfile -earth earthfile -obscode obscodefile\n";
+    cerr << "Note well that the minimum invocation will leave a bunch of things\n";
+    cerr << "set to defaults that may not be what you want.\n";
+};
+
 int main(int argc, char *argv[]) {
     MakeTrackletsConfig config;
     det_obsmag_indvec o1 = det_obsmag_indvec(0L, 0l, 0l, 0L, 0L, 0L, "null", 0l, "V", "I11", 0, {});
