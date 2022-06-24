@@ -3,19 +3,19 @@
 #define DEBUG 0
 
 struct MakeTrackletsConfig {
-int mintrkpts = 2;
-double imagetimetol = 1.0;    // Tolerance for matching image time, in seconds
-double maxvel = 1.5l;         // Default max angular velocity in deg/day.
-double minvel = 0.0l;         // Min angular velocity in deg/day
-double minarc = 0.0l;         // Min total angular arc in arcseconds
-double maxtime = 1.5 / 24.0;  // Default max inter-image time interval
-                              // for tracklets, in days.
-double mintime = 1.0 / SOLARDAY;
-double angvel = 0.0l;
-double maxdist = 1.5 * 1.5 / 24.0;  // Max angular distance a tracklet
-                                    // could span, in degrees.
-double imagerad = 2.0;        // radius from image center to most distant corner (deg)
-double maxgcr = 0.5;         // Default maximum Great Circle Residual allowed for a valid tracklet
+    int mintrkpts = 2;
+    double imagetimetol = 1.0;    // Tolerance for matching image time, in seconds
+    double maxvel = 1.5l;         // Default max angular velocity in deg/day.
+    double minvel = 0.0l;         // Min angular velocity in deg/day
+    double minarc = 0.0l;         // Min total angular arc in arcseconds
+    double maxtime = 1.5 / 24.0;  // Default max inter-image time interval
+                                // for tracklets, in days.
+    double mintime = 1.0 / SOLARDAY;
+    double angvel = 0.0l;
+    double maxdist = 1.5 * 1.5 / 24.0;  // Max angular distance a tracklet
+                                        // could span, in degrees.
+    double imagerad = 2.0;        // radius from image center to most distant corner (deg)
+    double maxgcr = 0.5;         // Default maximum Great Circle Residual allowed for a valid tracklet
 };
 
 void buildTracklets(
@@ -31,20 +31,6 @@ void refineTracklets(
     std::vector<det_obsmag_indvec> &pairdets,
     string outpairfile
 );
-
-static void show_usage() {
-    cerr << "Usage: maketrack04b -dets detfile -imgs imfile -outimgs output image file/ \n";
-    cerr << "-pairs pairfile -pairdets paired detection file -colformat column format file/ \n";
-    cerr << "-imrad image radius(deg) -maxtime max inter-image time interval (hr)/ \n";
-    cerr << "-mintime min inter-image time interval (hr) -maxGCR maximum GRC -mintrkpts min. num. of "
-            "tracklet points/\n";
-    cerr << "-minvel minimum angular velocity (deg/day) -maxvel maximum angular velocity (deg/day) \n";
-    cerr << "-minarc minimum total angular arc (arcsec) -earth earthfile -obscode obscodefile\n";
-    cerr << "\nor, at minimum\n\n";
-    cerr << "maketrack04b -dets detfile -earth earthfile -obscode obscodefile\n";
-    cerr << "Note well that the minimum invocation will leave a bunch of things\n";
-    cerr << "set to defaults that may not be what you want.\n";
-};
 
 /* These are used types/functions
 
