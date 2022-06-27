@@ -16,6 +16,7 @@ setup(
    tests_require=["pytest"],
    install_requires=[
        "astropy",
+       "astroquery",
        "joblib",
        "numba",
        "numpy",
