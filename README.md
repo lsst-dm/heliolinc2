@@ -9,10 +9,17 @@ To get started, please create a conda environment using the environment.yml file
 `conda env create -f environment.yml`
 
 This will create a conda environment named "heliolinc3d" that contains all necessary dependencies.
+The environment can be activated via
+
+`conda activate heliolinc3d`
+
 
 ### Install HelioLinC3D:
 The package is pip installable.
+Activate the corresponding conda environment. 
+`conda activate heliolinc3d`
 
+Use pip to install.
 `pip install .`
 
 ### Run the demo notebook:
