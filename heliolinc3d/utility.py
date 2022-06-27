@@ -84,7 +84,6 @@ def obs2heliolinc(df, required_input_columns={'obsName':'obsName','time':'FieldM
 #                      'vx_obs','vy_obs','vz_obs']
 
     try:
-        print(required_input_columns.values())
         for col in required_input_columns.values():
             if col not in df.columns:
                 raise Exception("Error in obs2heliolinc: required input column not present:",col)

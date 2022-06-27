@@ -79,7 +79,7 @@ from . import ephemeris as ephem
 from . import utility as ut
 
 
-__all__ = [ 'heliolinc2',
+__all__ = [ 'heliolinc3d',
            'selectTrackletsFromObsData', 'cullSameTimePairs',
            'makeHeliocentricArrows', 'observationsInCluster', 
            'meanArrowStatesInClusters','observationsInArrows',
@@ -99,7 +99,7 @@ class Error(Exception):
 # MAIN 
 ###########################################
 
-def heliolinc2(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(), dftrails=pd.DataFrame(),
+def heliolinc3d(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame(), dftrails=pd.DataFrame(),
                trail_dt=0.01, v_max=1, clustering_dimensions=6, light_time=True, 
                verbose=False, min_samples=3, n_jobs=1, mean_state_variance_limit=1):
 
