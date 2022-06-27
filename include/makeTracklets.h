@@ -3,6 +3,10 @@
 
 #define DEBUG 0
 
+// make some type aliases for now
+typedef det_obsmag_indvec Detection;
+typedef img_log03 ImageLog;
+
 struct MakeTrackletsConfig {
     int mintrkpts = 2;
     double imagetimetol = 1.0;    // Tolerance for matching image time, in seconds
@@ -21,19 +25,19 @@ struct MakeTrackletsConfig {
 
 void make_img_log(
     MakeTrackletsConfig const& config,
-    std::vector<det_obsmag_indvec> const& detvec,
-    std::vector<img_log03> &img_log
+    std::vector<Detection> const& detvec,
+    std::vector<ImageLog> &img_log
 );
 
-std::tuple<std::vector<det_obsmag_indvec>, std::vector<longpair>> buildTracklets(
+std::tuple<std::vector<Detection>, std::vector<longpair>> buildTracklets(
     MakeTrackletsConfig const& config,
-    std::vector<det_obsmag_indvec> &detvec,
-    std::vector<img_log03> &img_log
+    std::vector<Detection> &detvec,
+    std::vector<ImageLog> &img_log
 );
 
 void refineTracklets(
-    MakeTrackletsConfig config,
-    std::vector<det_obsmag_indvec> &pairdets,
+    MakeTrackletsConfig const& config,
+    std::vector<Detection> &pairdets,
     string outpairfile
 );
 

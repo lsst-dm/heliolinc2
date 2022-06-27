@@ -2,8 +2,8 @@
 
 void make_img_log(
     MakeTrackletsConfig const& config,
-    std::vector<det_obsmag_indvec> const& detvec,
-    std::vector<img_log03> &img_log
+    std::vector<Detection> const& detvec,
+    std::vector<ImageLog> &img_log
 ) {
     // No input image file was supplied: we have to create one from
     // the sorted detection file.
@@ -32,7 +32,7 @@ void make_img_log(
                 mjdmean = 0.0;
             // Load it into the vector with mean MJD for all images,
             //  and increment image count.
-            img_log03 imlog = img_log03(mjdmean, 0.0, 0.0, detvec[endind - 1].obscode, startind, endind);
+            ImageLog imlog = ImageLog(mjdmean, 0.0, 0.0, detvec[endind - 1].obscode, startind, endind);
             img_log.push_back(imlog);
             // Set up for the next image, starting with detvec[i].MJD;
             mjdmean = detvec[i].MJD;
@@ -46,7 +46,7 @@ void make_img_log(
         mjdmean /= mjdnorm;
         // Load it into the vector with mean MJD for all images,
         //  and increment image count.
-        img_log03 imlog = img_log03(mjdmean, 0.0, 0.0, detvec[endind - 1].obscode, startind, endind);
+        ImageLog imlog = ImageLog(mjdmean, 0.0, 0.0, detvec[endind - 1].obscode, startind, endind);
         img_log.push_back(imlog);
     }
 
@@ -68,11 +68,11 @@ void make_img_log(
     long imct = 0;
     while (imct < imnum && detct < detnum) {
         long num_dets = 0;
-        vector<det_obsmag_indvec> imobs = {};
+        vector<Detection> imobs = {};
         point3d p3avg = point3d(0.0, 0.0, 0.0);
         while (detct < detnum && detvec[detct].MJD < img_log[imct].MJD + config.imagetimetol / SOLARDAY) {
             num_dets++;                         // Keep count of detections on this image
-            det_obsmag_indvec detc = detvec[detct];  // Current detection entry
+            Detection detc = detvec[detct];  // Current detection entry
             imobs.push_back(detc);              // Load vector of observations for this image
             point3d p3 = celeproj01(detc.RA, detc.Dec); // Project current detection
             p3avg.x += p3.x;
@@ -113,13 +113,13 @@ void make_img_log(
     return;
 }
 
-std::tuple<std::vector<det_obsmag_indvec>, std::vector<longpair>> buildTracklets(
+std::tuple<std::vector<Detection>, std::vector<longpair>> buildTracklets(
     MakeTrackletsConfig const& config,
-    std::vector<det_obsmag_indvec> &detvec,
-    std::vector<img_log03> &img_log
+    std::vector<Detection> &detvec,
+    std::vector<ImageLog> &img_log
 ) {
     std::vector<longpair> pairvec = {};
-    std::vector<det_obsmag_indvec> pairdets = {};
+    std::vector<Detection> pairdets = {};
     longpair onepair = longpair(0, 0);
     int i = 0;
     int j = 0;
@@ -316,7 +316,7 @@ std::tuple<std::vector<det_obsmag_indvec>, std::vector<longpair>> buildTracklets
 
 void refineTracklets(
     MakeTrackletsConfig const& config,
-    std::vector<det_obsmag_indvec> &pairdets,
+    std::vector<Detection> &pairdets,
     string outpairfile
 ) {
     ofstream outstream1;
@@ -365,7 +365,7 @@ void refineTracklets(
             // Project all of these pairs relative to detection pdct,
             // storing x,y projected coordinates in axyvec.
             std::vector<xy_index> axyvec = {};
-            std::vector<det_obsmag_indvec> ppset = {};
+            std::vector<Detection> ppset = {};
             for (size_t j = 0; j < pairdets[pdct].indvec.size(); j++) {
                 long detct = pairdets[pdct].indvec[j];
                 if (pairdets[detct].indvec.size() > 0) {
