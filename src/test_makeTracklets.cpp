@@ -629,6 +629,7 @@ int main(int argc, char *argv[]) {
         }
         instream1.close();
     } else {
+        /*
         // No input image file was supplied: we have to create one from
         // the sorted detection file.
         mjdnorm = 1.0;
@@ -733,7 +734,9 @@ int main(int argc, char *argv[]) {
                 fflush(stdout);
             }
             imct++;
-        }
+        }*/
+        // Make image file
+        make_img_log(config, detvec, img_log);
     }
 
     EarthMJD = {};
@@ -798,7 +801,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    buildTracklets(config, detvec, img_log, pairvec, pairdets);
+    std::tie(pairdets, pairvec) = buildTracklets(config, detvec, img_log);
 
     cout << "Writing paired detections file\n";
     outstream1.open(pairdetfile);

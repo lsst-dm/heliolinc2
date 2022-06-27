@@ -1,12 +1,125 @@
 #include "makeTracklets.h"
 
-void buildTracklets(
-    MakeTrackletsConfig config,
-    std::vector<det_obsmag_indvec> detvec,
-    std::vector<img_log03> img_log,
-    std::vector<longpair> &pairvec,
-    std::vector<det_obsmag_indvec> &pairdets
+void make_img_log(
+    MakeTrackletsConfig const& config,
+    std::vector<det_obsmag_indvec> const& detvec,
+    std::vector<img_log03> &img_log
 ) {
+    // No input image file was supplied: we have to create one from
+    // the sorted detection file.
+    double mjdnorm = 1.0;
+    double mjdmean = detvec[0].MJD;
+    int i = 0;  // Used later (Can this be removed?)
+    int startind = 0;
+    int endind = 0;
+    for (i = 1; i < detvec.size(); i++) {
+        double tdelt = detvec[i].MJD - detvec[i - 1].MJD;
+        if (tdelt < config.imagetimetol / SOLARDAY &&
+            stringnmatch01(detvec[i].obscode, detvec[i-1].obscode, 3) == 0) {
+            // This point corresponds to the same image as the previous one.
+            mjdmean += detvec[i].MJD;
+            mjdnorm += 1.0;
+        } else {
+            // Now we are considering a new image.
+            // Calculate the meanmjd of the previous image, for which
+            //  we have now seen all points.
+            // Record the current detct i as the detection index just
+            // after the end of the previous image
+            endind = i;
+            if (isnormal(mjdnorm))
+                mjdmean /= mjdnorm;
+            else
+                mjdmean = 0.0;
+            // Load it into the vector with mean MJD for all images,
+            //  and increment image count.
+            img_log03 imlog = img_log03(mjdmean, 0.0, 0.0, detvec[endind - 1].obscode, startind, endind);
+            img_log.push_back(imlog);
+            // Set up for the next image, starting with detvec[i].MJD;
+            mjdmean = detvec[i].MJD;
+            mjdnorm = 1.0;
+            startind = i;
+        }
+    }
+    // Account for the final image.
+    if (isnormal(mjdnorm)) {
+        endind = i;
+        mjdmean /= mjdnorm;
+        // Load it into the vector with mean MJD for all images,
+        //  and increment image count.
+        img_log03 imlog = img_log03(mjdmean, 0.0, 0.0, detvec[endind - 1].obscode, startind, endind);
+        img_log.push_back(imlog);
+    }
+
+    // We've now loaded the mean MJDs and the starting and ending
+    // detection table indices for each image; it still remains to
+    // get the mean RA and Dec.
+
+    long detnum = detvec.size();
+    long imnum = img_log.size();
+    cout << img_log.size() << " unique images were identified.\n";
+    cout << "Given our total of " << detvec.size() << " detections,\n";
+    cout << "we have " << double(detvec.size()) / double(img_log.size())
+         << " detections per image, on average\n";
+
+    // Find the number of detections and the average RA, Dec on each image.
+    // We perform the average after projection onto the unit circle, to
+    // avoid wrapping issues.
+    long detct = 0;
+    long imct = 0;
+    while (imct < imnum && detct < detnum) {
+        long num_dets = 0;
+        vector<det_obsmag_indvec> imobs = {};
+        point3d p3avg = point3d(0.0, 0.0, 0.0);
+        while (detct < detnum && detvec[detct].MJD < img_log[imct].MJD + config.imagetimetol / SOLARDAY) {
+            num_dets++;                         // Keep count of detections on this image
+            det_obsmag_indvec detc = detvec[detct];  // Current detection entry
+            imobs.push_back(detc);              // Load vector of observations for this image
+            point3d p3 = celeproj01(detc.RA, detc.Dec); // Project current detection
+            p3avg.x += p3.x;
+            p3avg.y += p3.y;
+            p3avg.z += p3.z;  // Average projected coords
+            detct++;
+        }
+        // If we got here, we must just have finished with an image.
+        // Finish the average
+        if (num_dets > 0) {
+            p3avg.x /= double(num_dets);
+            p3avg.y /= double(num_dets);
+            p3avg.z /= double(num_dets);
+            int i = celedeproj01(p3avg, &img_log[imct].RA, &img_log[imct].Dec);
+            if (i == 0)
+                ;  // All is well.
+            else if (i == 1) {
+                cout << "Warning: vector of zeros fed to celedeproj01\n";
+                img_log[imct].RA = img_log[imct].Dec = 0.0;
+            } else if (i == 2) {
+                cout << "Warning: impossible z value " << p3avg.z << " fed to celedeproj01\n";
+                img_log[imct].RA = img_log[imct].Dec = 0.0;
+            } else {
+                cout << "Warning: unspecified failure from celedeproj01 with\n";
+                cout << "input " << p3avg.x << " " << p3avg.y << " " << p3avg.z << "\n";
+                img_log[imct].RA = img_log[imct].Dec = 0.0;
+            }
+        }
+        /*
+        cout << "Image " << imct << " of " << img_log.size() << ": " << num_dets << " = "
+             << img_log[imct].endind - img_log[imct].startind;
+        cout << " from " << img_log[imct].startind << " to " << img_log[imct].endind << " of "
+             << detvec.size() << ".\n";
+        */
+        fflush(stdout);
+        imct++;
+    }
+    return;
+}
+
+std::tuple<std::vector<det_obsmag_indvec>, std::vector<longpair>> buildTracklets(
+    MakeTrackletsConfig const& config,
+    std::vector<det_obsmag_indvec> &detvec,
+    std::vector<img_log03> &img_log
+) {
+    std::vector<longpair> pairvec = {};
+    std::vector<det_obsmag_indvec> pairdets = {};
     longpair onepair = longpair(0, 0);
     int i = 0;
     int j = 0;
@@ -198,11 +311,11 @@ void buildTracklets(
     if (DEBUG >= 1) cout << "Test count of paired detections: " << pdct << " " << pairdets.size() << "\n";
     if (DEBUG >= 1) cout << "Test count of pairs: " << pairct << " " << pairvec.size() << "\n";
 
-    return;
+    return std::make_tuple(pairdets, pairvec);
 }
 
 void refineTracklets(
-    MakeTrackletsConfig config,
+    MakeTrackletsConfig const& config,
     std::vector<det_obsmag_indvec> &pairdets,
     string outpairfile
 ) {
