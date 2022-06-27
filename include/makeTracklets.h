@@ -1,4 +1,5 @@
 #include "solarsyst_dyn_geo01.h"
+#include <tuple>
 
 #define DEBUG 0
 
@@ -18,12 +19,16 @@ struct MakeTrackletsConfig {
     double maxgcr = 0.5;         // Default maximum Great Circle Residual allowed for a valid tracklet
 };
 
-void buildTracklets(
-    MakeTrackletsConfig config,
-    std::vector<det_obsmag_indvec> detvec,
-    std::vector<img_log03> img_log,
-    std::vector<longpair> &pairvec,
-    std::vector<det_obsmag_indvec> &pairdets
+void make_img_log(
+    MakeTrackletsConfig const& config,
+    std::vector<det_obsmag_indvec> const& detvec,
+    std::vector<img_log03> &img_log
+);
+
+std::tuple<std::vector<det_obsmag_indvec>, std::vector<longpair>> buildTracklets(
+    MakeTrackletsConfig const& config,
+    std::vector<det_obsmag_indvec> &detvec,
+    std::vector<img_log03> &img_log
 );
 
 void refineTracklets(
