@@ -23,10 +23,46 @@ struct MakeTrackletsConfig {
     double maxgcr = 0.5;         // Default maximum Great Circle Residual allowed for a valid tracklet
 };
 
-void make_img_log(
+struct StateVector {
+    long double mjd = 0.0;
+    point3LD pos = point3LD(0, 0, 0);
+    point3LD vel = point3LD(0, 0, 0);
+};
+
+std::vector<observatory> readObscodeFile(string obscodefile);
+
+std::vector<Detection> readDetectionsFile(
+    string indetfile,
+    int idcol,
+    int mjdcol,
+    int racol,
+    int deccol,
+    int magcol,
+    int bandcol,
+    int obscodecol
+);
+
+std::vector<ImageLog> readImageFile(
     MakeTrackletsConfig const& config,
     std::vector<Detection> const& detvec,
-    std::vector<ImageLog> &img_log
+    string inimfile
+);
+
+std::vector<ImageLog> makeImageLogs(
+    MakeTrackletsConfig const& config,
+    std::vector<Detection> const& detvec
+);
+
+std::tuple<std::vector<long double>, std::vector<point3LD>, std::vector<point3LD>> readEarthEphemerides(
+    string earthfile
+);
+
+void computeHelioPositions(
+    std::vector<Detection> &detvec,
+    std::vector<ImageLog> const& img_log,
+    std::vector<observatory> const& observatory_list,
+    std::vector<long double> const& EarthMJD,
+    std::vector<point3LD> const& Earthpos
 );
 
 std::tuple<std::vector<Detection>, std::vector<longpair>> buildTracklets(
