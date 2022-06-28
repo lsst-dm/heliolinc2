@@ -27,3 +27,4 @@ dependencies:
   - spiceypy=5.0.1
   - tqdm=4.63.0
 prefix: ~/opt/anaconda3/envs/heliolinc3d
+
