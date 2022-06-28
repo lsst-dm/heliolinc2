@@ -7,6 +7,7 @@ channels:
 dependencies:
   - astropy=4.3.1
   - astroquery=0.4.6
+  - difi=1.1
   - ipython=7.31.1
   - joblib=1.1.0
   - jupyter=1.0.0
