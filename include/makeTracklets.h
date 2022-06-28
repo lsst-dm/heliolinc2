@@ -21,6 +21,12 @@ struct MakeTrackletsConfig {
                                         // could span, in degrees.
     double imagerad = 2.0;        // radius from image center to most distant corner (deg)
     double maxgcr = 0.5;         // Default maximum Great Circle Residual allowed for a valid tracklet
+
+    // Input files names
+    string indetfile;
+    string inimfile;
+    string earthfile;
+    string obscodefile;
 };
 
 struct StateVector {
