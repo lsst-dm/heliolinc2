@@ -26,6 +26,7 @@
 using namespace std;
 
 #define DEGPRAD (180.0L/M_PI) /*Degrees per radian*/
+#define ASECPRAD (648000.0L/M_PI) /*Arcseconds per radian*/
 #define LSQUARE(x) (long(x)*long(x))
 #define DSQUARE(x) (double(x)*double(x))
 #define LDSQUARE(x) (((long double)x)*((long double)x))
@@ -789,13 +790,17 @@ void make_dmat(int nx, int ny, vector <vector <double>> &dmat);
 void make_LDvec(int nx, vector <long double> &ldvec);
 void make_LDmat(int nx, int ny, vector <vector <long double>> &ldmat);
 double dotprod3d(point3d p1, point3d p2);
-double dotprod3LD(point3LD p1, point3LD p2);
+long double dotprod3LD(point3LD p1, point3LD p2);
+double vecabs3d(point3d p1);
+long double vecabs3LD(point3LD p1);
+int vecnorm3d(point3d &p1);
+int vecnorm3LD(point3LD &p1);
 point3d crossprod3d(point3d p1, point3d p2);
 point3LD crossprod3LD(point3LD p1, point3LD p2);
 long double intpowLD(long double x, int p);
 long double factorialLD(int p);
-long double intpowD(double x, int p);
-long double factorialD(int p);
+double intpowD(double x, int p);
+double factorialD(int p);
 point3d celeproj01(double RA, double Dec);
 int celedeproj01(point3d p3, double *RA, double *Dec);
 point3LD celeproj01LD(long double RA, long double Dec);
@@ -890,3 +895,5 @@ double gaussian_deviate();
 int uvw_to_galcoord(const double &u, const double &v, const double &w, double &RA, double &Dec);
 long double unitvar(mt19937_64 &generator);
 double gaussian_deviate_mt(mt19937_64 &generator);
+int multilinfit01(const vector <double> &yvec, const vector <double> &sigvec, const vector <vector <double>> &xmat, int pnum, int fitnum, vector <double> &avec);
+int polyfit01(const vector <double> &yvec, const vector <double> &sigvec, const vector <double> &xvec, int pnum, int polyorder, vector <double> &avec);

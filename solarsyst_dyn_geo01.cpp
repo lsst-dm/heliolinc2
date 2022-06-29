@@ -153,9 +153,41 @@ double dotprod3d(point3d p1, point3d p2)
   return(p1.x*p2.x + p1.y*p2.y + p1.z*p2.z);
 }
 
-double dotprod3LD(point3LD p1, point3LD p2)
+long double dotprod3LD(point3LD p1, point3LD p2)
 {
   return(p1.x*p2.x + p1.y*p2.y + p1.z*p2.z);
+}
+
+double vecabs3d(point3d p1)
+{
+  return(sqrt(dotprod3d(p1,p1)));
+}
+
+long double vecabs3LD(point3LD p1)
+{
+  return(sqrt(dotprod3LD(p1,p1)));
+}
+
+int vecnorm3d(point3d &p1)
+{
+  double norm = vecabs3d(p1);
+  if(isnormal(norm)) {
+    p1.x /= norm;
+    p1.y /= norm;
+    p1.z /= norm;
+    return(0);
+  } else return(1);
+}
+
+int vecnorm3LD(point3LD &p1)
+{
+  long double norm = vecabs3LD(p1);
+  if(isnormal(norm)) {
+    p1.x /= norm;
+    p1.y /= norm;
+    p1.z /= norm;
+    return(0);
+  } else return(1);
 }
 
 point3d crossprod3d(point3d p1, point3d p2)
@@ -192,7 +224,7 @@ long double factorialLD(int p)
   return(y);
 }
 
-long double intpowD(double x, int p)
+double intpowD(double x, int p)
 {
   int i=0;
   double y=1.0l;
@@ -200,7 +232,7 @@ long double intpowD(double x, int p)
   return(y);
 }
 
-long double factorialD(int p)
+double factorialD(int p)
 {
   int i=0;
   double y=1.0l;
@@ -7947,4 +7979,66 @@ double gaussian_deviate_mt(mt19937_64 &generator)
   } while(rsq>=1.0L || rsq<=0.0L);
   g1 = sqrt(-2.0l*log(rsq)/rsq);
   return(x*g1);
+}
+
+// multilinfit01: June 24, 2022
+// Finds the WEIGHTED least-squares fit modeling the input vector
+// yvec (length pnum) as a linear combination of fitnum other
+// vectors supplied in the matrix xmat (size fitnum x pnum). The
+// vector of best-fit coefficients for xmat is given in avec.*/
+int multilinfit01(const vector <double> &yvec, const vector <double> &sigvec, const vector <vector <double>> &xmat, int pnum, int fitnum, vector <double> &avec)
+{
+  vector <vector <double>> fitmat;
+  int pct,fitct,k;
+  int verbose=0;
+  fflush(stdout);
+
+  make_dmat(fitnum,fitnum+1,fitmat);
+  avec={};
+  make_dvec(fitnum,avec);
+  
+  // Load fitmat for input into solvematrix01
+  for(fitct=0;fitct<fitnum;fitct++) {
+    // First the constant term -- that is, the term that does not
+    // multiply any of the fitting coefficients -- which is also
+    // the only term that involves yvec
+    fitmat[fitct][0]=0.0;
+    for(pct=0;pct<pnum;pct++) {
+      if(isnormal(sigvec[pct])) fitmat[fitct][0] -= yvec[pct]*xmat[fitct][pct]/DSQUARE(sigvec[pct]);
+    }
+    /*Now the actual coefficients*/
+    for(k=0;k<fitnum;k++) {
+      fitmat[fitct][k+1] = 0.0;
+      for(pct=0;pct<pnum;pct++) {
+	if(isnormal(sigvec[pct])) fitmat[fitct][k+1] += xmat[fitct][pct]*xmat[k][pct]/DSQUARE(sigvec[pct]);
+      }
+    }
+  }
+  solvematrix01(fitmat,fitnum,avec,verbose);
+  return(0);
+}
+
+// polyfit01: June 24, 2022:
+// Finds the WEIGHTED least-squares fit modeling the input vector
+// yvec (length pnum) as a polynomial of order polyorder in the
+// input vector xvec (length pnum), and outputs the coefficients
+// in order from constant to highest-order in the vector avec.
+// vectors supplied in the matrix xmat (size fitnum x pnum). The
+// vector of best-fit coefficients for xmat is given in avec.*/
+int polyfit01(const vector <double> &yvec, const vector <double> &sigvec, const vector <double> &xvec, int pnum, int polyorder, vector <double> &avec)
+{
+  double x;
+  vector <vector <double>> xmat;
+  int pct,fitct;
+  avec = {};
+  make_dmat(polyorder+1,pnum,xmat);
+  
+  for(pct=0; pct<pnum; pct++) {
+    xmat[0][pct] = 1.0;
+    for(fitct=1; fitct<=polyorder; fitct++) {
+      xmat[fitct][pct] = intpowD(xvec[pct],fitct);
+    }
+  }
+  multilinfit01(yvec, sigvec, xmat, pnum, polyorder+1, avec);
+  return(0);
 }
