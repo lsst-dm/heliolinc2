@@ -1,9 +1,1228 @@
 #include "makeTracklets.h"
 
-std::vector<observatory> readObscodeFile(
+// like library function strncpy, but works the way I want it to.
+// Copies first n characters of a string into a character array.
+void stringncopy01(char *dest, string const& source, int n) {
+    int i=0;
+    int nchar = source.size();
+    if(nchar<n) {
+        // We have enough space to copy the whole thing.
+        for(i=0;i<nchar;i++) {
+            dest[i] = source[i];
+        }
+        dest[nchar]='\0';
+    } else {
+        // Not enough space: copy first n-1 characters.
+        for(i=0;i<n;i++) {
+            dest[i] = source[i];
+        }
+        dest[n-1]='\0';
+    }
+}
+
+// like library function strncmp, but works the way I want it to.
+// Compares first n characters of two character arrays
+int stringnmatch01(char const* string1, char const* string2, int n) {
+    int i=0;
+    while(i<n && string1[i]!='\0' && string2[i]!='\0') {
+        if(string1[i]<string2[i]) return(-1);
+        else if(string1[i]>string2[i]) return(1);
+        i++;
+    }
+    // If we get here without returning, the strings must have been equal
+    return(0);
+}
+
+// Given an input state-vector ephemeris file downloaded directly
+// from JPL Horizons, read it into position and velocity vectors.
+// Note that the default unit convention is km for positions and
+// km/sec for velocities. Note also that JPL state-vector
+// ephemerides use dynamical TT, which is ahead of UT1 by about
+// 70 seconds in 2022. This program does NOT correct TT to UT1,
+// but programs making use of the ouput mjd, position, and velocity
+// vectors might need to.
+int read_horizons_fileLD(string infile, std::vector<long double> &mjdvec, std::vector<Point3LD> &pos, std::vector<Point3LD> &vel) {
+    ifstream instream1 {infile};
+    Point3LD pospoint = Point3LD(0.0,0.0,0.0);
+    Point3LD velpoint = Point3LD(0.0,0.0,0.0);
+    int reachedeof=0;
+    int ondata=0;
+    int i=0;
+    char c = '0';
+    int reachedend=0;
+    string teststring, lnfromfile;
+    long double x,y,z,vx,vy,vz,MJD;
+    MJD=x=y=z=vz=vy=vz=0.0;
+
+    if(!instream1) {
+        cerr << "ERROR: can't open input file " << infile << "\n";
+        return(1);
+    }
+    while(reachedeof==0 && !reachedend) {
+        while(!ondata && !reachedend) {
+            // See if this line contains the code for start-of-data.
+            lnfromfile = "";
+            teststring = "";
+            getline(instream1,lnfromfile);
+            if(instream1.eof()) reachedeof=1; //End of file, fine.
+            else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+            else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+
+            if(lnfromfile.size()>=5) {
+                for(i=0;i<5;i++) {
+                    teststring.push_back(lnfromfile[i]);
+                }
+                if(teststring == "$$SOE") ondata=1;
+                else if(teststring == "$$EOE") reachedend=1;
+            }
+        }
+        while(ondata && !reachedend && reachedeof==0) {
+            lnfromfile = "";
+            teststring = "";
+            getline(instream1,lnfromfile);
+            if(instream1.eof()) reachedeof=1; //End of file, fine.
+            else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+            else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+            if(lnfromfile.size()>=5) {
+                for(i=0;i<5;i++) {
+                    teststring.push_back(lnfromfile[i]);
+                }
+                if(teststring == "$$EOE") reachedend=1;
+            }
+            if(!reachedend && reachedeof==0) {
+                //Attempt to read entire four-line block.
+                //First line has MJD
+                teststring = "";
+                c='0';
+                i=0;
+                while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!=' ' && c!='\n' && c!=EOF) {
+                    c=lnfromfile[i];
+                    if(c!=' ' && c!='=' && c!='\n' && c!=EOF) teststring.push_back(c);
+                    if(c==EOF) reachedeof=1;
+                    i++;
+                }
+                MJD=stold(teststring);
+                //Next line has x,y,z positions
+                lnfromfile = "";
+                teststring = "";
+                getline(instream1,lnfromfile);
+                if(instream1.eof()) reachedeof=1; //End of file, fine.
+                else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+                else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+                //Read to first equals sign
+                c='0';
+                i=0;
+                while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!='\n' && c!=EOF) {
+                    c=lnfromfile[i];
+                    if(c==EOF) reachedeof=1;
+                    i++;
+                }
+                //Read to next equals sign, loading into teststring to get X
+                if(i<lnfromfile.size()) c=lnfromfile[i];
+                while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!='\n' && c!=EOF) {
+                    c=lnfromfile[i];
+                    if(c==EOF) reachedeof=1;
+                    if(c!='=' && c!=' ' && c!='\n' && c!=EOF) teststring.push_back(c);
+                    i++;
+                }
+                x = stold(teststring);
+                teststring = "";
+                //Read to next equals sign, loading into teststring to get Y
+                if(i<lnfromfile.size()) c=lnfromfile[i];
+                while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!='\n' && c!=EOF) {
+                    c=lnfromfile[i];
+                    if(c!='=' && c!=' ' && c!='\n' && c!=EOF) teststring.push_back(c);
+                    i++;
+                }
+                y = stold(teststring);
+                teststring = "";
+                //Read to next equals sign, loading into teststring to get Z
+                if(i<lnfromfile.size()) c=lnfromfile[i];
+                while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!='\n' && c!=EOF) {
+                    c=lnfromfile[i];
+                    if(c==EOF) reachedeof=1;
+                    if(c!='=' && c!=' ' && c!='\n' && c!=EOF) teststring.push_back(c);
+                    i++;
+                }
+                z = stold(teststring);
+                //Next line has x,y,z velocities
+                lnfromfile = "";
+                teststring = "";
+                getline(instream1,lnfromfile);
+                if(instream1.eof()) reachedeof=1; //End of file, fine.
+                else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+                else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+                //Read to first equals sign
+                c='0';
+                i=0;
+                while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!='\n' && c!=EOF) {
+                    c=lnfromfile[i];
+                    if(c==EOF) reachedeof=1;
+                    i++;
+                }
+                //Read to next equals sign, loading into teststring to get XV
+                if(i<lnfromfile.size()) c=lnfromfile[i];
+                while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!='\n' && c!=EOF) {
+                    c=lnfromfile[i];
+                    if(c==EOF) reachedeof=1;
+                    if(c!='=' && c!=' ' && c!='\n' && c!=EOF) teststring.push_back(c);
+                    i++;
+                }
+                vx = stold(teststring);
+                teststring = "";
+                //Read to next equals sign, loading into teststring to get VY
+                if(i<lnfromfile.size()) c=lnfromfile[i];
+                while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!='\n' && c!=EOF) {
+                    c=lnfromfile[i];
+                    if(c==EOF) reachedeof=1;
+                    if(c!='=' && c!=' ' && c!='\n' && c!=EOF) teststring.push_back(c);
+                    i++;
+                }
+                vy = stold(teststring);
+                teststring = "";
+                //Read to next equals sign, loading into teststring to get VZ
+                if(i<lnfromfile.size()) c=lnfromfile[i];
+                while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!='\n' && c!=EOF) {
+                    c=lnfromfile[i];
+                    if(c==EOF) reachedeof=1;
+                    if(c!='=' && c!=' ' && c!='\n' && c!=EOF) teststring.push_back(c);
+                    i++;
+                }
+                vz = stold(teststring);
+                // Load output vectors
+                pospoint = Point3LD(x,y,z);
+                velpoint = Point3LD(vx,vy,vz);
+                pos.push_back(pospoint);
+                vel.push_back(velpoint);
+                mjdvec.push_back(MJD-MJDOFF);
+                // Next line is of no current interest: read and discard
+                lnfromfile = "";
+                teststring = "";
+                getline(instream1,lnfromfile);
+                if(instream1.eof()) reachedeof=1; //End of file, fine.
+                else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+                else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+            }
+        }
+    }
+    if(reachedeof==1 && ondata==1) {
+        //Read file successfully to the end.
+        return(0);
+    } else if(reachedeof==1) {
+        //Did not find any data
+        return(1);
+    } else return(reachedeof);
+}
+
+// Look up an observatory code from a list, and copy the
+// coordinates to obslon, plxcos, and plxsin.
+int obscode_lookup(std::vector<Observatory> const& observatory_list, char const* obscode, double &obslon, double &plxcos, double &plxsin) {
+    int i=0;
+    int nobs = observatory_list.size();
+    for(i=0; i<nobs; i++) {
+        // cout << "obscode_lookup comparing " << obscode << " with " << observatory_list[i].obscode << ":";
+        if(stringnmatch01(observatory_list[i].obscode,obscode,3)==0) {
+        // cout << " it\'s a match!\n";
+        obslon = observatory_list[i].obslon;
+        plxcos = observatory_list[i].plxcos;
+        plxsin = observatory_list[i].plxsin;
+        return(0);
+        } // else cout << " not a match\n";
+    }
+    cerr << "ERROR: observatory " << obscode << " not found in list\n";
+    return(1);
+}
+
+void make_LDvec(int nx, std::vector<long double> &ldvec) {
+    int i = 0;
+    ldvec = {};
+    for (i = 0; i <= nx; i++) ldvec.push_back(0.0);
+}
+
+void make_LDmat(int nx, int ny, std::vector<std::vector<long double>> &ldmat) {
+    int i = 0;
+    int j = 0;
+    std::vector<long double> tvec;
+    ldmat = {};
+
+    for (i = 0; i <= nx; i++) {
+        tvec = {};
+        for (j = 0; j <= ny; j++) tvec.push_back(0.0);
+        ldmat.push_back(tvec);
+    }
+}
+
+int solvematrix01LD(std::vector<std::vector<long double>> const& inmat, int eqnum, std::vector<long double> &outvec,
+                    int verbose) {
+    int eqhi, termhi, eqct, termct, i, j;
+    long double max, pivot;
+    std::vector<std::vector<long double>> newmat;
+    std::vector<long double> coeffvec;
+    std::vector<long double> outvec2;
+
+    eqhi = termhi = eqct = termct = i = j = 0;
+    max = pivot = 0.0;
+
+    if (eqnum == 1) {
+        if (inmat[0][1] != 0.0) {
+            outvec[0] = -inmat[0][0] / inmat[0][1];
+            return (0);
+        } else {
+            /*The coefficient for x1 was zero, so it is
+              impossible to solve*/
+            printf("ERROR: solvematrix01 fed a singular matrix!\n");
+            outvec[0] = 0.0;
+            return (1);
+        }
+    } else {
+        make_LDmat(eqnum - 1, eqnum, newmat);
+        make_LDvec(eqnum, coeffvec);
+        make_LDvec(eqnum - 1, outvec2);
+        /*REDUCE THE NUMBER OF EQUATIONS BY 1*/
+        /*Find the coefficient with the largest absolute value*/
+        eqhi = 0;
+        termhi = 1;
+        max = fabs(inmat[0][1]);
+        for (eqct = 0; eqct < eqnum; eqct++) {
+            for (termct = 1; termct < eqnum + 1; termct++) {
+                if (max <= fabs(inmat[eqct][termct])) {
+                    max = fabs(inmat[eqct][termct]);
+                    eqhi = eqct;
+                    termhi = termct;
+                }
+            }
+        }
+        pivot = inmat[eqhi][termhi];
+        if (verbose >= 1)
+            printf("At %Lf, coefficent %d of equation %d was the largest\n", pivot, termhi - 1, eqhi);
+        if (max == 0.0) {
+            printf("ERROR: solvematrix01 fed a singular matrix!\n");
+            for (eqct = 0; eqct < eqnum; eqct++) outvec[eqct] = 0.0;
+            return (1);
+        }
+        /*Solve equation eqhi for the x value corresponding to termhi*/
+        j = 0;
+        coeffvec[0] = inmat[eqhi][0] / pivot;
+        for (termct = 1; termct < eqnum + 1; termct++) {
+            if (termct != termhi) {
+                j += 1;
+                coeffvec[j] = inmat[eqhi][termct] / pivot;
+            }
+        }
+        if (verbose >= 1) printf("Coefficient substitution vector:\n");
+        if (verbose >= 1) printf("%Lf", coeffvec[0]);
+        if (verbose >= 1)
+            for (j = 1; j < eqnum; j++) printf(" %Lf", coeffvec[j]);
+        if (verbose >= 1) printf("\n");
+        /*Substitute this solution into the other equations,
+          creating a new matrix with one fewer equations*/
+        i = 0;
+        for (eqct = 0; eqct < eqnum; eqct++) {
+            if (eqct != eqhi) {
+                j = 0;
+                newmat[i][j] = inmat[eqct][0] - coeffvec[0] * inmat[eqct][termhi];
+                for (termct = 1; termct < eqnum + 1; termct++) {
+                    if (termct != termhi) {
+                        j += 1;
+                        newmat[i][j] = inmat[eqct][termct] - coeffvec[j] * inmat[eqct][termhi];
+                    }
+                }
+                i += 1;
+            }
+        }
+        if (verbose >= 1) printf("New reduced matrix:\n");
+        for (i = 0; i < eqnum - 1; i++) {
+            if (verbose >= 1) printf("%Lf", newmat[i][0]);
+            if (verbose >= 1)
+                for (j = 1; j < eqnum; j++) printf(" %Lf", newmat[i][j]);
+            if (verbose >= 1) printf("\n");
+        }
+        /*Call solvematrix01 recursively on this new matrix*/
+        if (solvematrix01LD(newmat, eqnum - 1, outvec2, verbose)) {
+            printf("ERROR: recursive call of solvematrix01 failed\n");
+            for (eqct = 0; eqct < eqnum; eqct++) outvec[eqct] = 0.0;
+            return (1);
+        }
+        if (verbose >= 1) printf("Recursive result\n");
+        if (verbose >= 1) printf("%Lf", outvec2[0]);
+        if (verbose >= 1)
+            for (i = 1; i < eqnum - 1; i++) printf(" %Lf", outvec2[i]);
+        if (verbose >= 1) printf("\n");
+        /*Load the solution for everything except the pivot*/
+        i = 0;
+        for (eqct = 0; eqct < eqnum; eqct++) {
+            if (eqct != termhi - 1) {
+                outvec[eqct] = outvec2[i];
+                i += 1;
+            }
+        }
+        /*Load the solution for the pivot*/
+        outvec[termhi - 1] = -coeffvec[0];
+        for (i = 0; i < eqnum - 1; i++) outvec[termhi - 1] -= coeffvec[i + 1] * outvec2[i];
+    }
+    return (0);
+}
+
+int perfectpoly01LD(std::vector<long double> const& x, std::vector<long double> const& y, std::vector<long double> &fitvec) {
+    std::vector<std::vector<long double>> dmatrix;
+    std::vector<long double> outvec;
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    int status = 0;
+    int npoints = x.size();
+    if (y.size() != npoints) {
+        cerr << "ERROR: x and y vectors in perfectpoly don't have the same number of points!\n";
+        return (1);
+    }
+    if (npoints <= 1) {
+        cerr << "ERROR: perfectpoly cannot fit just a single point!\n";
+        return (2);
+    }
+    make_LDmat(npoints, npoints + 1, dmatrix);
+    make_LDvec(npoints, outvec);
+    // cout << "perfectpoly fitting matrix:\n";
+    for (i = 0; i < npoints; i++) {
+        dmatrix[i][0] = -y[i];
+        // cout << dmatrix[i][0] << " ";
+        for (j = 1; j <= npoints; j++) {
+            dmatrix[i][j] = 1.0;
+            for (k = 2; k <= j; k++) dmatrix[i][j] *= x[i];
+            // cout << dmatrix[i][j] << " ";
+        }
+        // cout << "\n";
+    }
+    status = solvematrix01LD(dmatrix, npoints, fitvec, 0);
+    return (status);
+}
+
+// Given a vector of MJD values and a vector of 3-D planet positions,
+// use polynomial interpolation to obtain a precise estimate of the
+// 3-D planet position at the time detmjd. It is assumed that the
+// input time detmjd is in UT1 or some reasonable approximation
+// thereof, while the planet ephemeris vectors are in dynamical TT.
+// Hence, a correction is applied to the input time before the
+// interpolation. If the calling function actually has time in TT
+// already, planetpos01 should be called with the correction
+// pre-subtracted from detmjd, so it will cancel out internally.
+int planetpos01LD(long double detmjd, int polyorder, std::vector<long double> const& posmjd,
+                  std::vector<Point3LD> const& planetpos, Point3LD &outpos) {
+    int fitnum = polyorder + 1;
+    int pointsbefore = fitnum - fitnum / 2;
+    int pbf = 0;
+    vector<long double> xvec;
+    vector<long double> yvec;
+    vector<long double> fitvec;
+    long double tdelt = 0;
+    long double sumvar = 0;
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    make_LDvec(fitnum, fitvec);
+
+    // Convert input time from UT1 standard to the dynamical time (TT) used
+    // by JPL Horizons for the state vectors.
+    detmjd += TTDELTAT / SOLARDAY;
+    // TT is ahead of UT1 because the Earth's rotation is slowing down.
+
+    // Interpolate to find the planet's exact position at the time
+    // of the detection.
+    pbf = 0;
+    i = posmjd.size();
+    if (planetpos.size() != i) {
+        cerr << "ERROR: planetpos01 finds time and position vectors\n";
+        cerr << "to have different lengths\n";
+        return (1);
+    }
+    while (i > 0 && pbf < pointsbefore) {
+        i--;
+        if (posmjd[i] < detmjd) pbf++;
+    }
+    pbf = i;
+    xvec = {};
+    yvec = {};
+    tdelt = detmjd - posmjd[pbf];
+    // Load vectors to fit x-coordinate of the planet's position.
+    for (i = pbf; i < pbf + fitnum; i++) {
+        xvec.push_back(posmjd[i] - posmjd[pbf]);
+        yvec.push_back(planetpos[i].x);
+    }
+    // Solve for polynomial interpolation
+    perfectpoly01LD(xvec, yvec, fitvec);
+    // Calculate interpolated position.
+    outpos.x = fitvec[0];
+    for (j = 1; j < fitnum; j++) {
+        sumvar = fitvec[j] * tdelt;
+        for (k = 2; k <= j; k++) sumvar *= tdelt;
+        outpos.x += sumvar;
+    }
+    // Load vector to fit y-coordinate
+    yvec = {};
+    for (i = pbf; i < pbf + fitnum; i++) yvec.push_back(planetpos[i].y);
+    // Solve for polynomial interpolation
+    perfectpoly01LD(xvec, yvec, fitvec);
+    // Calculate interpolated position.
+    outpos.y = fitvec[0];
+    for (j = 1; j < fitnum; j++) {
+        sumvar = fitvec[j] * tdelt;
+        for (k = 2; k <= j; k++) sumvar *= tdelt;
+        outpos.y += sumvar;
+    }
+    // Load vector to fit z-coordinate
+    yvec = {};
+    for (i = pbf; i < pbf + fitnum; i++) yvec.push_back(planetpos[i].z);
+    // Solve for polynomial interpolation
+    perfectpoly01LD(xvec, yvec, fitvec);
+    // Calculate interpolated position.
+    outpos.z = fitvec[0];
+    for (j = 1; j < fitnum; j++) {
+        sumvar = fitvec[j] * tdelt;
+        for (k = 2; k <= j; k++) sumvar *= tdelt;
+        outpos.z += sumvar;
+    }
+    return (0);
+}
+
+int celestial_to_statevecLD(long double RA, long double Dec, long double delta, Point3LD &baryvec) {
+    long double x,y,z,theta,phi,thetapole,phipole;
+    x = y = z = theta = phi = thetapole = phipole = 0.0;
+    theta = Dec/DEGPRAD;
+    phi = RA/DEGPRAD;
+    thetapole = NEPDEC/DEGPRAD;
+
+    z = sin(theta);
+    x = -cos(theta)*sin(phi);
+    y = cos(theta)*cos(phi);
+    baryvec.z = delta*(z*sin(thetapole) + x*cos(thetapole));
+    baryvec.y = delta*(z*cos(thetapole) - x*sin(thetapole));
+    baryvec.x = delta*y;
+    return(0);
+}
+
+int precess01aLD(long double ra1, long double dec1,long double mjd, long double *ra2, long double *dec2, int precesscon) {
+    long double ndays,tds,zetaa,thetaa,zaa,ra4,dec4,cosra,sinra;
+
+    /*time since standard epoch*/
+    ndays = mjd-51544L; /*Number of days since Jan 1, 2000*/
+    tds = ndays/36525.0L;
+
+    /*cubic approximation to precession*/
+    zetaa = ZET0 + ZET1*tds + ZET2*tds*tds + ZET3*tds*tds*tds + ZET4*tds*tds*tds*tds + ZET5*tds*tds*tds*tds*tds;
+    zaa = Z0 + Z1*tds + Z2*tds*tds + Z3*tds*tds*tds + Z4*tds*tds*tds*tds + Z5*tds*tds*tds*tds*tds;
+    thetaa = THET1*tds + THET2*tds*tds + THET3*tds*tds*tds + THET4*tds*tds*tds*tds + THET5*tds*tds*tds*tds*tds;
+
+    /*transformation from arcseconds to radians*/
+    zetaa*=(M_PI/648000.0L);
+    zaa*=(M_PI/648000.0L);
+    thetaa*=(M_PI/648000.0L);
+
+    if(precesscon>=0) {
+        /*Precess given J2000.0 coords to epoch of date*/
+
+        /*get new declination*/
+        if(dec1!=M_PI/2.0L) {
+            /*printf("precess01 has normal declination case\n");*/
+            dec4 = asin(cos(ra1+zetaa)*sin(thetaa)*cos(dec1) + cos(thetaa)*sin(dec1));
+        } else {
+            /*printf("precess01 has polar declination case\n");*/
+            dec4 = asin(cos(thetaa));
+        }
+        /*if declination was obviously meant to be the pole, but
+            it has gotten a little off by roundoff error, collapse
+            it to the pole.*/
+        if(fabs(dec4-M_PI/2.0L)<SMALLANG) {
+            dec4 = M_PI/2.0L;
+        }
+        /*get new right ascension*/
+        if(dec1!=M_PI/2.0L && dec4!=M_PI/2.0L) {
+            /*printf("precess01 has normal right ascension case\n");*/
+            cosra = (cos(ra1+zetaa)*cos(thetaa)*cos(dec1) - sin(thetaa)*sin(dec1))/cos(dec4);
+            sinra = (sin(ra1+zetaa)*cos(dec1))/cos(dec4);
+            if(sinra>=0.0) {
+                ra4 = acos(cosra)+zaa;
+            } else{
+                ra4 = 2.0L*M_PI - acos(cosra)+zaa;
+            }
+        } else if(dec1==M_PI/2.0L && dec4!=M_PI/2.0L) {
+            /*printf("precess01 has polar input right ascension case\n");*/
+            ra4 = M_PI + zaa;
+        } else if(dec4==M_PI/2.0L) {
+            /*printf("precess01 has polar output right ascension case\n");*/
+            ra4 = 0.0;
+        } else {
+            printf("IMPOSSIBLE CASE ERROR IN precess01\n");
+        }
+    } else {
+        /*Deprecess given epoch of date coords to J2000.0*/
+
+        /*get new declination*/
+        if(dec1!=M_PI/2.0L) {
+            /*printf("precess01 has normal declination case\n");*/
+            dec4 = asin(-cos(ra1-zaa)*sin(thetaa)*cos(dec1) + cos(thetaa)*sin(dec1));
+        } else {
+            /*printf("precess01 has polar declination case\n");*/
+            dec4 = asin(cos(thetaa));
+        }
+        /*if declination was obviously meant to be the pole, but
+            it has gotten a little off by roundoff error, collapse
+            it to the pole.*/
+        if(fabs(dec4-M_PI/2.0L)<SMALLANG) {
+            dec4 = M_PI/2.0L;
+        }
+        /*get new right ascension*/
+        if(dec1!=M_PI/2.0L && dec4!=M_PI/2.0L) {
+            /*printf("precess01 has normal right ascension case\n");*/
+            cosra = (cos(ra1-zaa)*cos(thetaa)*cos(dec1) + sin(thetaa)*sin(dec1))/cos(dec4);
+            sinra = (sin(ra1-zaa)*cos(dec1))/cos(dec4);
+            if(sinra>=0.0) {
+                ra4 = acos(cosra)-zetaa;
+            } else{
+                ra4 = 2.0L*M_PI - acos(cosra)-zetaa;
+            }
+        } else if(dec1==M_PI/2.0L && dec4!=M_PI/2.0L) {
+            /*printf("precess01 has polar input right ascension case\n");*/
+            ra4 = 2.0L*M_PI-zetaa; /*Note this could be wrong*/
+                                /*There might be two solutions*/
+        } else if(dec4==M_PI/2.0L) {
+            /*printf("precess01 has polar output right ascension case\n");*/
+            ra4 = 0.0;
+        } else {
+            printf("IMPOSSIBLE CASE ERROR IN precess01\n");
+        }
+    }
+    *ra2 = ra4;
+    *dec2 = dec4;
+    return(1);
+}
+
+// Given the MJD of an observation, and a file giving barycentric state-vector
+// coordinates for the Earth, the longitude and MPC latitude sin and cos terms
+// for an observatory, calculate the observer's topocentric position
+// in barycentric state vector coordinates.
+// Note that the handling of Earth's rotation assumes that the
+// input MJD is UT1, while the ephemeris vectors posmjd
+// and planetpos are in dynamical TT. Hence, after calculating
+// aspects related to Earth's rotation with detmjd as input,
+// planetpos01 is called which internally converts the input
+// UT1 into TT.
+int observer_barycoords01LD(
+    long double detmjd, int polyorder, long double lon, long double obscos,
+    long double obssine, std::vector<long double> const& posmjd,
+    std::vector<Point3LD> const& planetpos, Point3LD &outpos) {
+
+    long double gmst=0;
+    long double djdoff = detmjd-51544.5L;
+    long double zenithRA=0.0;
+    long double zenithDec=0.0;
+    long double junkRA=0.0;
+    long double junkDec=0.0;
+    long double crad = sqrt(obscos*obscos + obssine*obssine)*EARTHEQUATRAD;
+    Point3LD obs_from_geocen = Point3LD(0,0,0);
+    Point3LD geocen_from_barycen = Point3LD(0,0,0);
+
+    gmst = 18.697374558L + 24.06570982441908L*djdoff;
+    // Add the longitude, converted to hours.
+    // Note: at this point it stops being gmst.
+    gmst += lon/15.0L;
+    // Get a value between 0 and 24.0.
+    while(gmst>=24.0L) gmst -= 24.0L;
+    while(gmst<0.0L) gmst += 24.0L;
+    // Convert to degrees
+    zenithRA = gmst * 15.0L;
+    // Get zenithDec
+    if(obscos!=0.0L) {
+        zenithDec = atan(obssine/obscos)*DEGPRAD;
+    } else if(obssine>=0.0L) {
+        zenithDec = 90.0L;
+    } else {
+        zenithDec=-90.0L;
+    }
+    // Now zenithRA and zenithDec are epoch-of-date coordinates.
+    // If you want them in J2000.0, this is the place to convert them.
+    int precesscon=-1; //Precess epoch-of-date to J2000.0
+    junkRA = zenithRA/DEGPRAD;
+    junkDec = zenithDec/DEGPRAD;
+    precess01aLD(junkRA,junkDec,detmjd,&zenithRA,&zenithDec,precesscon);
+    zenithRA*=DEGPRAD;
+    zenithDec*=DEGPRAD;
+    celestial_to_statevecLD(zenithRA,zenithDec,crad,obs_from_geocen);
+    // crad is the distance from the geocenter to the observer, in AU.
+    planetpos01LD(detmjd,polyorder,posmjd,planetpos,geocen_from_barycen);
+    // cout << "obs_from_geocen: " << obs_from_geocen.x << " " << obs_from_geocen.y << " " << obs_from_geocen.z << " \n";
+    // cout << "geocen_from_barycen: " << geocen_from_barycen.x << " " << geocen_from_barycen.y << " " << geocen_from_barycen.z << "\n";
+    outpos.x = geocen_from_barycen.x + obs_from_geocen.x;
+    outpos.y = geocen_from_barycen.y + obs_from_geocen.y;
+    outpos.z = geocen_from_barycen.z + obs_from_geocen.z;
+    return(0);
+}
+
+long medindex(std::vector<XYIndex> const& xyvec, int dim) {
+    std::vector<XYIndex> xyv = xyvec; //Mutable copy of immutable input vector
+    for(int i=0; i<xyv.size(); i++) xyv[i].index=i; //Redefine indices
+    long medpt = xyv.size()/2;
+    if(dim%2==1) sort(xyv.begin(), xyv.end(), compareXYIndexX);
+    else sort(xyv.begin(), xyv.end(), compareXYIndexY);
+    return(xyv[medpt].index);
+}
+
+// Given double precision RA, Dec in DEGREES, project
+// onto the unit sphere and return an object of class point3d.
+// Input coordinates are in degrees, input RA=0, Dec=0
+// projects to x=1,y=0,z=0; then y increases for positive
+// RA.
+Point3D celeproj01(double RA, double Dec) {
+    return(Point3D( cos(RA/DEGPRAD)*cos(Dec/DEGPRAD) , sin(RA/DEGPRAD)*cos(Dec/DEGPRAD), sin(Dec/DEGPRAD)));
+}
+
+// Given a 3-d point (class point3d), de-project it back to
+// celestial coordinates IN DEGREES: i.e., reverse the process
+// carried out by celeproj01.
+int celedeproj01(Point3D p3, double *RA, double *Dec) {
+    //Normalize the point
+    double norm = sqrt(p3.x*p3.x + p3.y*p3.y + p3.z*p3.z);
+    if(norm<=0.0) {
+        *RA=0.0;
+        *Dec=0.0;
+        return(1);
+    }
+    double x = p3.x/norm;
+    double y = p3.y/norm;
+    double z = p3.z/norm;
+    if(fabs(z)<=1.0) *Dec = asin(z)*DEGPRAD;
+    else return(2);
+    if(y==0 && x<0.0) {
+        // y is zero and x is negative
+        *RA = 180.0;
+        return(0);
+    }
+    else if(y==0.0) {
+        // y is zero and x is zero or positive
+        *RA=0.0;
+        return(0);
+    }
+    else if(y>0.0) {
+        // y is strictly positive
+        *RA = 90.0 - atan(x/y)*DEGPRAD;
+        return(0);
+    }
+    else if(y<0.0) {
+        // y is strictly negative
+        *RA = 270.0 - atan(x/y)*DEGPRAD;
+        return(0);
+    }
+    else {
+        // Weird case, should be impossible
+        return(3);
+    }
+};
+
+// Given two pairs of RA, Dec coordinates, calculate
+// their angular separation on the sky in degrees.
+double distradec01(double RA1, double Dec1, double RA2, double Dec2) {
+    double x1,y1,z1,x2,y2,z2,h;
+    x1=cos(Dec1/DEGPRAD)*cos(RA1/DEGPRAD);
+    y1=cos(Dec1/DEGPRAD)*sin(RA1/DEGPRAD);
+    z1=sin(Dec1/DEGPRAD);
+    x2=cos(Dec2/DEGPRAD)*cos(RA2/DEGPRAD);
+    y2=cos(Dec2/DEGPRAD)*sin(RA2/DEGPRAD);
+    z2=sin(Dec2/DEGPRAD);
+    h=sqrt(DSQUARE(x1-x2)+DSQUARE(y1-y2)+DSQUARE(z1-z2));
+    return(DEGPRAD*2.0*asin(h/2.0));
+}
+
+// calculates the celestial position angle from point 1 to point 2.
+int distradec02(double ra1,double dec1,double ra2,double dec2,double *dist,double *pa) {
+    double x1,y1,z1,x2,y2,z2,h,d,poleangle,celpa,sinepa,cosinepa,colat1,colat2;
+    double arcsinepa=0.0l;
+
+    // Handle trivial cases.
+    if(fabs(ra1-ra2)/DEGPRAD < VSMALLANG) {
+        // the two RA values are functionally identical
+        if(fabs(dec1-dec2)/DEGPRAD < VSMALLANG) {
+            // the two Dec values are functionally identical
+            *dist=0.0l;
+            *pa=0.0l; // Dummy value for zero distance.
+            return(0);
+        } else if(dec2<dec1) {
+        *dist = dec1-dec2;
+        *pa = 180.0l; // Due South
+        return(0);
+        } else {
+            // dec2>dec1 by logical elimination
+            *dist = dec2-dec1;
+            *pa = 0.0l; // Due North
+            return(0);
+        }
+    } else if(fabs(dec1-dec2)/DEGPRAD < VSMALLANG) {
+        // the two Dec values are functionally identical,
+        // although the two RA values are not.
+        if(ra2<ra1) {
+            *dist = ra1-ra2;
+            *pa = 270.0l; // Due West.
+            return(0);
+        } else {
+            // ra2>ra1 by logical elimination
+            *dist = ra2-ra1;
+            *pa = 90.0l; // Due East.
+            return(0);
+        }
+    } else {
+        // We have a non-trivial case
+        // Calculate the distance d, in radians, between
+        // the two points.
+        x1=cos(dec1/DEGPRAD)*cos(ra1/DEGPRAD);
+        y1=cos(dec1/DEGPRAD)*sin(ra1/DEGPRAD);
+        z1=sin(dec1/DEGPRAD);
+        x2=cos(dec2/DEGPRAD)*cos(ra2/DEGPRAD);
+        y2=cos(dec2/DEGPRAD)*sin(ra2/DEGPRAD);
+        z2=sin(dec2/DEGPRAD);
+        h=sqrt(DSQUARE(x1-x2)+DSQUARE(y1-y2)+DSQUARE(z1-z2));
+        if(h/2.0l <= 1.0l) {
+            d=2.0*asin(h/2.0l);
+        } else {
+            cerr << "WARNING: distradec02 attempting to take arcsine of 1 + " << h/2.0l - 1.0l << "\n";
+            d = M_PI/2.0l;
+        }
+        *dist = d*DEGPRAD;
+
+        colat1 = M_PI/2.0 - dec1/DEGPRAD;
+        colat2 = M_PI/2.0 - dec2/DEGPRAD;
+
+        // Calculate the difference in RA, paying careful
+        // attention to wrapping.
+        cosinepa = (cos(colat2) - cos(d)*cos(colat1))/(sin(d)*sin(colat1));
+        if(ra1<ra2 && (ra2-ra1)<=180.0) {
+            // Simple case, point 2 is east of point 1,
+            // so PA should be less than 180 degrees.
+            poleangle = (ra2-ra1)/DEGPRAD;
+            sinepa = sin(colat2)*sin(poleangle)/sin(d);
+            if(sinepa<=1.0l) {
+	            arcsinepa = asin(sinepa);
+            } else {
+	            cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
+	            arcsinepa = M_PI/2.0l;
+            }
+            if(cosinepa>=0.0) celpa = arcsinepa;
+            else celpa = M_PI - arcsinepa;
+            *pa = celpa*DEGPRAD;
+        } else if(ra1<ra2) {
+            // Wrapped case with point 2 west of point 1
+            // across zero RA: the PA should be greater
+            // than 180 degrees.
+            poleangle = (ra1+(double)360.0-ra2)/DEGPRAD;
+            sinepa = sin(colat2)*sin(poleangle)/sin(d);
+            if(sinepa<=1.0l) {
+	            arcsinepa = asin(sinepa);
+            } else {
+	            cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
+	            arcsinepa = M_PI/2.0l;
+            }
+            if(cosinepa>=0.0) celpa = arcsinepa;
+            else celpa = M_PI - arcsinepa;
+            *pa = (double)360.0 - celpa*DEGPRAD;
+        } else if(ra1>ra2 && (ra1-ra2)<=180.0) {
+            // Simple case, point 2 is west of point 1,
+            // so PA should be greater than 180 degrees.
+            poleangle = (ra1-ra2)/DEGPRAD;
+            sinepa = sin(colat2)*sin(poleangle)/sin(d);
+            if(sinepa<=1.0l) {
+	            arcsinepa = asin(sinepa);
+            } else {
+	            cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
+	            arcsinepa = M_PI/2.0l;
+            }
+            if(cosinepa>=0.0) celpa = arcsinepa;
+            else celpa = M_PI - arcsinepa;
+            *pa = (double)360.0 - celpa*DEGPRAD;
+        } else if(ra1>ra2) {
+            // Wrapped case with point 2 east of point 1
+            // across zero RA: the PA should be less
+            // than 180.0 degrees.
+            poleangle = (ra2+(double)360.0-ra1)/DEGPRAD;
+            sinepa = sin(colat2)*sin(poleangle)/sin(d);
+            if(sinepa<=1.0l) {
+	            arcsinepa = asin(sinepa);
+            } else {
+	            cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
+	            arcsinepa = M_PI/2.0l;
+            }
+            if(cosinepa>=0.0) celpa = arcsinepa;
+            else celpa = M_PI - arcsinepa;
+            *pa = celpa*DEGPRAD;
+        }
+        return(0);
+    }
+    return(0);
+}
+
+int splitxy(std::vector<XYIndex> const& xyvec, int dim, long splitpoint,
+            std::vector<XYIndex> & left, std::vector<XYIndex> & right) {
+    long i=0;
+    double xval = xyvec[splitpoint].x;
+    double yval = xyvec[splitpoint].y;
+
+    if(dim%2==1) {
+        // Split on x
+        for(i=0 ; i<xyvec.size() ; i++) {
+            if(i!=splitpoint && xyvec[i].x<=xval) {
+                left.push_back(xyvec[i]);
+            } else if(i!=splitpoint) {
+                right.push_back(xyvec[i]);
+            }
+        }
+    } else {
+        // Split on y
+        for(i=0 ; i<xyvec.size() ; i++) {
+            if(i!=splitpoint && xyvec[i].y<=yval) {
+                left.push_back(xyvec[i]);
+            } else if(i!=splitpoint) right.push_back(xyvec[i]);
+        }
+    }
+    return(0);
+}
+
+int kdtree01(std::vector<XYIndex> const& xyvec, int dim, long rootptxy, long rootptkd, std::vector<KDPoint> &kdvec) {
+    int status=0;
+    int lmed=0;
+    int rmed=0;
+    int kdct = kdvec.size()-1;
+    int i=0;
+    long leftrootkd=-1;
+    long rightrootkd=-1;
+    XYIndex xyi = XYIndex(0.0,0.0,0);
+    KDPoint root = kdvec[kdct];
+    KDPoint lp = KDPoint(xyi,-1,-1,0);
+    KDPoint rp = KDPoint(xyi,-1,-1,0);
+    KDPoint kdtest = KDPoint(xyi,-1,-1,0);
+    std::vector<XYIndex> leftvec = {};
+    std::vector<XYIndex> rightvec = {};
+
+    status = splitxy(xyvec,dim,rootptxy,leftvec,rightvec);
+
+    if(dim==1) dim=2;
+    else dim=1;
+
+    if(leftvec.size()==1) {
+        // Left branch is just a single leaf
+        lp = KDPoint(leftvec[0],-1,-1,dim);
+        kdvec.push_back(lp);
+        kdct++;
+        kdvec[rootptkd].left = kdct;
+        kdtest = kdvec[kdct];
+    } else if(leftvec.size()<=0) {
+        // There is no left branch
+        kdvec[rootptkd].left = -1;
+    }
+    if(rightvec.size()==1) {
+        // Right branch is just a single leaf
+        rp = KDPoint(rightvec[0],-1,-1,dim);
+        kdvec.push_back(rp);
+        kdct++;
+        kdvec[rootptkd].right = kdct;
+        kdtest = kdvec[kdct];
+    } else if(rightvec.size()<=0) {
+        // There is no right branch
+        kdvec[rootptkd].right = -1;
+    }
+
+    if(leftvec.size()>1) {
+        lmed = medindex(leftvec,dim);
+        lp = KDPoint(leftvec[lmed],-1,-1,dim);
+        kdvec.push_back(lp);
+        kdct++;
+        kdvec[rootptkd].left = kdct;
+        leftrootkd = kdct;
+        kdtest = kdvec[kdct];
+    }
+
+    if(rightvec.size()>1) {
+        rmed = medindex(rightvec,dim);
+        rp = KDPoint(rightvec[rmed],-1,-1,dim);
+        kdvec.push_back(rp);
+        kdct++;
+        kdvec[rootptkd].right = kdct;
+        rightrootkd = kdct;
+        kdtest = kdvec[kdct];
+    }
+    // I moved these down out of the above loops, because I thought
+    // that otherwise, a bunch of stuff might get pushed down by the
+    // left loop that the right loop didn't know about.
+    if(leftvec.size()>1 && leftrootkd>=0) kdtree01(leftvec,dim,lmed,leftrootkd,kdvec);
+    else if(leftvec.size()>1 && leftrootkd<0) {
+        cerr << "Error, kdtree01 finds leftroot less than zero with leftvec.size() = " << leftvec.size() << "\n";
+    }
+    if(rightvec.size()>1 && rightrootkd>=0) kdtree01(rightvec,dim,rmed,rightrootkd,kdvec);
+    else if(rightvec.size()>1 && rightrootkd<0) {
+        cerr << "Error, kdtree01 finds rightroot less than zero with rightvec.size() = " << rightvec.size() << "\n";
+    }
+
+    return(0);
+}
+
+// Given a k-d tree vector kdvec created by kdtree01,
+// perform a range-query about the point x,y. Returns
+// a vector indexing all of the points in the input k-d tree
+// that lie within the specified range of the input coordinates.
+// Assumes that kdvec[0] is the root of the k-d tree.
+// NOTE THAT THIS IS FOR 2-D KD trees.
+int kdrange01(std::vector<KDPoint> const& kdvec, double x, double y, double range, std::vector<long> &indexvec) {
+    int branchct=0;
+    double rng2 = range*range;
+    int notdone=1;
+    int kdveclen = kdvec.size();
+    int dim=1;
+    int currentpoint=0;
+    int leftpoint=0;
+    int rightpoint=0;
+    int goleft=0;
+    int goright=0;
+    double xdiff=0.0;
+    double ydiff=0.0;
+    std::vector<long> checkit={};
+    int i=0;
+    int checknum=0;
+
+    while(notdone>0) {
+        // Climb to the top of the k-d tree, keeping track
+        // of potentially interesting unexplored branches
+        // in the vector checkit.
+        while(leftpoint>=0 || rightpoint>=0) {
+            // Previous step did not end on a leaf.
+            leftpoint = kdvec[currentpoint].left;
+            rightpoint = kdvec[currentpoint].right;
+            dim = kdvec[currentpoint].dim;
+            if(dim%2==1) {
+                xdiff = kdvec[currentpoint].point.x - x;
+                goright = (xdiff <= range); // possible hits lie to the left;
+                goleft = (xdiff >= -range); // possible hits lie to the right;
+                if(goleft && goright) {
+                    // Current point might be within range.
+                    ydiff = kdvec[currentpoint].point.y - y;
+                    if(fabs(ydiff)<=range && (xdiff*xdiff + ydiff*ydiff)<=rng2) {
+                        // Current point is within range. Add it to the output vector
+                        indexvec.push_back(currentpoint);
+                    }
+                    if(leftpoint>=0) {
+                        //Explore leftward first.
+                        currentpoint = leftpoint;
+                        if(rightpoint>=0) {
+                            // Rightward branch will also be explored later
+                            checknum++;
+                            if(checknum>checkit.size()) {
+                                checkit.push_back(rightpoint);
+                            } else {
+                                checkit[checknum-1] = rightpoint;
+                            }
+                        }
+                    } else if(rightpoint>=0) {
+                        // Leftward branch is a dead end: explore rightward branch
+                        currentpoint = rightpoint;
+                    }
+                } else if(goleft) {
+                    // Current point cannot be in range, but points that
+                    // are in range may lie along the left branch.
+                    if(leftpoint>=0) {
+                        currentpoint = leftpoint;
+                    } else rightpoint=-1; // Dead end, make sure while-loop exits.
+                } else if(goright) {
+                    // Current point cannot be in range, but points that
+                    // are in range may lie along the right branch.
+                    if(rightpoint>=0) {
+                        currentpoint = rightpoint;
+                    } else leftpoint=-1;  // Dead end, make sure while-loop exits.
+                } else {
+                    // Program concluded it should go neither left nor right.
+                    // The likely cause is that it encountered a NAN. Give up on this point.
+                    leftpoint=rightpoint=-1;
+                    cerr << "WARNING: ENCOUNTERED NAN CASE!\n";
+                    cerr << "Input point " << x << ", " << y <<", target point " << kdvec[currentpoint].point.x << ", " << kdvec[currentpoint].point.y << ".\n";
+                }
+                // Close x-dimension case
+            } else if(dim%2==0) {
+                ydiff = kdvec[currentpoint].point.y - y;
+                goright = (ydiff <= range); // possible hits lie to the left;
+                goleft = (ydiff >= -range); // possible hits lie to the right;
+                if(goleft && goright) {
+                    // Current point might be within range.
+                    xdiff = kdvec[currentpoint].point.x - x;
+                    if(fabs(ydiff)<=range && (xdiff*xdiff + ydiff*ydiff)<=rng2) {
+                        // Current point is within range. Add it to the output vector
+                        indexvec.push_back(currentpoint);
+                    }
+                    if(leftpoint>=0) {
+                        //Explore leftward first.
+                        currentpoint = leftpoint;
+                        if(rightpoint>=0) {
+                            // Rightward branch will also be explored later
+                            checknum++;
+                            if(checknum>checkit.size()) {
+                                checkit.push_back(rightpoint);
+                            } else {
+                                checkit[checknum-1] = rightpoint;
+                            }
+                        }
+                    } else if(rightpoint>=0) {
+                        // Leftward branch is a dead end: explore rightward branch
+                        currentpoint = rightpoint;
+                    }
+                } else if(goleft) {
+                    // Current point cannot be in range, but points that
+                    // are in range may lie along the left branch.
+                    if(leftpoint>=0) {
+                        currentpoint = leftpoint;
+                    } else rightpoint = -1; // Dead end, make sure while loop exits.
+                } else if(goright) {
+                    // Current point cannot be in range, but points that
+                    // are in range may lie along the right branch.
+                    if(rightpoint>=0) {
+                        currentpoint = rightpoint;
+                    } else leftpoint=-1;  // Dead end, make sure while loop exits.
+                } else {
+                    // Program concluded it should go neither left nor right.
+                    // The likely cause is that it encountered a NAN. Give up on this point.
+                    leftpoint=rightpoint=-1;
+                    cerr << "WARNING: ENCOUNTERED NAN CASE!\n";
+                    cerr << "Input point " << x << ", " << y <<", target point " << kdvec[currentpoint].point.x << ", " << kdvec[currentpoint].point.y << ".\n";
+                }
+                // Note that we do not need to worry about the possiblity
+                // that current point will get set to -1: i.e., we were
+                // at a leaf or a one-sided branch. Such cases will
+                // be caught by the while statement.
+                // Close y-dimension case
+            }
+            // Close while-loop checking if we've hit a leaf.
+        }
+        // We have climbed up the tree to a leaf. Go backwards through
+        // the checkit vector and see if there is anything to check.
+        checknum=checkit.size();
+        while(checknum>=1 && checkit[checknum-1]<0) checknum--;
+        if(checknum<=0) {
+            //There were no valid entries to check: we're done.
+            notdone=0;
+        } else {
+            //Set currentpoint to the last valid entry in checkit
+            currentpoint = checkit[checknum-1];
+            //Mark this point as used.
+            checkit[checknum-1]=-1;
+            leftpoint=rightpoint=0;
+        }
+    }
+    return(0);
+}
+
+// Simple and crude utility program, does an unweighted
+// linear fit of the form y = mx * b, for m = slope, b = intercept
+int linfituw01(std::vector<double> const& x, std::vector<double> const& y, double &slope, double &intercept) {
+    int i;
+    int pointnum = x.size();
+    double delta,xal,yal,xty,xsq,nsum,rms,err,errmax;
+    double siga,sigb;
+
+    if(pointnum<=1) {
+        cerr << "ERROR: linfituw01 CALLED WITH ONLY ONE POINT\n";
+        return(1);
+    }
+
+    xal = yal = xty = xsq = nsum = 0.0;
+    for(i=0;i<pointnum;i++) {
+        xal += x[i];
+        yal += y[i];
+        xsq += x[i]*x[i];
+        xty += x[i]*y[i];
+        nsum += 1.0l;
+    }
+    delta = nsum*xsq - xal*xal;
+    if(delta==0.0) {
+        cerr << "ERROR: linfituw01 has non-finite slope\n";
+        return(1);
+    }
+    intercept = (xsq*yal - xal*xty)/delta;
+    slope = (nsum*xty - xal*yal)/delta;
+
+    return(0);
+}
+
+// Given a central point and the arc distance and celestial
+// position angle to second point, calculate the celestial
+// coordinates of this second point. All input and output
+// quantities are in degrees. Note that this is the reverse
+// process of, e.g. distradec02, which finds
+// the position angle and arc distance between two points
+// on the celestial sphere. The current program finds the
+// celestial coordinates of the second point, given the
+// first point, and the arc distance and position angle.
+// NOTE WELL: here the arc dist is in degrees.
+int arc2cel01(double racenter, double deccenter, double dist, double pa, double &outra,double &outdec) {
+    double colat1,tpa,rpa,arc,coscolat,colat2;
+    double cosdra,deltaRA;
+
+    tpa=pa;
+    while(tpa>=360.0l) tpa-=360.0l;
+    while(tpa<0.0l) tpa+=360.0l;
+
+    // Handle trivial cases
+    if(dist==0.0l) {
+        outra = racenter;
+        outdec = deccenter;
+        return(0);
+    } else if(dist==180.0l) {
+        outra = racenter + 180.0l;
+        if(outra >= 360.0l) outra -= 360.0l;
+        outdec = -deccenter;
+        return(0);
+    } else if(deccenter==90.0l) {
+        cerr << "WARNING: arc2cel01 called with starting point at north pole!\n";
+        outra = tpa;
+        outdec = 90.0l - dist;
+        return(0);
+    } else if(deccenter==-90.0l) {
+        cerr << "WARNING: arc2cel01 called with starting point at south pole!\n";
+        outra = tpa;
+        outdec = -90.0l + dist;
+        return(0);
+    }
+
+    colat1 = M_PI/(double)2.0l - deccenter/DEGPRAD;
+    rpa = tpa/DEGPRAD;
+    arc = dist/DEGPRAD;
+
+    coscolat = cos(arc)*cos(colat1) + sin(arc)*sin(colat1)*cos(rpa);
+    if(coscolat>1.0l) {
+        cerr << "WARNING: arc2cel01 attempting to take arccos of 1 + " << coscolat-1.0l << "\n";
+        colat2 = 0.0l;
+    } else colat2 = acos(coscolat);
+
+    outdec = 90.0l - colat2*DEGPRAD;
+    if(sin(colat2)<=0.0l) {
+        outra = 0.0l;
+        return(0);
+    }
+
+    cosdra = (cos(arc) - cos(colat1)*cos(colat2)) / (sin(colat1)*sin(colat2));
+    if(cosdra>1.0l) {
+        cerr  << "WARNING: arc2cel01 attempting to take arccos of 1 + " << cosdra-1.0l << "\n";
+        deltaRA = 0.0l;
+    } else deltaRA = acos(cosdra)*DEGPRAD;
+
+    // Direction of RA change
+    if(tpa<=180.0l) {
+        // Change is to the east
+        outra = racenter + deltaRA;
+        while(outra>=360.0l) outra-=360.0l;
+        return(0);
+    } else {
+        // Change is to the west
+        outra = racenter - deltaRA;
+        while(outra<0.0l) outra+=360.0l;
+        return(0);
+    }
+    return(0);
+}
+
+std::vector<Observatory> readObscodeFile(
     string obscodefile
 ) {
-    std::vector<observatory> observatory_list = {};
+    std::vector<Observatory> observatory_list = {};
     char obscode[MINSTRINGLEN];
     long double obslon, plxcos, plxsin;
 
@@ -23,7 +1242,7 @@ std::vector<observatory> readObscodeFile(
         instream >> obslon;
         instream >> plxcos;
         instream >> plxsin;
-        observatory obs1 = observatory(obscode, obslon, plxcos, plxsin);
+        Observatory obs1 = Observatory(obscode, obslon, plxcos, plxsin);
         observatory_list.push_back(obs1);
         // Skip the rest of the line
         getline(instream, lnfromfile);
@@ -132,7 +1351,7 @@ std::vector<Detection> readDetectionsFile(
          << detvec[detvec.size() - 1].obscode << "\n";
 
     // time-sort the detection vector
-    sort(detvec.begin(), detvec.end(), early_det_obsmag_indvec());
+    sort(detvec.begin(), detvec.end(), timeCompareDetections);
 
     cout << "Last two obscodes: " << detvec[detvec.size() - 2].obscode << " and "
          << detvec[detvec.size() - 1].obscode << "\n";
@@ -208,7 +1427,7 @@ std::vector<ImageLog> readImageFile(
     else
         cout << "Warning: unknown file read problem\n";
     // time-sort the image file
-    sort(img_log_tmp.begin(), img_log_tmp.end(), early_imlg3());
+    sort(img_log_tmp.begin(), img_log_tmp.end(), timeCompareImageLog);
     // find the indices in the time-sorted detection file
     // that correspond to the earliest and latest detections
     // on each image, and load these values into imglog02.
@@ -304,12 +1523,12 @@ std::vector<ImageLog> makeImageLogs(
     while (imct < imnum && detct < detnum) {
         long num_dets = 0;
         vector<Detection> imobs = {};
-        point3d p3avg = point3d(0.0, 0.0, 0.0);
+        Point3D p3avg = Point3D(0.0, 0.0, 0.0);
         while (detct < detnum && detvec[detct].MJD < img_log[imct].MJD + config.imagetimetol / SOLARDAY) {
             num_dets++;                                  // Keep count of detections on this image
             Detection detc = detvec[detct];              // Current detection entry
             imobs.push_back(detc);                       // Load vector of observations for this image
-            point3d p3 = celeproj01(detc.RA, detc.Dec);  // Project current detection
+            Point3D p3 = celeproj01(detc.RA, detc.Dec);  // Project current detection
             p3avg.x += p3.x;
             p3avg.y += p3.y;
             p3avg.z += p3.z;  // Average projected coords
@@ -348,34 +1567,27 @@ std::vector<ImageLog> makeImageLogs(
     return img_log;
 }
 
-std::tuple<std::vector<long double>, std::vector<point3LD>, std::vector<point3LD>> readEarthEphemerides(
+std::tuple<std::vector<long double>, std::vector<Point3LD>, std::vector<Point3LD>> readEarthEphemerides(
     string earthfile
 ) {
     std::vector<long double> earthMJD = {};
-    std::vector<point3LD> earthpos = {};
-    std::vector<point3LD> earthvel = {};
+    std::vector<Point3LD> earthpos = {};
+    std::vector<Point3LD> earthvel = {};
     read_horizons_fileLD(earthfile, earthMJD, earthpos, earthvel);
-
-    // This will be used later
-    /*std::vector<StateVector> earthStates = {};
-    for (size_t i = 0; i < earthMJD.size(); i++) {
-        StateVector earthState = StateVector(earthMJD[i], earthpos[i], earthvel[i]);
-        earthStates[i] = earthState;
-    }*/
     return std::make_tuple(earthMJD, earthpos, earthvel);
 }
 
 void computeHelioPositions(
     std::vector<Detection> &detvec,
     std::vector<ImageLog> const& img_log,
-    std::vector<observatory> const& observatory_list,
+    std::vector<Observatory> const& observatory_list,
     std::vector<long double> const& EarthMJD,
-    std::vector<point3LD> const& Earthpos
+    std::vector<Point3LD> const& Earthpos
 ) {
     double obslon, plxcos, plxsin;
 
     // Calculate observer's heliocentric position at the time of each image.
-    std::vector<point3LD> observer_heliopos = {};
+    std::vector<Point3LD> observer_heliopos = {};
     for (size_t imct = 0; imct < img_log.size(); imct++) {
         if (imct == 0 ||
             (imct > 0 && stringnmatch01(img_log[imct].obscode, img_log[imct - 1].obscode, 3) == 0)) {
@@ -388,7 +1600,7 @@ void computeHelioPositions(
                 return (3);
             }*/
         }
-        point3LD outpos = point3LD(0, 0, 0);
+        Point3LD outpos = Point3LD(0, 0, 0);
         observer_barycoords01LD(img_log[imct].MJD, 5, obslon, plxcos, plxsin, EarthMJD, Earthpos, outpos);
         observer_heliopos.push_back(outpos);
     }
@@ -409,14 +1621,14 @@ void computeHelioPositions(
     }
 }
 
-std::tuple<std::vector<Detection>, std::vector<longpair>> buildTracklets(
+std::tuple<std::vector<Detection>, std::vector<LongPair>> buildTracklets(
     MakeTrackletsConfig const& config,
     std::vector<Detection> &detvec,
     std::vector<ImageLog> &img_log
 ) {
-    std::vector<longpair> pairvec = {};
+    std::vector<LongPair> pairvec = {};
     std::vector<Detection> pairdets = {};
-    longpair onepair = longpair(0, 0);
+    LongPair onepair = LongPair(0, 0);
     int i = 0;
     int j = 0;
     int k = 0;
@@ -439,8 +1651,8 @@ std::tuple<std::vector<Detection>, std::vector<longpair>> buildTracklets(
     double obslon = 289.26345L;
     double plxcos = 0.865020L;
     double plxsin = -0.500901L;
-    xy_index xyind = xy_index(0.0, 0.0, 0);
-    vector<xy_index> axyvec = {};
+    XYIndex xyind = XYIndex(0.0, 0.0, 0);
+    vector<XYIndex> axyvec = {};
     double dist, pa;
     dist = pa = 0.0;
     int dettarg = 0;
@@ -481,14 +1693,14 @@ std::tuple<std::vector<Detection>, std::vector<longpair>> buildTracklets(
         if (imagematches.size() > 0) {
             // Search is worth doing. Project all the detections
             // on image A.
-            xyind = xy_index(0.0, 0.0, 0);
+            xyind = XYIndex(0.0, 0.0, 0);
             axyvec = {};
             dist = pa = 0.0;
             dettarg = 0;
             for (detct = img_log[imct].startind; detct < img_log[imct].endind; detct++) {
                 distradec02(img_log[imct].RA, img_log[imct].Dec, detvec[detct].RA, detvec[detct].Dec, &dist,
                             &pa);
-                xyind = xy_index(dist * sin(pa / DEGPRAD), dist * cos(pa / DEGPRAD), detct);
+                xyind = XYIndex(dist * sin(pa / DEGPRAD), dist * cos(pa / DEGPRAD), detct);
                 axyvec.push_back(xyind);
                 if ((!isnormal(xyind.x) && xyind.x != 0) || (!isnormal(xyind.y) && xyind.y != 0)) {
                     cerr << "nan-producing input: ra1, dec1, ra2, dec2, dist, pa:\n";
@@ -502,25 +1714,25 @@ std::tuple<std::vector<Detection>, std::vector<longpair>> buildTracklets(
             for (imatchcount = 0; imatchcount < imagematches.size(); imatchcount++) {
                 imtarg = imagematches[imatchcount];
                 double range = (img_log[imtarg].MJD - img_log[imct].MJD) * maxvel;
-                vector<xy_index> bxyvec = {};
+                vector<XYIndex> bxyvec = {};
                 // Project all detections on image B
                 for (dettarg = img_log[imtarg].startind; dettarg < img_log[imtarg].endind; dettarg++) {
                     distradec02(img_log[imct].RA, img_log[imct].Dec, detvec[dettarg].RA, detvec[dettarg].Dec,
                                 &dist, &pa);
-                    xyind = xy_index(dist * sin(pa / DEGPRAD), dist * cos(pa / DEGPRAD), dettarg);
+                    xyind = XYIndex(dist * sin(pa / DEGPRAD), dist * cos(pa / DEGPRAD), dettarg);
                     bxyvec.push_back(xyind);
                 }
                 // Create k-d tree of detections on image B (imtarg).
                 int dim = 1;
-                xy_index xyi = bxyvec[0];
-                kdpoint root = kdpoint(xyi, -1, -1, dim);
-                kdpoint lp1 = kdpoint(xyi, -1, -1, dim);
-                kdpoint rp1 = kdpoint(xyi, -1, -1, dim);
-                kdpoint kdtest = kdpoint(xyi, -1, -1, dim);
-                vector<kdpoint> kdvec = {};
+                XYIndex xyi = bxyvec[0];
+                KDPoint root = KDPoint(xyi, -1, -1, dim);
+                KDPoint lp1 = KDPoint(xyi, -1, -1, dim);
+                KDPoint rp1 = KDPoint(xyi, -1, -1, dim);
+                KDPoint kdtest = KDPoint(xyi, -1, -1, dim);
+                vector<KDPoint> kdvec = {};
                 long medpt;
                 medpt = medindex(bxyvec, dim);
-                root = kdpoint(bxyvec[medpt], -1, -1, 1);
+                root = KDPoint(bxyvec[medpt], -1, -1, 1);
                 kdvec.push_back(root);
                 kdtest = kdvec[0];
                 kdtree01(bxyvec, dim, medpt, 0, kdvec);
@@ -577,7 +1789,7 @@ std::tuple<std::vector<Detection>, std::vector<longpair>> buildTracklets(
                             // Write index values for both components of the
                             // new pair to the pair vector, regardless of whether
                             // the index values are pre-existing or newly assigned.
-                            onepair = longpair(detvec[axyvec[detct].index].index,
+                            onepair = LongPair(detvec[axyvec[detct].index].index,
                                                detvec[kdvec[matchpt].point.index].index);
                             if (DEBUG >= 1)
                                 cout << "Writing pair " << detvec[axyvec[detct].index].index << ", "
@@ -616,7 +1828,7 @@ void refineTracklets(
     string outpairfile
 ) {
     ofstream outstream1;
-    vector<long_index> pair_partner_num = {};
+    vector<LongIndex> pair_partner_num = {};
     double pa, slopex, slopey, interceptx, intercepty, dist;
     double outra1, outra2, outdec1, outdec2;
     int worstpoint = -1;
@@ -629,11 +1841,11 @@ void refineTracklets(
 
     // Load a vector storing the number of pair-partners found for each detection.
     for (size_t i = 0; i < pairdets.size(); i++) {
-        long_index ppn = long_index(pairdets[i].indvec.size(), i);
+        LongIndex ppn = LongIndex(pairdets[i].indvec.size(), i);
         pair_partner_num.push_back(ppn);
     }
     // Sort the new vector by number of pair-partners
-    sort(pair_partner_num.begin(), pair_partner_num.end(), lower_long_index());
+    sort(pair_partner_num.begin(), pair_partner_num.end(), compareLongIndex);
 
     // Analyze paired detections in order of decreasing number of partners.
     // At the same time, write the output pair file, distinguishing
@@ -660,7 +1872,7 @@ void refineTracklets(
             // other detection.
             // Project all of these pairs relative to detection pdct,
             // storing x,y projected coordinates in axyvec.
-            std::vector<xy_index> axyvec = {};
+            std::vector<XYIndex> axyvec = {};
             std::vector<Detection> ppset = {};
             for (size_t j = 0; j < pairdets[pdct].indvec.size(); j++) {
                 long detct = pairdets[pdct].indvec[j];
@@ -669,7 +1881,7 @@ void refineTracklets(
                     distradec02(pairdets[pdct].RA, pairdets[pdct].Dec, pairdets[detct].RA,
                                 pairdets[detct].Dec, &dist, &pa);
                     dist *= 3600.0L;  // Convert distance from degrees to arcsec.
-                    xy_index xyind = xy_index(dist * sin(pa / DEGPRAD), dist * cos(pa / DEGPRAD), detct);
+                    XYIndex xyind = XYIndex(dist * sin(pa / DEGPRAD), dist * cos(pa / DEGPRAD), detct);
                     axyvec.push_back(xyind);
                     ppset.push_back(pairdets[detct]);  // We need this vector (of type det_obsmag_indvec)
                                                        // mainly just to have some way to store the
@@ -740,19 +1952,19 @@ void refineTracklets(
             } else {
                 // Perform linear fits to x and y vs time.
                 // Load all the points from the biggest potential tracklet.
-                std::vector<point3d_index> track_mrdi_vec = {};  // We need this vector purely so we can do a time-sort.
+                std::vector<Point3DIndex> track_mrdi_vec = {};  // We need this vector purely so we can do a time-sort.
                                       // mrdi stands for MJD, RA, Dec, index
                 // Load the reference point
-                point3d_index p3di = point3d_index(0.0l, 0.0l, 0.0l, pdct);
+                Point3DIndex p3di = Point3DIndex(0.0l, 0.0l, 0.0l, pdct);
                 track_mrdi_vec.push_back(p3di);
                 // Load anchor point corresponding to biggest_tracklet
-                p3di = point3d_index(ppset[biggest_tracklet].MJD - pairdets[pdct].MJD,
+                p3di = Point3DIndex(ppset[biggest_tracklet].MJD - pairdets[pdct].MJD,
                                      axyvec[biggest_tracklet].x, axyvec[biggest_tracklet].y,
                                      axyvec[biggest_tracklet].index);
                 track_mrdi_vec.push_back(p3di);
                 // Load the other points
                 for (size_t j = 0; j < ppset[biggest_tracklet].indvec.size(); j++) {
-                    p3di = point3d_index(ppset[ppset[biggest_tracklet].indvec[j]].MJD - pairdets[pdct].MJD,
+                    p3di = Point3DIndex(ppset[ppset[biggest_tracklet].indvec[j]].MJD - pairdets[pdct].MJD,
                                          axyvec[ppset[biggest_tracklet].indvec[j]].x,
                                          axyvec[ppset[biggest_tracklet].indvec[j]].y,
                                          axyvec[ppset[biggest_tracklet].indvec[j]].index);
@@ -763,7 +1975,7 @@ void refineTracklets(
                     // detindexvec.push_back(axyvec[ppset[biggest_tracklet].indvec[j]].index);
                 }
                 // Sort track_mrdi_vec by time.
-                sort(track_mrdi_vec.begin(), track_mrdi_vec.end(), lower_point3d_index_x());
+                sort(track_mrdi_vec.begin(), track_mrdi_vec.end(), comparePoint3DIndexX);
                 // Load time, x, y, and index vectors from sorted track_mrdi_vec.
                 std::vector<double> timevec = {};
                 std::vector<double> xvec = {};
