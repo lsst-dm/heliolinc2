@@ -20,7 +20,7 @@ void makeTracklets(
     int obscodecol = 38;
 
     cout << "Reading obscode file... ";
-    std::vector<observatory> observatory_list = readObscodeFile(config.obscodefile);
+    std::vector<Observatory> observatory_list = readObscodeFile(config.obscodefile);
     cout << "Done." << endl;
 
     cout << "Reading detections file... ";
@@ -42,8 +42,8 @@ void makeTracklets(
 
     cout << "Read Earth ephemerides... ";
     std::vector<long double> EarthMJD = {};
-    std::vector<point3LD> Earthpos = {};
-    std::vector<point3LD> Earthvel = {};
+    std::vector<Point3LD> Earthpos = {};
+    std::vector<Point3LD> Earthvel = {};
     std::tie(EarthMJD, Earthpos, Earthvel) = readEarthEphemerides(config.earthfile);
     cout << "Done." << endl;
 
@@ -84,7 +84,7 @@ void makeTracklets(
     cout << "Done." << endl;
 
     cout << "Make tracklets... ";
-    std::vector<longpair> pairvec = {};
+    std::vector<LongPair> pairvec = {};
     std::vector<Detection> pairdets = {};
     std::tie(pairdets, pairvec) = buildTracklets(config, detvec, img_log);
     cout << "Done." << endl;
