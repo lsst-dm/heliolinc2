@@ -17,10 +17,11 @@ static void show_usage() {
 
 int main(int argc, char *argv[]) {
     MakeTrackletsConfig config;
-    Detection o1 = Detection(0L, 0l, 0l, 0L, 0L, 0L, "null", 0l, "V", "I11", 0, {});
+    Detection o1 = Detection(0L, 0l, 0l, 0L, 0L, 0L, "null", 0l, "V", "I11", 0);
     vector<Detection> detvec = {};
     vector<Detection> pairdets = {};
     vector<Detection> ppset = {};
+    std::vector<std::vector<int>> indvecs = {};
     Observatory obs1 = Observatory("Ill", 0l, 0l, 0l);
     vector<Observatory> observatory_list = {};
     ImageLog imlog = ImageLog(0.0, 0.0, 0.0, "I11", 0, 0);
@@ -496,7 +497,7 @@ int main(int argc, char *argv[]) {
     // Compute the heliocentric positions for each detection at time of exposure.
     computeHelioPositions(detvec, img_log, observatory_list, EarthMJD, Earthpos);
 
-    std::tie(pairdets, pairvec) = buildTracklets(config, detvec, img_log);
+    std::tie(pairdets, pairvec, indvecs) = buildTracklets(config, detvec, img_log);
 
     cout << "Writing paired detections file\n";
     outstream1.open(pairdetfile);
@@ -513,7 +514,7 @@ int main(int argc, char *argv[]) {
     outstream1.close();
 
     // This does some output for now; need to disentangle.
-    refineTracklets(config, pairdets, outpairfile);
+    refineTracklets(config, pairdets, indvecs, outpairfile);
 
     return 0;
 }

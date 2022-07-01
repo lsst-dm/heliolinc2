@@ -22,12 +22,10 @@ public:
     char band[MINSTRINGLEN];
     char obscode[MINSTRINGLEN];
     long index;
-    std::vector<int> indvec;
 
     Detection(long double mjd, double ra, double dec, long double x, long double y, long double z,
-              string const& idstring, double mag, string const& band, string const& obscode, long index,
-              std::vector<int> indvec)
-            : MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), mag(mag), index(index), indvec(indvec) {
+              string const& idstring, double mag, string const& band, string const& obscode, long index)
+            : MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), mag(mag), index(index) {
         // Copy input value of idstring, making sure it's not too long
         assert(idstring.size() < sizeof(this->idstring));
         std::strncpy(this->idstring, idstring.c_str(), sizeof(this->idstring));

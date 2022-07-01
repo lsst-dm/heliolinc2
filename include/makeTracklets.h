@@ -114,7 +114,7 @@ void computeHelioPositions(
     std::vector<Point3LD> const& Earthpos
 );
 
-std::tuple<std::vector<Detection>, std::vector<LongPair>> buildTracklets(
+std::tuple<std::vector<Detection>, std::vector<LongPair>, std::vector<std::vector<int>>> buildTracklets(
     MakeTrackletsConfig const& config,
     std::vector<Detection> &detvec,
     std::vector<ImageLog> &img_log
@@ -123,6 +123,7 @@ std::tuple<std::vector<Detection>, std::vector<LongPair>> buildTracklets(
 void refineTracklets(
     MakeTrackletsConfig const& config,
     std::vector<Detection> &pairdets,
+    std::vector<std::vector<int>> &indvecs,
     string outpairfile
 );
 

@@ -1333,7 +1333,7 @@ std::vector<Detection> readDetectionsFile(
         }
         if (reachedeof == 0 && lnfromfile.size() >= 30) {
             // cout<<"MJD, RA, Dec: " << MJD-floor(MJD) << " " << RA << " " << Dec << "\n";
-            Detection o1 = Detection(MJD, RA, Dec, 0L, 0L, 0L, idstring, mag, band, obscode, -lct, {});
+            Detection o1 = Detection(MJD, RA, Dec, 0L, 0L, 0L, idstring, mag, band, obscode, -lct);
             detvec.push_back(o1);
         }
     }
@@ -1616,16 +1616,17 @@ void computeHelioPositions(
                      << " between image " << imct << " and detection " << i << "\n";
                 // return (4); // fix this later
             }
-            detvec[i].indvec = {};  // Just making sure the index vectors are empty at this point.
+            // detvec[i].indvec = {};  // Just making sure the index vectors are empty at this point.
         }
     }
 }
 
-std::tuple<std::vector<Detection>, std::vector<LongPair>> buildTracklets(
+std::tuple<std::vector<Detection>, std::vector<LongPair>, std::vector<std::vector<int>>> buildTracklets(
     MakeTrackletsConfig const& config,
     std::vector<Detection> &detvec,
     std::vector<ImageLog> &img_log
 ) {
+    std::vector<std::vector<int>> indvecs = {};
     std::vector<LongPair> pairvec = {};
     std::vector<Detection> pairdets = {};
     LongPair onepair = LongPair(0, 0);
@@ -1760,7 +1761,8 @@ std::tuple<std::vector<Detection>, std::vector<LongPair>> buildTracklets(
                                     -1;  // Mark as paired by changing to positive sign.
                             pairdets.push_back(
                                     detvec[axyvec[detct].index]);  // Load into paired detection vector
-                            pairdets[pdct].indvec = {};  // Make sure index vector is currently empty.
+                            indvecs.push_back({}); // Make sure indvecs are the same size as pairdets
+                            // pairdets[pdct].indvec = {};  // Make sure index vector is currently empty.
                             detvec[axyvec[detct].index].index =
                                     pdct;  // Re-assign index to apply to paired detection vector
                             pdct++;        // Increment count of paired detections
@@ -1778,7 +1780,8 @@ std::tuple<std::vector<Detection>, std::vector<LongPair>> buildTracklets(
                                         -1;  // Mark as paired by changing to positive sign
                                 pairdets.push_back(detvec[kdvec[matchpt].point.index]);  // Load into paired
                                                                                          // detection vector
-                                pairdets[pdct].indvec = {};  // Make sure index vector is currently empty.
+                                indvecs.push_back({});  // Make sure indvecs are the same size as pairdets
+                                // pairdets[pdct].indvec = {};  // Make sure index vector is currently empty.
                                 detvec[kdvec[matchpt].point.index].index =
                                         pdct;  // Re-assign index to apply to paired detection vector
                                 pdct++;        // Increment count of paired detections
@@ -1798,10 +1801,14 @@ std::tuple<std::vector<Detection>, std::vector<LongPair>> buildTracklets(
                             pairct++;
                             apct++;
                             // Load index of each detection into the paired index vector of the other
-                            pairdets[detvec[axyvec[detct].index].index].indvec.push_back(
-                                    detvec[kdvec[matchpt].point.index].index);
-                            pairdets[detvec[kdvec[matchpt].point.index].index].indvec.push_back(
-                                    detvec[axyvec[detct].index].index);
+                            indvecs[detvec[axyvec[detct].index].index].push_back(
+                                detvec[kdvec[matchpt].point.index].index);
+                            indvecs[detvec[kdvec[matchpt].point.index].index].push_back(
+                                detvec[axyvec[detct].index].index);
+                            // pairdets[detvec[axyvec[detct].index].index].indvec.push_back(
+                            //        detvec[kdvec[matchpt].point.index].index);
+                            // pairdets[detvec[kdvec[matchpt].point.index].index].indvec.push_back(
+                            //        detvec[axyvec[detct].index].index);
                         }
                         // Close if-statement checking if image A detection was matched to anything.
                     }
@@ -1819,12 +1826,13 @@ std::tuple<std::vector<Detection>, std::vector<LongPair>> buildTracklets(
     if (DEBUG >= 1) cout << "Test count of paired detections: " << pdct << " " << pairdets.size() << "\n";
     if (DEBUG >= 1) cout << "Test count of pairs: " << pairct << " " << pairvec.size() << "\n";
 
-    return std::make_tuple(pairdets, pairvec);
+    return std::make_tuple(pairdets, pairvec, indvecs);
 }
 
 void refineTracklets(
     MakeTrackletsConfig const& config,
     std::vector<Detection> &pairdets,
+    std::vector<std::vector<int>> &indvecs,
     string outpairfile
 ) {
     ofstream outstream1;
@@ -1839,9 +1847,14 @@ void refineTracklets(
     long double minvel = config.minvel;
     int mintrkpts = config.mintrkpts;
 
+    // Make sure the detections and indvecs are the same size
+    assert(indvecs.size() == pairdets.size());
+
     // Load a vector storing the number of pair-partners found for each detection.
-    for (size_t i = 0; i < pairdets.size(); i++) {
-        LongIndex ppn = LongIndex(pairdets[i].indvec.size(), i);
+    //for (size_t i = 0; i < pairdets.size(); i++) {
+    for (size_t i = 0; i < indvecs.size(); i++) {
+        LongIndex ppn = LongIndex(indvecs[i].size(), i);
+        // LongIndex ppn = LongIndex(pairdets[i].indvec.size(), i);
         pair_partner_num.push_back(ppn);
     }
     // Sort the new vector by number of pair-partners
@@ -1859,12 +1872,15 @@ void refineTracklets(
     for (int i = pairdets.size() - 1; i >= 0; i--) {
         pdct = pair_partner_num[i].index;
         int istracklet = 0;  // Assume there is no tracklet unless one is confirmed to exist.
-        if (pairdets[pdct].indvec.size() > mintrkpts - 1) {
+        // if (pairdets[pdct].indvec.size() > mintrkpts - 1) {
+        if (indvecs[pdct].size() > mintrkpts - 1) {
             if (DEBUG >= 2) {
                 cout << "Working on detection " << i << " = " << pdct << " with " << pair_partner_num[i].lelem
-                     << " = " << pairdets[pdct].indvec.size() << " pair partners:\n";
-                for (size_t j = 0; j < pairdets[pdct].indvec.size(); j++) {
-                    cout << pairdets[pdct].indvec[j] << ", ";
+                     //<< " = " << pairdets[pdct].indvec.size() << " pair partners:\n";
+                     << " = " << indvecs[pdct].size() << " pair partners:\n";
+                // for (size_t j = 0; j < pairdets[pdct].indvec.size(); j++) {
+                for (size_t j = 0; j < indvecs[pdct].size(); j++) {
+                    cout << indvecs[pdct][j] << ", ";
                 }
                 cout << "\n";
             }
@@ -1874,9 +1890,13 @@ void refineTracklets(
             // storing x,y projected coordinates in axyvec.
             std::vector<XYIndex> axyvec = {};
             std::vector<Detection> ppset = {};
-            for (size_t j = 0; j < pairdets[pdct].indvec.size(); j++) {
-                long detct = pairdets[pdct].indvec[j];
-                if (pairdets[detct].indvec.size() > 0) {
+            std::vector<std::vector<int>> ppinds = {};
+            // for (size_t j = 0; j < pairdets[pdct].indvec.size(); j++) {
+            for (size_t j = 0; j < indvecs[pdct].size(); j++) {
+                // long detct = pairdets[pdct].indvec[j];
+                long detct = indvecs[pdct][j];
+                // if (pairdets[detct].indvec.size() > 0) {
+                if (indvecs[detct].size() > 0) {
                     // Detection detct hasn't already been allocated to a tracklet.
                     distradec02(pairdets[pdct].RA, pairdets[pdct].Dec, pairdets[detct].RA,
                                 pairdets[detct].Dec, &dist, &pa);
@@ -1887,6 +1907,7 @@ void refineTracklets(
                                                        // mainly just to have some way to store the
                                                        // indices of mutually consistent pair partners
                                                        // on the next step
+                    ppinds.push_back(indvecs[detct]);
                 }
             }
             if (DEBUG >= 2)
@@ -1908,7 +1929,8 @@ void refineTracklets(
                     // return (4);
                 }
                 // Make sure corresponding index vector in ppset is empty
-                ppset[j].indvec = {};
+                // ppset[j].indvec = {};
+                ppinds[j] = {};
                 // Count consistent pair partners
                 if (DEBUG >= 2) cout << "Counting consistent pair partners\n";
                 for (size_t k = 0; k < axyvec.size(); k++) {
@@ -1921,7 +1943,8 @@ void refineTracklets(
                             cout << "Detection " << axyvec[j].index << ":" << axyvec[k].index
                                  << " dist = " << dist << "\n";
                         if (dist < 2.0 * maxgcr) {
-                            ppset[j].indvec.push_back(k);
+                            //ppset[j].indvec.push_back(k);
+                            ppinds[j].push_back(k);
                         }
                     }
                 }
@@ -1933,9 +1956,12 @@ void refineTracklets(
             if (DEBUG >= 2) cout << "size = " << ppset.size() << "\n";
             for (size_t j = 0; j < ppset.size(); j++) {
                 if (DEBUG >= 2)
-                    cout << j << ":" << ppset.size() - 1 << " size = " << ppset[j].indvec.size() << " ";
-                if (ppset[j].indvec.size() + 2 > tracklet_size) {
-                    tracklet_size = ppset[j].indvec.size() +
+                    //cout << j << ":" << ppset.size() - 1 << " size = " << ppset[j].indvec.size() << " ";
+                    cout << j << ":" << ppset.size() - 1 << " size = " << ppinds[j].size() << " ";
+                // if (ppset[j].indvec.size() + 2 > tracklet_size) {
+                if (ppinds[j].size() + 2 > tracklet_size) {
+                    //tracklet_size = ppset[j].indvec.size() +
+                    tracklet_size = ppinds[j].size() +
                                     2;  // We add one for pdct, one for j, to get actual tracklet size
                     biggest_tracklet = j;
                     if (DEBUG >= 2)
@@ -1963,11 +1989,16 @@ void refineTracklets(
                                      axyvec[biggest_tracklet].index);
                 track_mrdi_vec.push_back(p3di);
                 // Load the other points
-                for (size_t j = 0; j < ppset[biggest_tracklet].indvec.size(); j++) {
-                    p3di = Point3DIndex(ppset[ppset[biggest_tracklet].indvec[j]].MJD - pairdets[pdct].MJD,
-                                         axyvec[ppset[biggest_tracklet].indvec[j]].x,
-                                         axyvec[ppset[biggest_tracklet].indvec[j]].y,
-                                         axyvec[ppset[biggest_tracklet].indvec[j]].index);
+                //for (size_t j = 0; j < ppset[biggest_tracklet].indvec.size(); j++) {
+                for (size_t j = 0; j < ppinds[biggest_tracklet].size(); j++) {
+                    //p3di = Point3DIndex(ppset[ppset[biggest_tracklet].indvec[j]].MJD - pairdets[pdct].MJD,
+                    //                     axyvec[ppset[biggest_tracklet].indvec[j]].x,
+                    //                     axyvec[ppset[biggest_tracklet].indvec[j]].y,
+                    //                     axyvec[ppset[biggest_tracklet].indvec[j]].index);
+                    p3di = Point3DIndex(ppset[ppinds[biggest_tracklet][j]].MJD - pairdets[pdct].MJD,
+                                        axyvec[ppinds[biggest_tracklet][j]].x,
+                                        axyvec[ppinds[biggest_tracklet][j]].y,
+                                        axyvec[ppinds[biggest_tracklet][j]].index);
                     track_mrdi_vec.push_back(p3di);
                     // timevec.push_back(ppset[ppset[biggest_tracklet].indvec[j]].MJD - pairdets[pdct].MJD);
                     // xvec.push_back(axyvec[ppset[biggest_tracklet].indvec[j]].x);
@@ -2167,7 +2198,8 @@ void refineTracklets(
                         // and wipe all the associated index vectors.
                         for (size_t j = 0; j < detindexvec.size(); j++) {
                             outstream1 << detindexvec[j] << "\n";
-                            pairdets[detindexvec[j]].indvec = {};
+                            //pairdets[detindexvec[j]].indvec = {};
+                            indvecs[detindexvec[j]] = {};
                         }
                         istracklet = 1;
                         // Close if-statement confirming that a bona fide,
@@ -2188,14 +2220,17 @@ void refineTracklets(
             istracklet = 0;
         if (istracklet == 0 && mintrkpts == 2) {
             // Write out all the pairs as normal
-            for (size_t j = 0; j < pairdets[pdct].indvec.size(); j++) {
-                int k = pairdets[pdct].indvec[j];
+            // for (size_t j = 0; j < pairdets[pdct].indvec.size(); j++) {
+            for (size_t j = 0; j < indvecs[pdct].size(); j++) {
+                //int k = pairdets[pdct].indvec[j];
+                int k = indvecs[pdct][j];
                 // Calculate angular arc and angular velocity
                 distradec02(pairdets[pdct].RA, pairdets[pdct].Dec, pairdets[k].RA, pairdets[k].Dec, &dist,
                             &pa);
                 double angvel = dist / fabs(pairdets[pdct].MJD - pairdets[k].MJD);  // Degrees per day
                 dist *= 3600.0l;                                             // Arcseconds
-                if (pairdets[k].indvec.size() > 0 && k > pdct && angvel >= minvel && dist >= minarc &&
+                //if (pairdets[k].indvec.size() > 0 && k > pdct && angvel >= minvel && dist >= minarc &&
+                if (indvecs[k].size() > 0 && k > pdct && angvel >= minvel && dist >= minarc &&
                     angvel <= maxvel) {
                     outstream1 << "P " << pdct << " " << k << "\n";
                 } else if (angvel < minvel || dist < minarc) {
