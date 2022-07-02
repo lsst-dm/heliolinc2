@@ -6,21 +6,22 @@
 
 namespace py = pybind11;
 
-void fill_struct(Observatory & out, Observatory const& in) {
+void fill_struct(Observatory & out, Observatory const& in, long i) {
     memcpy(out.obscode, in.obscode, sizeof(in.obscode));
     out.obslon = in.obslon;
     out.plxcos = in.plxcos;
     out.plxsin = in.plxsin;
 }
 
-void fill_struct(Detection & out, Detection const& in) {
-    memcpy(out.idstring, in.idstring, sizeof(in.idstring));
+void fill_struct(Detection & out, Detection const& in, long i) {
     out.MJD = in.MJD;
     out.RA = in.RA;
     out.Dec = in.Dec;
-    memcpy(out.band, in.band, sizeof(in.band));
+    memcpy(out.idstring, in.idstring, sizeof(in.idstring));
     out.mag = in.mag;
+    memcpy(out.band, in.band, sizeof(in.band));
     memcpy(out.obscode, in.obscode, sizeof(in.obscode));
+    out.index = -i-2;
 }
 
 template<typename T>
@@ -35,7 +36,7 @@ std::vector<T> ndarray_to_vec(py::array_t<T> py_vec) {
         T data_out;
         auto &data_in = data_ref[i];
 
-        fill_struct(data_out, data_in);
+        fill_struct(data_out, data_in, i);
 
         vec.push_back(data_out);
     }
@@ -123,7 +124,8 @@ void makeTracklets(
     cout << "Make tracklets... ";
     std::vector<LongPair> pairvec = {};
     std::vector<Detection> pairdets = {};
-    std::tie(pairdets, pairvec) = buildTracklets(config, detvec, img_log);
+    std::vector<std::vector<int>> indvecs = {};
+    std::tie(pairdets, pairvec, indvecs) = buildTracklets(config, detvec, img_log);
     cout << "Done." << endl;
 
     cout << "Writing paired detections file... ";
@@ -144,7 +146,7 @@ void makeTracklets(
 
     cout << "Refining tracklets... ";
     string outpairfile = "pair_sol_month04a.csv";
-    refineTracklets(config, pairdets, outpairfile);
+    refineTracklets(config, pairdets, indvecs, outpairfile);
     cout << "Done." << endl;
 
     return;
@@ -152,28 +154,32 @@ void makeTracklets(
 
 void makeTracklets(
     MakeTrackletsConfig config,
-    py::array py_obsv
+    py::array_t<Observatory> py_obsv,
+    py::array_t<Detection> py_detvec
 ) {
     cout << "Testing C++ wrapper" << endl;
 
-    int idcol = 1;
-    int mjdcol = 3;
-    int racol = 6;
-    int deccol = 8;
-    int magcol = 32;
-    int bandcol = 26;
-    int obscodecol = 38;
+    //int idcol = 1;
+    //int mjdcol = 3;
+    //int racol = 6;
+    //int deccol = 8;
+    //int magcol = 32;
+    //int bandcol = 26;
+    //int obscodecol = 38;
 
-    //cout << "Reading obscode file... ";
+    cout << "Reading obscode file... ";
+    std::vector<Observatory> observatory_list = ndarray_to_vec(py_obsv);
     //std::vector<Observatory> observatory_list = readObscodeFile(config.obscodefile);
-    //cout << "Done." << endl;
-    std::vector<Observatory> observatory_list = ndarray_to_vec<Observatory>(py_obsv);
+    cout << "Done." << endl;
+    fflush(stdout);
 
     cout << "Reading detections file... ";
-    std::vector<Detection> detvec =
-            readDetectionsFile(config.indetfile, idcol, mjdcol, racol, deccol, magcol, bandcol, obscodecol);
+    std::vector<Detection> detvec = ndarray_to_vec(py_detvec);
+    sort(detvec.begin(), detvec.end(), timeCompareDetections);
+    //std::vector<Detection> detvec =
+    //        readDetectionsFile(config.indetfile, idcol, mjdcol, racol, deccol, magcol, bandcol, obscodecol);
     cout << "Done." << endl;
-    //std::vector<Detection> detvec = ndarray_to_vec(py_detvec);
+    fflush(stdout);
 
     cout << "Read/Make image file... ";
     std::vector<ImageLog> img_log = {};
@@ -186,7 +192,7 @@ void makeTracklets(
         img_log = makeImageLogs(config, detvec);
         cout << "Done." << endl;
     }
-    cout << "Done." << endl;
+    fflush(stdout);
 
     cout << "Read Earth ephemerides... ";
     std::vector<long double> EarthMJD = {};
@@ -194,6 +200,7 @@ void makeTracklets(
     std::vector<Point3LD> Earthvel = {};
     std::tie(EarthMJD, Earthpos, Earthvel) = readEarthEphemerides(config.earthfile);
     cout << "Done." << endl;
+    fflush(stdout);
 
     cout << "Writing test files...";
     // Output for testing
@@ -226,16 +233,20 @@ void makeTracklets(
         outstream.close();
     }
     cout << "Done." << endl;
+    fflush(stdout);
 
     cout << "Compute heliocentric positions... ";
     computeHelioPositions(detvec, img_log, observatory_list, EarthMJD, Earthpos);
     cout << "Done." << endl;
+    fflush(stdout);
 
     cout << "Make tracklets... ";
     std::vector<LongPair> pairvec = {};
     std::vector<Detection> pairdets = {};
-    std::tie(pairdets, pairvec) = buildTracklets(config, detvec, img_log);
+    std::vector<std::vector<int>> indvecs = {};
+    std::tie(pairdets, pairvec, indvecs) = buildTracklets(config, detvec, img_log);
     cout << "Done." << endl;
+    fflush(stdout);
 
     cout << "Writing paired detections file... ";
     string pairdetfile = "pairdets_sol_month04a.csv";
@@ -252,11 +263,13 @@ void makeTracklets(
     }
     outstream.close();
     cout << "Done." << endl;
+    fflush(stdout);
 
     cout << "Refining tracklets... ";
     string outpairfile = "pair_sol_month04a.csv";
-    refineTracklets(config, pairdets, outpairfile);
+    refineTracklets(config, pairdets, indvecs, outpairfile);
     cout << "Done." << endl;
+    fflush(stdout);
 
     return;
 }
@@ -266,8 +279,7 @@ PYBIND11_MODULE(hela, m) {
 
     // Structures/Classes
     PYBIND11_NUMPY_DTYPE(Observatory, obscode, obslon, plxcos, plxsin);
-    PYBIND11_NUMPY_DTYPE(PyDetection, indvec);
-    // PYBIND11_NUMPY_DTYPE(Detection, MJD, RA, Dec, x, y, z, idstring, mag, band, obscode, index, indvec);
+    PYBIND11_NUMPY_DTYPE(Detection, MJD, RA, Dec, x, y, z, idstring, mag, band, obscode, index);
     // PYBIND11_NUMPY_DTYPE(ImageLog, MJD, RA, Dec, obscode, startind, endind);
 
     // Config class
@@ -292,6 +304,7 @@ PYBIND11_MODULE(hela, m) {
     m.def("makeTracklets", py::overload_cast<MakeTrackletsConfig>(&makeTracklets), "Make tracklets from set of detections.");
     m.def(
         "makeTracklets",
-        py::overload_cast<MakeTrackletsConfig, py::array>(&makeTracklets),
-        "Make tracklets from set of detections.");
+        py::overload_cast<MakeTrackletsConfig, py::array_t<Observatory>, py::array_t<Detection>>(&makeTracklets),
+        "Make tracklets from set of detections."
+    );
 }
