@@ -27,7 +27,7 @@ void stringncopy01(char *dest, const string &source, int n)
     dest[n-1]='\0';
   }
 }
- 
+
 // stringnmatch01: March 09, 2022:
 // like library function strncmp, but works the way I want it to.
 // Compares first n characters of two character arrays
@@ -56,7 +56,7 @@ void make_imat(int nx, int ny, vector <vector <int>> &imat)
   int j=0;
   vector <int> tvec;
   imat = {};
-  
+
   for(i=0;i<=nx;i++) {
     tvec={};
     for(j=0;j<=ny;j++) tvec.push_back(0);
@@ -77,7 +77,7 @@ void make_lmat(int nx, int ny, vector <vector <long>> &lmat)
   int j=0;
   vector <long> tvec;
   lmat = {};
-  
+
   for(i=0;i<=nx;i++) {
     tvec={};
     for(j=0;j<=ny;j++) tvec.push_back(0);
@@ -98,7 +98,7 @@ void make_cmat(int nx, int ny, vector <vector <char>> &cmat)
   int j=0;
   vector <char> tvec;
   cmat = {};
-  
+
   for(i=0;i<=nx;i++) {
     tvec={};
     for(j=0;j<=ny;j++) tvec.push_back('\0');
@@ -119,7 +119,7 @@ void make_dmat(int nx, int ny, vector <vector <double>> &dmat)
   int j=0;
   vector <double> tvec;
   dmat = {};
-  
+
   for(i=0;i<=nx;i++) {
     tvec={};
     for(j=0;j<=ny;j++) tvec.push_back(0.0);
@@ -140,7 +140,7 @@ void make_LDmat(int nx, int ny, vector <vector <long double>> &ldmat)
   int j=0;
   vector <long double> tvec;
   ldmat = {};
-  
+
   for(i=0;i<=nx;i++) {
     tvec={};
     for(j=0;j<=ny;j++) tvec.push_back(0.0);
@@ -261,7 +261,7 @@ int celedeproj01(point3d p3, double *RA, double *Dec)
     return(3);
   }
 };
-    
+
 // celeproj01LD: November 05, 2021
 // Given double precision RA, Dec in DEGREES, project
 // onto the unit sphere and return an object of class point3d.
@@ -315,8 +315,8 @@ int celedeproj01LD(point3LD p3, long double *RA, long double *Dec)
     return(3);
   }
 };
-    
-  
+
+
 // angspeed01: November 03, 2021
 // given two observations of class Obs, which contains
 // just the RA, Dec, and MJD of a detection of some astronomical
@@ -501,7 +501,7 @@ int splitxy(const vector <xy_index> &xyvec, int dim, long splitpoint, vector <xy
   long i=0;
   double xval = xyvec[splitpoint].x;
   double yval = xyvec[splitpoint].y;
-  
+
   if(dim%2==1) {
     // Split on x
     for(i=0 ; i<xyvec.size() ; i++) {
@@ -545,7 +545,7 @@ int kdtree01(const vector <xy_index> &xyvec, int dim, long rootptxy, long rootpt
   vector <xy_index> rightvec = {};
 
   status = splitxy(xyvec,dim,rootptxy,leftvec,rightvec);
-  
+
   if(dim==1) dim=2;
   else dim=1;
 
@@ -571,7 +571,7 @@ int kdtree01(const vector <xy_index> &xyvec, int dim, long rootptxy, long rootpt
     // There is no right branch
     kdvec[rootptkd].right = -1;
   }
-   
+
  if(leftvec.size()>1) {
     lmed = medindex(leftvec,dim);
     lp = kdpoint(leftvec[lmed],-1,-1,dim);
@@ -581,7 +581,7 @@ int kdtree01(const vector <xy_index> &xyvec, int dim, long rootptxy, long rootpt
     leftrootkd = kdct;
     kdtest = kdvec[kdct];
  }
- 
+
   if(rightvec.size()>1) {
     rmed = medindex(rightvec,dim);
     rp = kdpoint(rightvec[rmed],-1,-1,dim);
@@ -665,7 +665,7 @@ int kdrange01(const vector <kdpoint> &kdvec,double x,double y,double range,vecto
 		}
 		else {
 		  checkit[checknum-1] = rightpoint;
-		}		
+		}
 	      }
 	    }
 	    else if(rightpoint>=0) {
@@ -860,7 +860,7 @@ int splitLDx2(const vector <point6LDx2> &pointvec, int dim, long splitpoint, vec
   } else {
       cerr << "ERROR: splitLDx2 asked to split on undefined dimension " << dim << "\n";
       return(1);
-  } 
+  }
   return(0);
 }
 
@@ -917,7 +917,7 @@ int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long splitpoint, long
     // There is no right branch
     kdvec[kdroot].right = -1;
   }
-   
+
  if(leftvec.size()>1) {
     lmed = medind_6LDx2(leftvec,dim);
     lp = KD_point6LDx2(leftvec[lmed],-1,-1,dim,0);
@@ -926,7 +926,7 @@ int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long splitpoint, long
     kdvec[kdroot].left = kdct;
     leftrootkd = kdct;
  }
- 
+
   if(rightvec.size()>1) {
     rmed = medind_6LDx2(rightvec,dim);
     rp = KD_point6LDx2(rightvec[rmed],-1,-1,dim,0);
@@ -958,7 +958,7 @@ int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long splitpoint, long
 long double point6LDx2_dist(const point6LDx2 &p1, const point6LDx2 &p2)
 {
   return(sqrt(LDSQUARE(p1.x - p2.x) + LDSQUARE(p1.y - p2.y) + LDSQUARE(p1.z - p2.z) + LDSQUARE(p1.vx - p2.vx) + LDSQUARE(p1.vy - p2.vy) + LDSQUARE(p1.vz - p2.vz)));
-}	 
+}
 
 // point6LDx2_dist2: January 05, 2022:
 // Calculate the squared distance in 6-dimensional parameter space
@@ -966,7 +966,7 @@ long double point6LDx2_dist(const point6LDx2 &p1, const point6LDx2 &p2)
 long double point6LDx2_dist2(const point6LDx2 &p1, const point6LDx2 &p2)
 {
   return(LDSQUARE(p1.x - p2.x) + LDSQUARE(p1.y - p2.y) + LDSQUARE(p1.z - p2.z) + LDSQUARE(p1.vx - p2.vx) + LDSQUARE(p1.vy - p2.vy) + LDSQUARE(p1.vz - p2.vz));
-}	 
+}
 
 // kdrange_6D01: January 05, 2022:
 // Given a k-d tree vector kdvec created by kdtree_6D01,
@@ -1084,7 +1084,7 @@ long double cluster_stats6D01(const vector <KD_point6LDx2> &cluster, vector <lon
     cerr << "ERROR: cluster_stats6D01 called with only " << cluster.size() << " points.\n";
     return(-1.0L);
   }
-  
+
   long double xmean, ymean, zmean, vxmean, vymean, vzmean;
   xmean = ymean = zmean = vxmean = vymean = vzmean = 0.0L;
   long double xrms, yrms, zrms, vxrms, vyrms, vzrms;
@@ -1093,13 +1093,13 @@ long double cluster_stats6D01(const vector <KD_point6LDx2> &cluster, vector <lon
   long double posrms = 0.0L;
   long double velrms = 0.0L;
   long double totalrms = 0.0L;
-  
+
   for(int i=0; i<cluster.size(); i++) {
-    xmean += cluster[i].point.x;   
-    ymean += cluster[i].point.y;   
+    xmean += cluster[i].point.x;
+    ymean += cluster[i].point.y;
     zmean += cluster[i].point.z;
-    vxmean += cluster[i].point.vx;   
-    vymean += cluster[i].point.vy;   
+    vxmean += cluster[i].point.vx;
+    vymean += cluster[i].point.vy;
     vzmean += cluster[i].point.vz;
   }
   xmean /= norm;
@@ -1108,20 +1108,20 @@ long double cluster_stats6D01(const vector <KD_point6LDx2> &cluster, vector <lon
   vxmean /= norm;
   vymean /= norm;
   vzmean /= norm;
-  
+
   meanvals.push_back(xmean);
   meanvals.push_back(ymean);
   meanvals.push_back(zmean);
   meanvals.push_back(vxmean);
   meanvals.push_back(vymean);
   meanvals.push_back(vzmean);
-  
+
   for(int i=0; i<cluster.size(); i++) {
-    xrms += LDSQUARE(cluster[i].point.x - xmean);   
-    yrms += LDSQUARE(cluster[i].point.y - ymean);   
+    xrms += LDSQUARE(cluster[i].point.x - xmean);
+    yrms += LDSQUARE(cluster[i].point.y - ymean);
     zrms += LDSQUARE(cluster[i].point.z - zmean);
-    vxrms += LDSQUARE(cluster[i].point.vx - vxmean);   
-    vyrms += LDSQUARE(cluster[i].point.vy - vymean);   
+    vxrms += LDSQUARE(cluster[i].point.vx - vxmean);
+    vyrms += LDSQUARE(cluster[i].point.vy - vymean);
     vzrms += LDSQUARE(cluster[i].point.vz - vzmean);
   }
 
@@ -1158,8 +1158,8 @@ long double cluster_stats6D01(const vector <KD_point6LDx2> &cluster, vector <lon
 
   return(totalrms);
 }
-  
-  
+
+
 // DBSCAN_6D01: January 06, 2022:
 // Given an input 6-dimensional kdtree produced by kdtree_6D01,
 // find clusters using the DBSCAN algorithm, with range querying
@@ -1288,7 +1288,7 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 	  mjdstep.push_back(clustmjd[i]-clustmjd[i-1]);
 	}
 	// Count steps large enough to suggest a daytime period between nights.
-	numdaysteps=0;	
+	numdaysteps=0;
 	for(i=0; i<mjdstep.size(); i++) {
 	  if(mjdstep[i]>INTRANIGHTSTEP) numdaysteps++;
 	}
@@ -1568,7 +1568,7 @@ int splitix2(const vector <point6ix2> &pointvec, int dim, long splitpoint, vecto
   } else {
       cerr << "ERROR: splitix2 asked to split on undefined dimension " << dim << "\n";
       return(1);
-  } 
+  }
   return(0);
 }
 
@@ -1625,7 +1625,7 @@ int kdtree_6i01(const vector <point6ix2> &invec, int dim, long splitpoint, long 
     // There is no right branch
     kdvec[kdroot].right = -1;
   }
-   
+
  if(leftvec.size()>1) {
     lmed = medind_6ix2(leftvec,dim);
     lp = KD_point6ix2(leftvec[lmed],-1,-1,dim,0);
@@ -1634,7 +1634,7 @@ int kdtree_6i01(const vector <point6ix2> &invec, int dim, long splitpoint, long 
     kdvec[kdroot].left = kdct;
     leftrootkd = kdct;
  }
- 
+
   if(rightvec.size()>1) {
     rmed = medind_6ix2(rightvec,dim);
     rp = KD_point6ix2(rightvec[rmed],-1,-1,dim,0);
@@ -1666,7 +1666,7 @@ int kdtree_6i01(const vector <point6ix2> &invec, int dim, long splitpoint, long 
 long point6ix2_dist2(const point6ix2 &p1, const point6ix2 &p2)
 {
   return(LSQUARE(p1.x - p2.x) + LSQUARE(p1.y - p2.y) + LSQUARE(p1.z - p2.z) + LSQUARE(p1.vx - p2.vx) + LSQUARE(p1.vy - p2.vy) + LSQUARE(p1.vz - p2.vz));
-}	 
+}
 
 // kdrange_6i01: January 07, 2022:
 // Given a k-d tree vector kdvec created by kdtree_6i01,
@@ -1788,7 +1788,7 @@ double cluster_stats6i01(const vector <KD_point6ix2> &cluster, double intconvsca
     cerr << "ERROR: cluster_stats6i01 called with only " << cluster.size() << " points.\n";
     return(-1.0L);
   }
-  
+
   double xmean, ymean, zmean, vxmean, vymean, vzmean;
   xmean = ymean = zmean = vxmean = vymean = vzmean = 0.0l;
   double xrms, yrms, zrms, vxrms, vyrms, vzrms;
@@ -1797,13 +1797,13 @@ double cluster_stats6i01(const vector <KD_point6ix2> &cluster, double intconvsca
   double posrms = 0.0l;
   double velrms = 0.0l;
   double totalrms = 0.0l;
-  
+
   for(int i=0; i<cluster.size(); i++) {
-    xmean += intconvscale * cluster[i].point.x;   
-    ymean += intconvscale * cluster[i].point.y;   
+    xmean += intconvscale * cluster[i].point.x;
+    ymean += intconvscale * cluster[i].point.y;
     zmean += intconvscale * cluster[i].point.z;
-    vxmean += intconvscale * cluster[i].point.vx;   
-    vymean += intconvscale * cluster[i].point.vy;   
+    vxmean += intconvscale * cluster[i].point.vx;
+    vymean += intconvscale * cluster[i].point.vy;
     vzmean += intconvscale * cluster[i].point.vz;
   }
   xmean /= norm;
@@ -1812,20 +1812,20 @@ double cluster_stats6i01(const vector <KD_point6ix2> &cluster, double intconvsca
   vxmean /= norm;
   vymean /= norm;
   vzmean /= norm;
-  
+
   meanvals.push_back(xmean);
   meanvals.push_back(ymean);
   meanvals.push_back(zmean);
   meanvals.push_back(vxmean);
   meanvals.push_back(vymean);
   meanvals.push_back(vzmean);
-  
+
   for(int i=0; i<cluster.size(); i++) {
-    xrms += DSQUARE(intconvscale * cluster[i].point.x - xmean);   
-    yrms += DSQUARE(intconvscale * cluster[i].point.y - ymean);   
+    xrms += DSQUARE(intconvscale * cluster[i].point.x - xmean);
+    yrms += DSQUARE(intconvscale * cluster[i].point.y - ymean);
     zrms += DSQUARE(intconvscale * cluster[i].point.z - zmean);
-    vxrms += DSQUARE(intconvscale * cluster[i].point.vx - vxmean);   
-    vyrms += DSQUARE(intconvscale * cluster[i].point.vy - vymean);   
+    vxrms += DSQUARE(intconvscale * cluster[i].point.vx - vxmean);
+    vyrms += DSQUARE(intconvscale * cluster[i].point.vy - vymean);
     vzrms += DSQUARE(intconvscale * cluster[i].point.vz - vzmean);
   }
 
@@ -1862,7 +1862,7 @@ double cluster_stats6i01(const vector <KD_point6ix2> &cluster, double intconvsca
 
   return(totalrms);
 }
-  
+
 
 // DBSCAN_6i01: January 07, 2022:
 // Like DBSCAN_6D02 (NOT DBSCAN_6D01), but uses integerized state
@@ -1944,7 +1944,7 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
 	  // Close loop over the whole cluster
 	}
 	// Just finished loading a cluster.
-	if(cluster.size()>=npt) {	  
+	if(cluster.size()>=npt) {
 	  // This cluster has enough points to be considered.
 	  // Calculate some cluster statistics.
 	  meanvec = rmsvec = {};
@@ -1971,7 +1971,7 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
   return(clusternum);
 }
 
-		
+
 int celestial_to_statevec(double RA, double Dec,double delta,point3d &baryvec)
 {
   double x,y,z,theta,phi,thetapole,phipole;
@@ -1979,7 +1979,7 @@ int celestial_to_statevec(double RA, double Dec,double delta,point3d &baryvec)
   theta = Dec/DEGPRAD;
   phi = RA/DEGPRAD;
   thetapole = NEPDEC/DEGPRAD;
-      
+
   z = sin(theta);
   x = -cos(theta)*sin(phi);
   y = cos(theta)*cos(phi);
@@ -1996,7 +1996,7 @@ int celestial_to_statevecLD(long double RA, long double Dec,long double delta,po
   theta = Dec/DEGPRAD;
   phi = RA/DEGPRAD;
   thetapole = NEPDEC/DEGPRAD;
-      
+
   z = sin(theta);
   x = -cos(theta)*sin(phi);
   y = cos(theta)*cos(phi);
@@ -2013,7 +2013,7 @@ int celestial_to_stateunit(double RA, double Dec,point3d &baryvec)
   theta = Dec/DEGPRAD;
   phi = RA/DEGPRAD;
   thetapole = NEPDEC/DEGPRAD;
-      
+
   z = sin(theta);
   x = -cos(theta)*sin(phi);
   y = cos(theta)*cos(phi);
@@ -2030,7 +2030,7 @@ int celestial_to_stateunitLD(long double RA, long double Dec, point3LD &baryvec)
   theta = Dec/DEGPRAD;
   phi = RA/DEGPRAD;
   thetapole = NEPDEC/DEGPRAD;
-      
+
   z = sin(theta);
   x = -cos(theta)*sin(phi);
   y = cos(theta)*cos(phi);
@@ -2063,7 +2063,7 @@ int read_horizons_file(string infile, vector <double> &mjdvec, vector <point3d> 
   string teststring, lnfromfile;
   double x,y,z,vx,vy,vz,MJD;
   MJD=x=y=z=vz=vy=vz=0.0;
-  
+
   if(!instream1) {
     cerr << "ERROR: can't open input file " << infile << "\n";
     return(1);
@@ -2077,7 +2077,7 @@ int read_horizons_file(string infile, vector <double> &mjdvec, vector <point3d> 
       if(instream1.eof()) reachedeof=1; //End of file, fine.
       else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
       else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
- 
+
       if(lnfromfile.size()>=5) {
 	for(i=0;i<5;i++) {
 	  teststring.push_back(lnfromfile[i]);
@@ -2105,7 +2105,7 @@ int read_horizons_file(string infile, vector <double> &mjdvec, vector <point3d> 
 	teststring = "";
 	c='0';
 	i=0;
-	while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!=' ' && c!='\n' && c!=EOF) { 
+	while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!=' ' && c!='\n' && c!=EOF) {
 	  c=lnfromfile[i];
 	  if(c!=' ' && c!='=' && c!='\n' && c!=EOF) teststring.push_back(c);
 	  if(c==EOF) reachedeof=1;
@@ -2135,7 +2135,7 @@ int read_horizons_file(string infile, vector <double> &mjdvec, vector <point3d> 
 	  if(c!='=' && c!=' ' && c!='\n' && c!=EOF) teststring.push_back(c);
 	  i++;
 	}
-	x = stod(teststring);	    
+	x = stod(teststring);
 	teststring = "";
 	//Read to next equals sign, loading into teststring to get Y
 	if(i<lnfromfile.size()) c=lnfromfile[i];
@@ -2144,7 +2144,7 @@ int read_horizons_file(string infile, vector <double> &mjdvec, vector <point3d> 
 	  if(c!='=' && c!=' ' && c!='\n' && c!=EOF) teststring.push_back(c);
 	  i++;
 	}
-	y = stod(teststring);	    
+	y = stod(teststring);
 	teststring = "";
 	//Read to next equals sign, loading into teststring to get Z
 	if(i<lnfromfile.size()) c=lnfromfile[i];
@@ -2188,7 +2188,7 @@ int read_horizons_file(string infile, vector <double> &mjdvec, vector <point3d> 
 	  if(c!='=' && c!=' ' && c!='\n' && c!=EOF) teststring.push_back(c);
 	  i++;
 	}
-	vy = stod(teststring);	    
+	vy = stod(teststring);
 	teststring = "";
 	//Read to next equals sign, loading into teststring to get VZ
 	if(i<lnfromfile.size()) c=lnfromfile[i];
@@ -2248,7 +2248,7 @@ int read_horizons_fileLD(string infile, vector <long double> &mjdvec, vector <po
   string teststring, lnfromfile;
   long double x,y,z,vx,vy,vz,MJD;
   MJD=x=y=z=vz=vy=vz=0.0;
-  
+
   if(!instream1) {
     cerr << "ERROR: can't open input file " << infile << "\n";
     return(1);
@@ -2262,7 +2262,7 @@ int read_horizons_fileLD(string infile, vector <long double> &mjdvec, vector <po
       if(instream1.eof()) reachedeof=1; //End of file, fine.
       else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
       else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
- 
+
       if(lnfromfile.size()>=5) {
 	for(i=0;i<5;i++) {
 	  teststring.push_back(lnfromfile[i]);
@@ -2290,7 +2290,7 @@ int read_horizons_fileLD(string infile, vector <long double> &mjdvec, vector <po
 	teststring = "";
 	c='0';
 	i=0;
-	while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!=' ' && c!='\n' && c!=EOF) { 
+	while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!=' ' && c!='\n' && c!=EOF) {
 	  c=lnfromfile[i];
 	  if(c!=' ' && c!='=' && c!='\n' && c!=EOF) teststring.push_back(c);
 	  if(c==EOF) reachedeof=1;
@@ -2320,7 +2320,7 @@ int read_horizons_fileLD(string infile, vector <long double> &mjdvec, vector <po
 	  if(c!='=' && c!=' ' && c!='\n' && c!=EOF) teststring.push_back(c);
 	  i++;
 	}
-	x = stold(teststring);	    
+	x = stold(teststring);
 	teststring = "";
 	//Read to next equals sign, loading into teststring to get Y
 	if(i<lnfromfile.size()) c=lnfromfile[i];
@@ -2329,7 +2329,7 @@ int read_horizons_fileLD(string infile, vector <long double> &mjdvec, vector <po
 	  if(c!='=' && c!=' ' && c!='\n' && c!=EOF) teststring.push_back(c);
 	  i++;
 	}
-	y = stold(teststring);	    
+	y = stold(teststring);
 	teststring = "";
 	//Read to next equals sign, loading into teststring to get Z
 	if(i<lnfromfile.size()) c=lnfromfile[i];
@@ -2373,7 +2373,7 @@ int read_horizons_fileLD(string infile, vector <long double> &mjdvec, vector <po
 	  if(c!='=' && c!=' ' && c!='\n' && c!=EOF) teststring.push_back(c);
 	  i++;
 	}
-	vy = stold(teststring);	    
+	vy = stold(teststring);
 	teststring = "";
 	//Read to next equals sign, loading into teststring to get VZ
 	if(i<lnfromfile.size()) c=lnfromfile[i];
@@ -2421,7 +2421,7 @@ int poleswitch01(const double &inRA, const double &inDec, const double &poleRA, 
   double x,y,z,xp,yp,zp,thetap,phip;
   int badphip;
   x=y=z=xp=yp=zp=thetap=phip = 0l;
-  
+
   z = sin(inDec);
   x = cos(inDec)*cos(inRA-poleRA);
   y = cos(inDec)*sin(inRA-poleRA);
@@ -2498,7 +2498,7 @@ int poleswitch01LD(const long double &inRA, const long double &inDec, const long
   long double x,y,z,xp,yp,zp,thetap,phip;
   int badphip;
   x=y=z=xp=yp=zp=thetap=phip = 0L;
-  
+
   z = sin(inDec);
   x = cos(inDec)*cos(inRA-poleRA);
   y = cos(inDec)*sin(inRA-poleRA);
@@ -2571,7 +2571,7 @@ int poleswitch02(const double &inRA, const double &inDec, const double &poleRA, 
   double x,y,z,xp,yp,zp,thetap,phip;
   int badphip;
   x=y=z=xp=yp=zp=thetap=phip = 0l;
-  
+
   z = sin(inDec/DEGPRAD);
   x = cos(inDec/DEGPRAD)*cos(inRA/DEGPRAD-poleRA/DEGPRAD);
   y = cos(inDec/DEGPRAD)*sin(inRA/DEGPRAD-poleRA/DEGPRAD);
@@ -2645,7 +2645,7 @@ int poleswitch02LD(const long double &inRA, const long double &inDec, const long
   long double x,y,z,xp,yp,zp,thetap,phip;
   int badphip;
   x=y=z=xp=yp=zp=thetap=phip = 0L;
-  
+
   z = sin(inDec/DEGPRAD);
   x = cos(inDec/DEGPRAD)*cos(inRA/DEGPRAD-poleRA/DEGPRAD);
   y = cos(inDec/DEGPRAD)*sin(inRA/DEGPRAD-poleRA/DEGPRAD);
@@ -2770,7 +2770,7 @@ int precess01a(double ra1,double dec1,double mjd,double *ra2,double *dec2,int pr
 	  }
 	}
       else if(dec1==M_PI/2.0&&dec4!=M_PI/2.0)
-	{	  
+	{
 	  /*printf("precess01 has polar input right ascension case\n");*/
 	  ra4 = M_PI + zaa;
 	}
@@ -2824,7 +2824,7 @@ int precess01a(double ra1,double dec1,double mjd,double *ra2,double *dec2,int pr
 	{
 	  /*printf("precess01 has polar input right ascension case\n");*/
 	  ra4 = 2.0*M_PI-zetaa; /*Note this could be wrong*/
-                              /*There might be two solutions*/   
+                              /*There might be two solutions*/
 	}
       else if(dec4==M_PI/2.0)
 	{
@@ -2896,7 +2896,7 @@ int precess01aLD(long double ra1,long double dec1,long double mjd,long double *r
 	  }
 	}
       else if(dec1==M_PI/2.0L && dec4!=M_PI/2.0L)
-	{	  
+	{
 	  /*printf("precess01 has polar input right ascension case\n");*/
 	  ra4 = M_PI + zaa;
 	}
@@ -2950,7 +2950,7 @@ int precess01aLD(long double ra1,long double dec1,long double mjd,long double *r
 	{
 	  /*printf("precess01 has polar input right ascension case\n");*/
 	  ra4 = 2.0L*M_PI-zetaa; /*Note this could be wrong*/
-                              /*There might be two solutions*/   
+                              /*There might be two solutions*/
 	}
       else if(dec4==M_PI/2.0L)
 	{
@@ -2985,7 +2985,7 @@ int solvematrix01(const vector <vector <double>> &inmat, int eqnum, vector <doub
 
   eqhi=termhi=eqct=termct=i=j=0;
   max=pivot=0.0;
-     
+
   if(eqnum==1)
     {
       if(inmat[0][1]!=0.0)
@@ -3112,7 +3112,7 @@ int solvematrix01LD(const vector <vector <long double>> &inmat, int eqnum, vecto
 
   eqhi=termhi=eqct=termct=i=j=0;
   max=pivot=0.0;
-     
+
   if(eqnum==1)
     {
       if(inmat[0][1]!=0.0)
@@ -3331,7 +3331,7 @@ int planetpos01(double detmjd, int polyorder, const vector <double> &posmjd, con
   // by JPL Horizons for the state vectors.
   detmjd += TTDELTAT/SOLARDAY;
   // TT is ahead of UT1 because the Earth's rotation is slowing down.
-  
+
   //Interpolate to find the planet's exact position at the time
   //of the detection.
   pbf=0;
@@ -3420,7 +3420,7 @@ int planetpos01LD(long double detmjd, int polyorder, const vector <long double> 
   // by JPL Horizons for the state vectors.
   detmjd += TTDELTAT/SOLARDAY;
   // TT is ahead of UT1 because the Earth's rotation is slowing down.
-  
+
   //Interpolate to find the planet's exact position at the time
   //of the detection.
   pbf=0;
@@ -3506,7 +3506,7 @@ int planetposvel01LD(long double detmjd, int polyorder, const vector <long doubl
   int j=0;
   int k=0;
   make_LDvec(fitnum,fitvec);
-  
+
   // Convert input time from UT1 standard to the dynamical time (TT) used
   // by JPL Horizons for the state vectors.
   detmjd += TTDELTAT/SOLARDAY;
@@ -3597,7 +3597,7 @@ int nplanetpos01LD(long double detmjd, int planetnum, int polyorder, const vecto
 {
   int fitnum = polyorder+1;
   int mjdsize = posmjd.size();
-  int posvecsize = planetpos.size(); 
+  int posvecsize = planetpos.size();
   int pointsbefore = fitnum - fitnum/2;
   int pbf=0;
   int planetct=0;
@@ -3625,7 +3625,7 @@ int nplanetpos01LD(long double detmjd, int planetnum, int polyorder, const vecto
     cout << mjdsize << "x" << planetnum << " = " << mjdsize*planetnum << ", not " << posvecsize << "\n";
     return(-1);
   }
-  
+
   // Identify the point pbf that is a bit before the specified
   // time detmjd, and is the appropriate point to start the interpolation.
   // The number of timesteps pbf should be before detmjd depends on
@@ -3697,7 +3697,7 @@ int nplanetpos01LD(long double detmjd, int planetnum, int polyorder, const vecto
 int nplanetgrab01LD(int pointrequest, int planetnum, const vector <long double> &posmjd, const vector <point3LD> &planetpos, vector <point3LD> &outpos)
 {
   int mjdsize = posmjd.size();
-  int posvecsize = planetpos.size(); 
+  int posvecsize = planetpos.size();
   point3LD postemp = point3LD(0,0,0);
   int planetct=0;
 
@@ -3716,7 +3716,7 @@ int nplanetgrab01LD(int pointrequest, int planetnum, const vector <long double> 
       cout << "Requested point " << pointrequest << " when allowed range is 0-" << mjdsize-1 << "\n";
       return(2);
     }
-   
+
   //Interpolate to find the exact position of each planet at detmjd.
   for(planetct=0; planetct<planetnum; planetct++) {
     postemp.x = planetpos[planetct*mjdsize+pointrequest].x;
@@ -3749,7 +3749,7 @@ int observer_barycoords01(double detmjd, int polyorder, double lon, double obsco
   double crad = sqrt(obscos*obscos + obssine*obssine)*EARTHEQUATRAD;
   point3d obs_from_geocen = point3d(0,0,0);
   point3d geocen_from_barycen = point3d(0,0,0);
-  
+
   gmst = double(18.697374558) + double(24.06570982441908)*djdoff;
   // Add the longitude, converted to hours.
   // Note: at this point it stops being gmst.
@@ -3759,7 +3759,7 @@ int observer_barycoords01(double detmjd, int polyorder, double lon, double obsco
   while(gmst<0.0) gmst+=double(24.0);
   // Convert to degrees
   zenithRA = gmst * double(15.0);
-  // Get zenithDec    
+  // Get zenithDec
   if(obscos!=0.0) {
     zenithDec = atan(obssine/obscos)*DEGPRAD;
   } else if(obssine>=0.0) {
@@ -3806,7 +3806,7 @@ int observer_barycoords01LD(long double detmjd, int polyorder, long double lon, 
   long double crad = sqrt(obscos*obscos + obssine*obssine)*EARTHEQUATRAD;
   point3LD obs_from_geocen = point3LD(0,0,0);
   point3LD geocen_from_barycen = point3LD(0,0,0);
- 
+
   gmst = 18.697374558L + 24.06570982441908L*djdoff;
   // Add the longitude, converted to hours.
   // Note: at this point it stops being gmst.
@@ -3816,7 +3816,7 @@ int observer_barycoords01LD(long double detmjd, int polyorder, long double lon, 
   while(gmst<0.0L) gmst += 24.0L;
   // Convert to degrees
   zenithRA = gmst * 15.0L;
-  // Get zenithDec    
+  // Get zenithDec
   if(obscos!=0.0L) {
     zenithDec = atan(obssine/obscos)*DEGPRAD;
   } else if(obssine>=0.0L) {
@@ -3851,7 +3851,7 @@ int helioproj01(point3d unitbary, point3d obsbary,double heliodist,double &geodi
   double alphapos,alphaneg;
   double opdistcos,sunelong,barydist;
   double obsdot,opelong;
-  
+
   //cout << fixed << setprecision(9) << "helioproj01 input observer pos: " << obsbary.x << " " << obsbary.y << " " << obsbary.z << "\n";
   //cout << "barycentric unit vector: " << unitbary.x << " " << unitbary.y << " " << unitbary.z << "\n";
 
@@ -3863,7 +3863,7 @@ int helioproj01(point3d unitbary, point3d obsbary,double heliodist,double &geodi
   sunelong = 180.0 - opelong;
 
   //cout << "barydist = " << barydist << ", obsdot = " << obsdot << ", opdistcos = " << opdistcos << ", opelong = " << opelong << ", sunelong = " << sunelong << "\n";
-  
+
   // Default values, signify failure if returned.
   geodist = -1.0;
   projbary.x=projbary.y=projbary.z = 0.0;
@@ -3871,7 +3871,7 @@ int helioproj01(point3d unitbary, point3d obsbary,double heliodist,double &geodi
   a = 1.0;
   b = 2.0*obsdot;
   c = barydist*barydist - heliodist*heliodist;
-  
+
   if((b*b-4.0*a*c)<0.0) {
     // Quadratic equation for object's distance from the
     // observer has no solution: this unit vector extending
@@ -3904,7 +3904,7 @@ int helioproj01LD(point3LD unitbary, point3LD obsbary, long double heliodist, lo
   long double alphapos,alphaneg;
   long double opdistcos,sunelong,barydist;
   long double obsdot,opelong;
-  
+
   //cout << fixed << setprecision(9) << "helioproj01 input observer pos: " << obsbary.x << " " << obsbary.y << " " << obsbary.z << "\n";
   //cout << "barycentric unit vector: " << unitbary.x << " " << unitbary.y << " " << unitbary.z << "\n";
 
@@ -3916,7 +3916,7 @@ int helioproj01LD(point3LD unitbary, point3LD obsbary, long double heliodist, lo
   sunelong = 180.0L - opelong;
 
   //cout << "barydist = " << barydist << ", obsdot = " << obsdot << ", opdistcos = " << opdistcos << ", opelong = " << opelong << ", sunelong = " << sunelong << "\n";
-  
+
   // Default values, signify failure if returned.
   geodist = -1.0L;
   projbary.x=projbary.y=projbary.z = 0.0L;
@@ -3924,7 +3924,7 @@ int helioproj01LD(point3LD unitbary, point3LD obsbary, long double heliodist, lo
   a = 1.0L;
   b = 2.0L*obsdot;
   c = barydist*barydist - heliodist*heliodist;
-  
+
   if((b*b-4.0L*a*c)<0.0L) {
     // Quadratic equation for object's distance from the
     // observer has no solution: this unit vector extending
@@ -3994,7 +3994,7 @@ int integrate_orbit_constac(int planetnum, const vector <long double> &planetmjd
   vector <point3LD> planetnow;
   long double dt1=0L;
   int planetpointct=0;
-  
+
   // Find the point just after mjdstart, and the point just before mjdend.
   for(i=0;i<planetpointnum-1;i++)
     {
@@ -4010,12 +4010,12 @@ int integrate_orbit_constac(int planetnum, const vector <long double> &planetmjd
   // Load starting position and velocity.
   singlepos = startpos;
   singlevel = startvel;
-  
+
   // Calculate acceleration for the starting position and the nearest point.
   planetnow={};
   nplanetgrab01LD(startnear, planetnum, planetmjd, planetpos, planetnow);
   accelcalc01LD(planetnum, planetmasses, planetnow, singlepos, singleaccel);
-  
+
   // Use that as the first constant acceleration, and integrate forward.
   if(mjdend <= planetmjd[pointafter]) {
     // This next planet file timestep is after mjdend:
@@ -4090,7 +4090,7 @@ long double kep_transcendental(long double q, long double e, long double tol)
     if(psi_guess < 0.0L) psi_guess = 0.0L + tol;
     fpsi = psi_guess - e*sin(psi_guess) - q;
     fprime = 1.0L - e*cos(psi_guess);
-    // cout << "kep itct " << itct << "psi, fpsi, fprime: " << psi_guess << ", " << fpsi << ", " << fprime << "\n"; 
+    // cout << "kep itct " << itct << "psi, fpsi, fprime: " << psi_guess << ", " << fpsi << ", " << fprime << "\n";
     itct++;
   }
 
@@ -4102,7 +4102,7 @@ long double kep_transcendental(long double q, long double e, long double tol)
   // cout << "kep_transcendental obtained error of " << fpsi << " in only " << itct << " iterations\n";
   return(psi_guess);
 }
-    
+
 // Keplerint: December 08, 2021:
 // Integrate an orbit assuming we have a Keplerian 2-body problem
 // with all the mass in the Sun, and the input position and velocity
@@ -4125,11 +4125,11 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   int status = 0;
   long double junkra,junkdec,sinev,thetav,v1ra,v1dec;
   junkra = junkdec = sinev = thetav = v1ra = v1dec = 0L;
-    
+
   // Calculate scalar input position
   r0 = sqrt(dotprod3LD(startpos,startpos));
   v0 = sqrt(dotprod3LD(startvel,startvel));
-  
+
   // Calculate specific energy and angular momentum
   E = 0.5L*v0*v0 - MGsun/r0;
   lvec = crossprod3LD(startpos,startvel);
@@ -4138,7 +4138,7 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
     //cerr << "ERROR: Keplerint finds positive total energy: " << E << "\n";
     return(1);
   }
-		 
+
   // Calculate a and e: orbital semimajor axis and eccentricity.
   cout.precision(17);
   a = -MGsun*0.5L/E;
@@ -4149,7 +4149,7 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   }
 
   //cout << "semimajor axis = " << a/AU_KM << " and eccentricity = " << e << "\n";
-	       
+
   // Calculate angle theta0 from perihelion using simple ellipse geometry.
   if(e>0L) {
     costheta = ((a-a*e*e)/r0 - 1.0L)/e;
@@ -4161,7 +4161,7 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   }
   radvel = dotprod3LD(startpos,startvel)/r0;
   //cout << "Radial velocity = " << radvel << " km/sec\n";
-  
+
   if(radvel>=0) {
     // We are moving outward from perihelion: theta will be correct.
     //cout << "Moving outward from perihelion.\n";
@@ -4172,7 +4172,7 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
     //cout << "Moving inward towards perihelion.\n";
   }
   //cout << "theta0 = " << theta0*DEGPRAD << "\n";
-  
+
   // Calculate Goldstein's psi variable from theta.
   cospsi = (costheta + e)/(1.0L + costheta*e);
   if(cospsi>=-1.0L && cospsi<=1.0L) psi = acos(cospsi);
@@ -4185,13 +4185,13 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
     psi = 2.0L*M_PI - psi;
   }
   //cout << "psi = " << psi*DEGPRAD << "\n";
- 
+
   // Calculate time since perihelion using psi.
   omega = sqrt(MGsun/(a*a*a));
   //cout << "Period = " << 2.0L*M_PI/omega/SOLARDAY/365.25 << " years\n";
   t0omega = psi - e*sin(psi);
   //cout << "t0omega = " << t0omega;
- 
+
   // The new time t1 for which we want to re-evaluate psi is
   // given by t0 + mjdend-mjdstart.
   t1omega = t0omega + (mjdend-mjdstart)*SOLARDAY*omega;
@@ -4228,7 +4228,7 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   r1 = a*(1.0L - e*cospsi);
   // Calculate v1 from r1 and the known energy
   v1 = sqrt((E +  MGsun/r1)*2.0L);
-  
+
   // Use vector algebra to find the full vector r(t1).
   // This vector is perpendicular to lvec, and is angled by theta1-theta0
   // relative to startpos.
@@ -4272,14 +4272,14 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   // cout << "Psuedo-celestial coords of new position: " << r1ra*DEGPRAD << " " << r1dec*DEGPRAD << "\n";
   r1unit = celeproj01LD(r1ra*DEGPRAD,r1dec*DEGPRAD);
   v1unit =celeproj01LD(v1ra*DEGPRAD,v1dec*DEGPRAD);
-  
+
   endpos.x = r1unit.x*r1;
   endpos.y = r1unit.y*r1;
   endpos.z = r1unit.z*r1;
   endvel.x = v1unit.x*v1;
   endvel.y = v1unit.y*v1;
   endvel.z = v1unit.z*v1;
-  
+
   return(0);
 }
 
@@ -4309,7 +4309,7 @@ int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD
 
   meananom = keporb.mean_anom + (mjdnow-keporb.mjd_epoch)*keporb.mean_daily_motion;
   //cout << "keporb.meananom = " << keporb.mean_anom << " meananom = " << meananom << "\n";
-  
+
   // Solve Kepler's equation for psi (the true anomaly) given the mean anomaly.
   psi = kep_transcendental(meananom/DEGPRAD,keporb.eccentricity,KEPTRANSTOL);
   //cout << "New psi = " << psi*DEGPRAD;
@@ -4340,7 +4340,7 @@ int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD
   // Now effectively we have the asteroid's position fully
   //  specified in a coordinate system for which the asteroid's
   //  orbit defines the equatorial plane and its perihelion defines
-  //  zero longitude. The current longitude is theta1, the 
+  //  zero longitude. The current longitude is theta1, the
   //  latitude is zero by definition, and heliodist
   //  is the radius. Two steps remain: (1) Calculate the velocity
   //  in this orbital coordinate system, and (2) tranform both
@@ -4361,10 +4361,10 @@ int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD
   //cout << "heliodist = " << heliodist << "\n";
   angvel = sweeprate*2.0L/LDSQUARE(heliodist);
   //cout << "angvel = " << angvel << " rad/day = " << angvel*DEGPRAD << " deg/day = " << angvel*DEGPRAD*150.0L << "arcsec/hr\n";
-  // This is the angular velocity in radians/day 
-  // All we need now is the radial component. 
+  // This is the angular velocity in radians/day
+  // All we need now is the radial component.
   radvel = angvel*keporb.semimaj_axis*(1.0L - LDSQUARE(keporb.eccentricity))*(keporb.eccentricity*sin(theta)/LDSQUARE(1.0L + keporb.eccentricity*cos(theta)));
-  // This is the radial velocity in AU/day. The formula is 
+  // This is the radial velocity in AU/day. The formula is
   //  derived in my October 05, 2016 notebook entry.
   tanvel = angvel*heliodist;
   //cout << "radvel, tanvel = " << radvel << " " << tanvel << "\n";
@@ -4386,7 +4386,7 @@ int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD
 
   // Reckon from the line of nodes (intersection of the
   //  asteroidal orbit with the plane of the ecliptic)
-  
+
   // Position vector:
   thetaoc = keporb.arg_perihelion+theta*DEGPRAD;
   while(thetaoc>=360.0L) thetaoc-=360.0L;
@@ -4422,11 +4422,11 @@ int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD
   outpos.x = heliodist*cos(newDec)*cos(newRA);
   outpos.y = heliodist*cos(newDec)*sin(newRA);
   outpos.z = heliodist*sin(newDec);
-  poleswitch01LD(velRA,velDec,poleRA,poleDec,oldpoleRA,newRA,newDec); // Output is radians  
+  poleswitch01LD(velRA,velDec,poleRA,poleDec,oldpoleRA,newRA,newDec); // Output is radians
   outvel.x = totalvel*cos(newDec)*cos(newRA);
   outvel.y = totalvel*cos(newDec)*sin(newRA);
   outvel.z = totalvel*sin(newDec);
-  
+
   return(0);
 }
 
@@ -4440,7 +4440,7 @@ long double hyp_transcendental(long double q, long double e, long double tol)
 {
   int itct=0;
   long double psi_guess = M_PI;
-  
+
   if(tol<=0L) {
     cerr << "ERROR: hyp_trancendental called with non-positive tolerance " << tol << "\n";
     return(-99.9);
@@ -4448,7 +4448,7 @@ long double hyp_transcendental(long double q, long double e, long double tol)
 
   if(q>=0) psi_guess = 3.0;
   else psi_guess = -3.0;
-  
+
   long double fpsi = e*sinh(psi_guess) - psi_guess - q;
   long double fprime = e*cosh(psi_guess) - 1.0L;
   itct=0;
@@ -4457,7 +4457,7 @@ long double hyp_transcendental(long double q, long double e, long double tol)
     psi_guess += -fpsi/fprime;
     fpsi = e*sinh(psi_guess) - psi_guess - q;
     fprime = e*cosh(psi_guess) - 1.0L;
-    // cout << "kep itct " << itct << "psi, fpsi, fprime: " << psi_guess << ", " << fpsi << ", " << fprime << "\n"; 
+    // cout << "kep itct " << itct << "psi, fpsi, fprime: " << psi_guess << ", " << fpsi << ", " << fprime << "\n";
     itct++;
   }
 
@@ -4469,7 +4469,7 @@ long double hyp_transcendental(long double q, long double e, long double tol)
   // cout << "hyp_transcendental obtained error of " << fpsi << " in only " << itct << " iterations\n";
   return(psi_guess);
 }
-    
+
 // Hyper_Kepint: April 25, 2022:
 // Integrate a hyperbolic orbit assuming we have a Keplerian 2-body problem
 // with all the mass in the Sun, and the input position and velocity
@@ -4493,11 +4493,11 @@ int Hyper_Kepint(const long double MGsun, const long double mjdstart, const poin
   long double x,y,junkra,junkdec,sinev,thetav,v1ra,v1dec;
   x = y = junkra = junkdec = sinev = thetav = v1ra = v1dec = 0L;
   int debug=0;
-  
+
   // Calculate scalar input position
   r0 = sqrt(dotprod3LD(startpos,startpos));
   v0 = sqrt(dotprod3LD(startvel,startvel));
-  
+
   // Calculate specific energy and angular momentum
   E = 0.5L*v0*v0 - MGsun/r0;
   lvec = crossprod3LD(startpos,startvel);
@@ -4507,14 +4507,14 @@ int Hyper_Kepint(const long double MGsun, const long double mjdstart, const poin
     //cerr << "ERROR: Hyper_Kepint finds negative total energy: " << E << "\n";
     return(1);
   }
-		 
+
   // Calculate a and e: orbital semimajor axis and eccentricity.
   cout.precision(17);
   a = -MGsun*0.5L/E; // By convention, semimajor axis a is negative
                      // for hyperbolic orbits.
   e = sqrt(1.0L + 2.0L*E*lscalar*lscalar/MGsun/MGsun);
   if(debug>=2) cout << "a = " << a/AU_KM << ", e = " << e << "\n";
-  
+
   if(e<=1.0L) {
     cerr << "ERROR: Hyper_Kepint finds eccentricity out of range: " << e << "\n";
     return(1);
@@ -4531,7 +4531,7 @@ int Hyper_Kepint(const long double MGsun, const long double mjdstart, const poin
   }
   radvel = dotprod3LD(startpos,startvel)/r0;
   if(debug>=2) cout << "H0 = " << H0 << ", radial velocity = " << radvel << " km/sec\n";
-  
+
   if(radvel>=0) {
     // We are moving outward from perihelion: H0 will be correct
      ;
@@ -4539,7 +4539,7 @@ int Hyper_Kepint(const long double MGsun, const long double mjdstart, const poin
     // We are moving inward towards perihelion: H0 needs adjustment.
     H0 = -H0;
    }
-  
+
   if(debug>=2) cout << "H0 = " << H0 << ", radial velocity = " << radvel << " km/sec\n";
 
   // Calculate the angle theta0 from perihelion using H0.
@@ -4562,7 +4562,7 @@ int Hyper_Kepint(const long double MGsun, const long double mjdstart, const poin
   //cout << "omega = " << omega << "\n";
   t0omega = e*sinh(H0) - H0;
   //cout << "t0omega = " << t0omega << "\n";
- 
+
   // The new time t1 for which we want to re-evaluate psi is
   // given by t0 + mjdend-mjdstart.
   t1omega = t0omega + (mjdend-mjdstart)*SOLARDAY*omega;
@@ -4575,7 +4575,7 @@ int Hyper_Kepint(const long double MGsun, const long double mjdstart, const poin
   r1 = a*(1.0L - e*cosh(H));
   // Calculate v1 from r1 and the known energy
   v1 = sqrt((E +  MGsun/r1)*2.0L);
-  
+
   // Calculate the angle theta1 from perihelion from H(t1).
   x = a*(cosh(H)-e);
   y = -a*sqrt(e*e-1)*sinh(H);
@@ -4633,14 +4633,14 @@ int Hyper_Kepint(const long double MGsun, const long double mjdstart, const poin
   // cout << "Psuedo-celestial coords of new position: " << r1ra*DEGPRAD << " " << r1dec*DEGPRAD << "\n";
   r1unit = celeproj01LD(r1ra*DEGPRAD,r1dec*DEGPRAD);
   v1unit =celeproj01LD(v1ra*DEGPRAD,v1dec*DEGPRAD);
-  
+
   endpos.x = r1unit.x*r1;
   endpos.y = r1unit.y*r1;
   endpos.z = r1unit.z*r1;
   endvel.x = v1unit.x*v1;
   endvel.y = v1unit.y*v1;
   endvel.z = v1unit.z*v1;
-  
+
   return(0);
 }
 
@@ -4680,7 +4680,7 @@ int integrate_orbit01LD(int planetnum, const vector <long double> &planetmjd, co
   }
   planetstart={};
   nplanetpos01LD(mjdstart,planetnum,5,planetmjd,planetpos,planetstart);
-  
+
   // Calculate acceleration at starting point.
   accelcalc01LD(planetnum, planetmasses, planetstart, startpos, singleaccel);
   targaccel.push_back(singleaccel);
@@ -4736,7 +4736,7 @@ int integrate_orbit01LD(int planetnum, const vector <long double> &planetmjd, co
     endvel.x = targvel[0].x + targaccel[0].x*dt1 + accelslope.x*0.5L*dt1*dt1;
     endvel.y = targvel[0].y + targaccel[0].y*dt1 + accelslope.y*0.5L*dt1*dt1;
     endvel.z = targvel[0].z + targaccel[0].z*dt1 + accelslope.z*0.5L*dt1*dt1;
-  } else { 
+  } else {
     // The desired endpoint mjdend is more than a fractional timestep
     // away from the starting position.
     // Find the point just before the endpoint:
@@ -4747,7 +4747,7 @@ int integrate_orbit01LD(int planetnum, const vector <long double> &planetmjd, co
       }
     lastpoint = i;
     // cout << "Integrating from point " << pointafter << " to " << lastpoint << "\n";
-    // cout << "MJD from " << planetmjd[pointafter] << " to " << planetmjd[lastpoint] << "\n"; 
+    // cout << "MJD from " << planetmjd[pointafter] << " to " << planetmjd[lastpoint] << "\n";
     dt1 = (planetmjd[pointafter]-mjdstart)*SOLARDAY;
     for(planetpointct=pointafter;planetpointct<=lastpoint+1;planetpointct++)
       {
@@ -4769,7 +4769,7 @@ int integrate_orbit01LD(int planetnum, const vector <long double> &planetmjd, co
 	accelslope.x = (targaccel[1].x-targaccel[0].x)/dt1;
 	accelslope.y = (targaccel[1].y-targaccel[0].y)/dt1;
 	accelslope.z = (targaccel[1].z-targaccel[0].z)/dt1;
-    
+
 	singlepos.x = targpos[0].x + targvel[0].x*dt1 + targaccel[0].x*0.5L*dt1*dt1 + accelslope.x*dt1*dt1*dt1/6.0L;
 	singlepos.y = targpos[0].y + targvel[0].y*dt1 + targaccel[0].y*0.5L*dt1*dt1 + accelslope.y*dt1*dt1*dt1/6.0L;
 	singlepos.z = targpos[0].z + targvel[0].z*dt1 + targaccel[0].z*0.5L*dt1*dt1 + accelslope.z*dt1*dt1*dt1/6.0L;
@@ -4854,7 +4854,7 @@ int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double>
     cerr << "polyorder must be at least 2!\n";
     return(1);
   }
-  
+
   if(mjdend<mjdstart) {
     cerr << "ERROR: integrate_orbit02LD called with end time (" << mjdend << ") before start time (" << mjdstart << ")\n";
     return(1);
@@ -4881,7 +4881,7 @@ int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double>
   planetsonce={};
   nplanetpos01LD(temptime[0],planetnum,5,planetmjd,planetpos,planetsonce);
   for(i=0;i<planetnum;i++) planetsalltimes.push_back(planetsonce[i]);
- 
+
   for(i=0;i<planetpointnum;i++) {
     if(planetmjd[i]>mjdstart) break;
   }
@@ -4893,7 +4893,7 @@ int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double>
     {
       if(planetmjd[pointafter+i]<mjdend || endhere>=0) {
 	temptime[j] = planetmjd[pointafter+i];
-	planetsonce={};	
+	planetsonce={};
 	nplanetgrab01LD(pointafter+i, planetnum, planetmjd, planetpos, planetsonce);
 	for(k=0;k<planetnum;k++) planetsalltimes.push_back(planetsonce[k]);
 	latestpoint = pointafter+i;
@@ -4934,7 +4934,7 @@ int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double>
   // Calculate acceleration at this new position.
   for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*1 + i];
   accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[1], targaccel[1]);
-  
+
   // Second approx: linearly varying acceleration.
   accelslope.x = (targaccel[1].x-targaccel[0].x)/dt1;
   accelslope.y = (targaccel[1].y-targaccel[0].y)/dt1;
@@ -4952,7 +4952,7 @@ int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double>
   accelslope.x = (targaccel[1].x-targaccel[0].x)/dt1;
   accelslope.y = (targaccel[1].y-targaccel[0].y)/dt1;
   accelslope.z = (targaccel[1].z-targaccel[0].z)/dt1;
-  
+
   // Improved velocity for next time step
   targvel[1].x = targvel[0].x + targaccel[0].x*dt1 + accelslope.x*0.5L*dt1*dt1;
   targvel[1].y = targvel[0].y + targaccel[0].y*dt1 + accelslope.y*0.5L*dt1*dt1;
@@ -5035,7 +5035,7 @@ int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double>
       accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
     }
     cout.precision(17);
-  
+
     // Perform new fits to revised accelerations
     // Fit for x component of acceleration.
     ppxvec={};
@@ -5126,7 +5126,7 @@ int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double>
       // This is just a regular integration step.
       latestpoint+=1;
       temptime[polyorder+1] = planetmjd[latestpoint];
-      planetsonce={};	
+      planetsonce={};
       nplanetgrab01LD(latestpoint, planetnum, planetmjd, planetpos, planetsonce);
       for(j=0;j<planetnum;j++) planetsalltimes[planetnum*(polyorder+1) + j] = planetsonce[j];
     }
@@ -5273,7 +5273,7 @@ int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double>
     // The next step of the loop will move the extrapolated point back
     // by one step, and use it to start extrapolating a new point,
     // at the same time refining the former extrapolated points.
-    
+
     if(endhere>=0) {
       endpos = targpos[endhere];
       endvel = targvel[endhere];
@@ -5479,7 +5479,7 @@ int readconfigstring(ifstream &instream1, string &sval)
 // Note that the first input files for this function were produced
 // by the CCode program Kepler_dyn11.c. The acceleration values
 // were obtained by averaging the actual acceleration for
-// every instance where any known asteroid 
+// every instance where any known asteroid
 // was found in the specified bin of distance and radial velocity
 // over a several-year integration with 1-day sampling.
 int read_accel_fileLD(string accelfile, vector <long double> &heliodist, vector <long double> &heliovel, vector <long double> &helioacc)
@@ -5497,7 +5497,7 @@ int read_accel_fileLD(string accelfile, vector <long double> &heliodist, vector 
     cerr << "ERROR: can't open input acceleration file " << accelfile << "\n";
     return(1);
   }
- 
+
   while(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
     // Read first character in the current line.
     instream1 >> c;
@@ -5557,8 +5557,8 @@ long double weight_posvel_rms(const vector <point3LD> &poscluster,const vector <
   long double xrms, yrms, zrms, vxrms, vyrms, vzrms;
   xrms = yrms = zrms = vxrms = vyrms = vzrms = 0L;
 
-  cout << "weight_posvel_rms pnum = " << pnum << " " << norm << "\n"; 
-  
+  cout << "weight_posvel_rms pnum = " << pnum << " " << norm << "\n";
+
   if(pnum <= 0) {
     cerr << "ERROR: weight_posvel_rms called with no input points!\n";
     return(-1.0L);
@@ -5582,7 +5582,7 @@ long double weight_posvel_rms(const vector <point3LD> &poscluster,const vector <
   vx/=norm;
   vy/=norm;
   vz/=norm;
-  
+
   for(i=0;i<pnum;i++) {
     xrms += LDSQUARE(poscluster[i].x - x);
     yrms += LDSQUARE(poscluster[i].y - y);
@@ -5591,9 +5591,9 @@ long double weight_posvel_rms(const vector <point3LD> &poscluster,const vector <
     vyrms += LDSQUARE(velcluster[i].y - vy);
     vzrms += LDSQUARE(velcluster[i].z - vz);
   }
-  
-  cout << "weight_posvel_rms pnum = " << pnum << " " << norm <<  " " << xrms <<  " " << yrms <<  " " << zrms <<  " " << vxrms <<  " " << vyrms <<  " " << vzrms << "\n"; 
-  
+
+  cout << "weight_posvel_rms pnum = " << pnum << " " << norm <<  " " << xrms <<  " " << yrms <<  " " << zrms <<  " " << vxrms <<  " " << vyrms <<  " " << vzrms << "\n";
+
   xrms = sqrt(xrms/norm);
   yrms = sqrt(yrms/norm);
   zrms = sqrt(zrms/norm);
@@ -5601,7 +5601,7 @@ long double weight_posvel_rms(const vector <point3LD> &poscluster,const vector <
   vyrms = sqrt(vyrms/norm)*dtime; // through multiplication by a
   vzrms = sqrt(vzrms/norm)*dtime; // characteristic timescale.
 
-  
+
   rmsvec.push_back(xrms);
   rmsvec.push_back(yrms);
   rmsvec.push_back(zrms);
@@ -5648,10 +5648,10 @@ int linfituw01(const vector <double> &x, const vector <double> &y, double &slope
 }
 
 
-  
+
 // arc2cel01: September 09, 2020
 // Given a central point and the arc distance and celestial
-// position angle to second point, calculate the celestial 
+// position angle to second point, calculate the celestial
 // coordinates of this second point. All input and output
 // quantities are in degrees. Note that this is the reverse
 // process of, e.g. distradec02, which finds
@@ -5736,7 +5736,7 @@ int arc2cel01(double racenter,double deccenter,double dist,double pa,double &out
     }
   return(0);
 }
-    
+
 
 // obscode_lookup: March 09, 2022:
 // Look up an observatory code from a list, and copy the
@@ -5945,7 +5945,7 @@ int mjd2mpcdate(double MJD,int &year,int &month,double &day)
 	}
     }
   month = i;
-  day+=(double)dayct; 
+  day+=(double)dayct;
  return(1);
 }
 
@@ -5959,7 +5959,7 @@ int stringline01(const string &lnfromfile, vector <string> &outstrings) {
   int i=0;
   int linelen = lnfromfile.size();
   int stringnum=0;
-  
+
   outstrings={};
   if(linelen<=0) return(0);
 
@@ -6006,7 +6006,7 @@ long double ldmedian(const vector <long double> &invec) {
     return(invec2[pt]);
   }
 }
-    
+
 int ldmedian_minmax(const vector <long double> &invec, long double &median, long double &min, long double &max) {
   vector <long double> invec2 = invec; // Mutable copy of immutable input.
   int npts = invec2.size();
@@ -6038,7 +6038,7 @@ int ldmedian_minmax(const vector <long double> &invec, long double &median, long
     return(0);
   }
 }
-    
+
 double dmedian(const vector <double> &invec) {
   vector <double> invec2 = invec; // Mutable copy of immutable input.
   int npts = invec2.size();
@@ -6065,7 +6065,7 @@ double dmedian(const vector <double> &invec) {
     return(invec2[pt]);
   }
 }
-    
+
 int dmedian_minmax(const vector <double> &invec, double &median, double &min, long double &max) {
   vector <double> invec2 = invec; // Mutable copy of immutable input.
   int npts = invec2.size();
@@ -6097,7 +6097,7 @@ int dmedian_minmax(const vector <double> &invec, double &median, double &min, lo
     return(0);
   }
 }
-    
+
 float fmedian(const vector <float> &invec) {
   vector <float> invec2 = invec; // Mutable copy of immutable input.
   int npts = invec2.size();
@@ -6124,7 +6124,7 @@ float fmedian(const vector <float> &invec) {
     return(invec2[pt]);
   }
 }
-    
+
 int fmedian_minmax(const vector <float> &invec, float &median, float &min, float &max) {
   vector <float> invec2 = invec; // Mutable copy of immutable input.
   int npts = invec2.size();
@@ -6156,7 +6156,7 @@ int fmedian_minmax(const vector <float> &invec, float &median, float &min, float
     return(0);
   }
 }
-    
+
 // stateunit_to_celestial: April 08, 2022:
 // Given an input unit vector in the solar system barycentric coordinate
 // system, calculate the RA, Dec coordinates to which it points.
@@ -6168,7 +6168,7 @@ int stateunit_to_celestial(point3d &baryvec, double &RA, double &Dec)
 {
   double tempra,tempdec,newRA,newDec,poleRA,poleDec,oldpoleRA;
 
-  /*Ecliptic polar coordinates*/  
+  /*Ecliptic polar coordinates*/
   if(baryvec.y>=0.0) tempra = M_PI/2.0L - atan(baryvec.x/baryvec.y);
   else tempra = 3.0L*M_PI/2.0L - atan(baryvec.x/baryvec.y);
   tempdec = atan(baryvec.z/sqrt(baryvec.x*baryvec.x + baryvec.y*baryvec.y));
@@ -6176,15 +6176,15 @@ int stateunit_to_celestial(point3d &baryvec, double &RA, double &Dec)
   poleRA=M_PI/2.0L;
   poleDec = NEPDEC/DEGPRAD;
   oldpoleRA = 1.5L*M_PI;
-  
-  // Convert from ecliptic to celestial coordinates 
+
+  // Convert from ecliptic to celestial coordinates
   poleswitch01(tempra, tempdec, poleRA, poleDec, oldpoleRA, newRA, newDec);
 
   RA = newRA*DEGPRAD;
   Dec = newDec*DEGPRAD;
   return(0);
 }
- 
+
 // stateunitLD_to_celestial: April 08, 2022:
 // Given an input unit vector in the solar system barycentric coordinate
 // system, calculate the RA, Dec coordinates to which it points.
@@ -6196,7 +6196,7 @@ int stateunitLD_to_celestial(point3LD &baryvec, long double &RA, long double &De
 {
   long double tempra,tempdec,newRA,newDec,poleRA,poleDec,oldpoleRA;
 
-  /*Ecliptic polar coordinates*/  
+  /*Ecliptic polar coordinates*/
   if(baryvec.y>=0.0) tempra = M_PI/2.0L - atan(baryvec.x/baryvec.y);
   else tempra = 3.0L*M_PI/2.0L - atan(baryvec.x/baryvec.y);
   tempdec = atan(baryvec.z/sqrt(baryvec.x*baryvec.x + baryvec.y*baryvec.y));
@@ -6204,8 +6204,8 @@ int stateunitLD_to_celestial(point3LD &baryvec, long double &RA, long double &De
   poleRA=M_PI/2.0L;
   poleDec = NEPDEC/DEGPRAD;
   oldpoleRA = 1.5L*M_PI;
-  
-  // Convert from ecliptic to celestial coordinates 
+
+  // Convert from ecliptic to celestial coordinates
   poleswitch01LD(tempra, tempdec, poleRA, poleDec, oldpoleRA, newRA, newDec);
 
   RA = newRA*DEGPRAD;
@@ -6272,7 +6272,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
   for(obsct=0;obsct<obsnum;obsct++) {
     obsMJD2[obsct] += TTDELTAT/SOLARDAY; // UT is always behind TT, hence UT must be adjusted forward.
   }
-    
+
   firstobstime = obsMJD2[0];
   lastobstime = obsMJD2[obsnum-1];
   if(DEBUG>1) cout << "Integration will span times from MJD " << firstobstime << " to " << lastobstime << "\n";
@@ -6282,7 +6282,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
     cerr << "polyorder must be at least 2!\n";
     return(1);
   }
-  
+
   if(lastobstime<firstobstime) {
     cerr << "ERROR: integrate_orbit03LD called with end time (" << lastobstime << ") before start time (" << firstobstime << ")\n";
     return(1);
@@ -6331,12 +6331,12 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
     nplanetpos01LD(temptime[0]-TTDELTAT/SOLARDAY,planetnum,5,planetmjd,planetpos,planetsonce);
     for(i=0;i<planetnum;i++) planetsalltimes.push_back(planetsonce[i]);
     if(DEBUG>1) cout  << fixed << setprecision(6) << "mjdstart = " << mjdstart << " loaded: " << forwardmjd[0] << "\n";
- 
+
     // Find the first observation time simultaneous with or after starttime
     obsct=0;
     while(obsMJD2[obsct]<mjdstart) obsct++;
     obspoint=obsct;
-    
+
     // Find the first point in the planet files that is after mjdstart
     for(i=0;i<planetpointnum;i++) {
       if(planetmjd[i]>mjdstart) break;
@@ -6346,12 +6346,12 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
     if(DEBUG>1) cout  << fixed << setprecision(6) << "Starting points for forward integration:\n";
     if(DEBUG>1) cout  << fixed << setprecision(6) << "Observations, point " << obspoint << ", time " << obsMJD2[obspoint] << "\n";
     if(DEBUG>1) cout  << fixed << setprecision(6) << "Planet file, point " << pointafter << ", time " << planetmjd[pointafter] << "\n";
-    
+
     // Load a vector with times and planet positions for all the planet file
     // points spanning the times of the observations.
-    
+
     dt0 = (planetmjd[pointafter+1] - planetmjd[pointafter])*SOLARDAY/sqrt(M_PI);
-    
+
     j=1;
     i=0;
     obsct=obspoint;
@@ -6399,7 +6399,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
 
     //cout << fixed << setprecision(6)  << "Loaded " << forwardmjd.size() << " points in forwardmjd\n";
     //cout << fixed << setprecision(6)  << "Loaded " << planetsalltimes.size() << " points in planetsalltimes\n";
-    
+
     // Load starting position and velocity
     targvel[0] = startvel;
     targpos[0] = startpos;
@@ -6417,7 +6417,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
     // Calculate acceleration at this new position.
     for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*1 + i];
     accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[1], targaccel[1]);
-  
+
     // Second approx: linearly varying acceleration.
     accelslope.x = (targaccel[1].x-targaccel[0].x)/dt1;
     accelslope.y = (targaccel[1].y-targaccel[0].y)/dt1;
@@ -6435,7 +6435,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
     accelslope.x = (targaccel[1].x-targaccel[0].x)/dt1;
     accelslope.y = (targaccel[1].y-targaccel[0].y)/dt1;
     accelslope.z = (targaccel[1].z-targaccel[0].z)/dt1;
-  
+
     // Improved velocity for next time step
     targvel[1].x = targvel[0].x + targaccel[0].x*dt1 + accelslope.x*0.5L*dt1*dt1;
     targvel[1].y = targvel[0].y + targaccel[0].y*dt1 + accelslope.y*0.5L*dt1*dt1;
@@ -6518,7 +6518,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
 	accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
       }
       cout.precision(17);
-  
+
       // Perform new fits to revised accelerations
       // Fit for x component of acceleration.
       ppxvec={};
@@ -6804,7 +6804,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
     obsct=obsnum-1;
     while(obsMJD2[obsct]>=mjdstart) obsct--;
     obspoint=obsct;
-    
+
     // Find the first point in the planet files that is before mjdstart
     for(i=planetpointnum-1;i>0;i--) {
       if(planetmjd[i]<mjdstart) break;
@@ -6814,13 +6814,13 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
     if(DEBUG>1) cout  << fixed << setprecision(6) << "Starting points for backward integration:\n";
     if(DEBUG>1) cout  << fixed << setprecision(6) << "Observations, point " << obspoint << ", time " << obsMJD2[obspoint] << "\n";
     if(DEBUG>1) cout  << fixed << setprecision(6) << "Planet file, point " << pointbefore << ", time " << planetmjd[pointbefore] << "\n";
-    
+
     // Load a vector with times and planet positions for all the planet file
     // points spanning the times of the observations.
-    
+
     // Time scaling factor, designed to avoid integers or near-zero values
     dt0 = (planetmjd[pointbefore+1] - planetmjd[pointbefore])*SOLARDAY/sqrt(M_PI);
-    
+
     j=1;
     i=0;
     obsct=obspoint;
@@ -6884,7 +6884,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
     // Calculate acceleration at this new position.
     for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*1 + i];
     accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[1], targaccel[1]);
-  
+
     // Second approx: linearly varying acceleration.
     accelslope.x = (targaccel[1].x-targaccel[0].x)/dt1;
     accelslope.y = (targaccel[1].y-targaccel[0].y)/dt1;
@@ -6902,7 +6902,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
     accelslope.x = (targaccel[1].x-targaccel[0].x)/dt1;
     accelslope.y = (targaccel[1].y-targaccel[0].y)/dt1;
     accelslope.z = (targaccel[1].z-targaccel[0].z)/dt1;
-  
+
     // Improved velocity for next time step
     targvel[1].x = targvel[0].x + targaccel[0].x*dt1 + accelslope.x*0.5L*dt1*dt1;
     targvel[1].y = targvel[0].y + targaccel[0].y*dt1 + accelslope.y*0.5L*dt1*dt1;
@@ -6985,7 +6985,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
 	accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
       }
       cout.precision(17);
-  
+
       // Perform new fits to revised accelerations
       // Fit for x component of acceleration.
       ppxvec={};
@@ -7052,7 +7052,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
 	for(i=0;i<planetnum;i++) planetsonce[i] = planetsalltimes[planetnum*j + i];
 	accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
       }
-      
+
     }
 
     // We are now set up for a full-order polynomial integration.
@@ -7246,7 +7246,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
       // at the same time refining the former extrapolated points.
     }
   } // Closes the statement doing backward integration.
- 
+
   return(0);
 }
 
@@ -7266,7 +7266,7 @@ long double tortoisechi01(int polyorder, int planetnum, const vector <long doubl
   long double chisq=0L;
   double dval;
   resid = fitRA = fitDec = {};
-  
+
   // Input point scalestate is supposed to hold a 6-D state vector
   // in units of AU and AU/timescale, where timescale is a value in
   // days used to convert velocity to distance units
@@ -7277,7 +7277,7 @@ long double tortoisechi01(int polyorder, int planetnum, const vector <long doubl
 
   // Integrate orbit.
   integrate_orbit03LD(polyorder, planetnum, planetmjd, planetmasses, planetpos, obsMJD, startpos, startvel, mjdstart, obspos, obsvel);
-		  
+
   for(obsct=0;obsct<obsnum;obsct++) {
     // Initial approximation of the coordinates relative to the observer
     outpos.x = obspos[obsct].x - observerpos[obsct].x;
@@ -7373,7 +7373,7 @@ int integrate_orbit04LD(int polyorder, int planetnum, const vector <long double>
     cerr << "polyorder must be at least 4!\n";
     return(1);
   }
-  
+
   if(endpoint<startpoint) {
     cerr << "ERROR: integrate_orbit04LD called with end point (" << endpoint << ") before starting point (" << startpoint << ")\n";
     return(1);
@@ -7406,7 +7406,7 @@ int integrate_orbit04LD(int polyorder, int planetnum, const vector <long double>
 
   // Load the initial time vector
   for(j=0;j<=polyorder+1;j++) temptime[j] = planetmjd[startpoint+j];
-    
+
   // Load starting position and velocity
   targvel[0] = startvel;
   targpos[0] = startpos;
@@ -7428,7 +7428,7 @@ int integrate_orbit04LD(int polyorder, int planetnum, const vector <long double>
   planetsonce={};
   nplanetgrab01LD(startpoint+1, planetnum, planetmjd, planetpos, planetsonce);
   accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[1], targaccel[1]);
-  
+
   // Second approx: linearly varying acceleration.
   accelslope.x = (targaccel[1].x-targaccel[0].x)/dt0;
   accelslope.y = (targaccel[1].y-targaccel[0].y)/dt0;
@@ -7446,7 +7446,7 @@ int integrate_orbit04LD(int polyorder, int planetnum, const vector <long double>
   accelslope.x = (targaccel[1].x-targaccel[0].x)/dt0;
   accelslope.y = (targaccel[1].y-targaccel[0].y)/dt0;
   accelslope.z = (targaccel[1].z-targaccel[0].z)/dt0;
-  
+
   // Improved velocity for next time step
   targvel[1].x = targvel[0].x + targaccel[0].x*dt0 + accelslope.x*0.5L*dt0*dt0;
   targvel[1].y = targvel[0].y + targaccel[0].y*dt0 + accelslope.y*0.5L*dt0*dt0;
@@ -7530,7 +7530,7 @@ int integrate_orbit04LD(int polyorder, int planetnum, const vector <long double>
       accelcalc01LD(planetnum, planetmasses, planetsonce, targpos[j], targaccel[j]);
     }
     cout.precision(17);
-  
+
     // Perform new fits to revised accelerations
     // Fit for x component of acceleration.
     ppxvec={};
@@ -7762,7 +7762,7 @@ int integrate_orbit04LD(int polyorder, int planetnum, const vector <long double>
     // by one step, and use it to start extrapolating a new point,
     // at the same time refining the former extrapolated points.
   }
- 
+
   return(0);
 }
 
@@ -7806,7 +7806,7 @@ int uvw_to_galcoord(const double &u, const double &v, const double &w, double &R
     RA=Dec=0l;
     return(-1);
   }
-  
+
   if(v==0.0l && u>=0.0l) {
     RA = 0.0l;
   } else if(v==0.0l && u<0.0l) {
