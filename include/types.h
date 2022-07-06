@@ -23,6 +23,8 @@ public:
     char obscode[MINSTRINGLEN];
     long index;
 
+    Detection() = default;
+
     Detection(long double mjd, double ra, double dec, long double x, long double y, long double z,
               string const& idstring, double mag, string const& band, string const& obscode, long index)
             : MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), mag(mag), index(index) {
@@ -41,8 +43,6 @@ public:
         std::strncpy(this->obscode, obscode.c_str(), sizeof(this->obscode));
         this->obscode[sizeof(this->obscode) - 1] = 0;
     }
-
-    Detection() = default;
 };
 
 class Observatory {
@@ -71,6 +71,9 @@ public:
     char obscode[MINSTRINGLEN];
     long startind;
     long endind;
+
+    ImageLog() = default;
+
     ImageLog(double mjd, double ra, double dec, const string& obscode, long startind, long endind)
             : MJD(mjd), RA(ra), Dec(dec), startind(startind), endind(endind) {
         // Copy input value of obscode, making sure it's not too long
