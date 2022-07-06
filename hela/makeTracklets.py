@@ -1,6 +1,7 @@
 from hela import *
 
 import numpy as np
+import numpy.lib.recfunctions as rfn
 
 REAL = '<f16'
 SSHORT = 'S20'
@@ -15,22 +16,23 @@ def load_detections(fn, **kwargs):
         MJD=REAL,
         RA=REAL,
         Dec=REAL,
-        x=REAL,
-        y=REAL,
-        z=REAL,
         idstring=SSHORT,
         mag=float,
         band=SMIN,
         obscode=SMIN,
-        index=int,
     ).items()))
 
-    # x,y,z,index are not passed to the c++ layer, we just need dummy values
-    # to make pybind11 play nice with the array as a input.
-    #cols = [0,2,5,7,25,31,37,9,10,11,36]
-    cols = [2,5,7,9,10,11,0,31,25,37,36]
-    data = np.loadtxt(fn, usecols=cols, dtype=intype, delimiter=',', skiprows=1, converters={36: lambda x: int(float(x)), },**kwargs)
-    return data
+    defaults_dtype = np.dtype(list(dict(
+        x=REAL,
+        y=REAL,
+        z=REAL,
+        index=int
+    ).items()))
+
+    cols = [2,5,7,0,31,25,37]
+    data = np.loadtxt(fn, usecols=cols, dtype=intype, delimiter=',', skiprows=1, **kwargs)
+    defaults = np.zeros(len(data), dtype=defaults_dtype)
+    return rfn.merge_arrays((data, defaults), flatten=True)
 
 def load_observatory(fn, **kwargs):
     """Load-in observatory file
@@ -85,7 +87,9 @@ def load_images(fn, **kwarg):
         MJD=float,
         RA=float,
         Dec=float,
-        obscode=SMIN
+        obscode=SMIN,
+        startind=int,
+        endind=int
     ).items()))
 
     if fn != "":
@@ -93,7 +97,7 @@ def load_images(fn, **kwarg):
         return data
 
     print("No image file. One will be made.")
-    return data
+    return np.array([], dtype=intype)
 
 if __name__ == "__main__":
 
@@ -105,5 +109,6 @@ if __name__ == "__main__":
 
     obsv = load_observatory(config.obscodefile)
     dets = load_detections(config.indetfile)
+    imgs = load_images(config.inimfile)
 
-    makeTracklets(config, obsv, dets)
+    makeTracklets(config, obsv, dets, imgs)
