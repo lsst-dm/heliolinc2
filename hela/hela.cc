@@ -24,6 +24,13 @@ void fill_struct(Detection & out, Detection const& in, long i) {
     out.index = -i-2;
 }
 
+void fill_struct(ImageLog & out, ImageLog const& in, long i) {
+    out.MJD = in.MJD;
+    out.RA = in.RA;
+    out.Dec = in.Dec;
+    memcpy(out.obscode, in.obscode, sizeof(in.obscode));
+}
+
 template<typename T>
 std::vector<T> ndarray_to_vec(py::array_t<T> py_vec) {
     std::vector<T> vec = {};
@@ -155,41 +162,32 @@ void makeTracklets(
 void makeTracklets(
     MakeTrackletsConfig config,
     py::array_t<Observatory> py_obsv,
-    py::array_t<Detection> py_detvec
+    py::array_t<Detection> py_detvec,
+    py::array_t<ImageLog> py_imglog
 ) {
     cout << "Testing C++ wrapper" << endl;
 
-    //int idcol = 1;
-    //int mjdcol = 3;
-    //int racol = 6;
-    //int deccol = 8;
-    //int magcol = 32;
-    //int bandcol = 26;
-    //int obscodecol = 38;
-
     cout << "Reading obscode file... ";
     std::vector<Observatory> observatory_list = ndarray_to_vec(py_obsv);
-    //std::vector<Observatory> observatory_list = readObscodeFile(config.obscodefile);
     cout << "Done." << endl;
     fflush(stdout);
 
     cout << "Reading detections file... ";
     std::vector<Detection> detvec = ndarray_to_vec(py_detvec);
     sort(detvec.begin(), detvec.end(), timeCompareDetections);
-    //std::vector<Detection> detvec =
-    //        readDetectionsFile(config.indetfile, idcol, mjdcol, racol, deccol, magcol, bandcol, obscodecol);
     cout << "Done." << endl;
     fflush(stdout);
 
     cout << "Read/Make image file... ";
-    std::vector<ImageLog> img_log = {};
-    if (config.inimfile.size() > 0) {
-        cout << "Reading file... ";
-        img_log = readImageFile(config, detvec, config.inimfile);
+    std::vector<ImageLog> imglog = {};
+    if (py_imglog.size() > 0) {
+        cout << "\nReading file... ";
+        std::vector<ImageLog> imglog_tmp = ndarray_to_vec(py_imglog);
+        // Need to make a sorting function
         cout << "Done." << endl;
-    } else {
-        cout << "Making image info from detections... ";
-        img_log = makeImageLogs(config, detvec);
+    }   else {
+        cout << "\nMaking image info from detections... ";
+        imglog = makeImageLogs(config, detvec);
         cout << "Done." << endl;
     }
     fflush(stdout);
@@ -205,30 +203,20 @@ void makeTracklets(
     cout << "Writing test files...";
     // Output for testing
     ofstream outstream;
-    if (DEBUG >= 2) {
-        // Test: print out time-sorted detection table.
-        outstream.open("testjunk01.txt");
-        for (size_t i = 0; i < detvec.size(); i++) {
-            outstream << fixed << setprecision(6) << detvec[i].MJD << " " << detvec[i].RA << " "
-                      << detvec[i].Dec << " " << detvec[i].mag << " " << detvec[i].band << " "
-                      << detvec[i].obscode << "\n";
-        }
-        outstream.close();
-    }
 
     // Hard-code files for now
     string outimfile = "imfile_month04a.txt";
     if (outimfile.size() > 0) {
         // Write and print image log table
         outstream.open(outimfile);
-        for (size_t imct = 0; imct < img_log.size(); imct++) {
-            //	  cout << fixed << setprecision(6) << img_log[imct].MJD << " " << img_log[imct].RA;
-            //	  cout << " " << img_log[imct].Dec << " " << img_log[imct].startind << " " <<
-            // img_log[imct].endind << " "; 	  cout << img_log[imct].endind-img_log[imct].startind << "\n";
-            outstream << fixed << setprecision(6) << img_log[imct].MJD << " " << img_log[imct].RA;
-            outstream << fixed << setprecision(6) << " " << img_log[imct].Dec << " " << img_log[imct].obscode
+        for (size_t imct = 0; imct < imglog.size(); imct++) {
+            //	  cout << fixed << setprecision(6) << imglog[imct].MJD << " " << imglog[imct].RA;
+            //	  cout << " " << imglog[imct].Dec << " " << imglog[imct].startind << " " <<
+            // imglog[imct].endind << " "; 	  cout << imglog[imct].endind-imglog[imct].startind << "\n";
+            outstream << fixed << setprecision(6) << imglog[imct].MJD << " " << imglog[imct].RA;
+            outstream << fixed << setprecision(6) << " " << imglog[imct].Dec << " " << imglog[imct].obscode
                       << " ";
-            outstream << img_log[imct].startind << " " << img_log[imct].endind << "\n";
+            outstream << imglog[imct].startind << " " << imglog[imct].endind << "\n";
         }
         outstream.close();
     }
@@ -236,7 +224,7 @@ void makeTracklets(
     fflush(stdout);
 
     cout << "Compute heliocentric positions... ";
-    computeHelioPositions(detvec, img_log, observatory_list, EarthMJD, Earthpos);
+    computeHelioPositions(detvec, imglog, observatory_list, EarthMJD, Earthpos);
     cout << "Done." << endl;
     fflush(stdout);
 
@@ -244,7 +232,7 @@ void makeTracklets(
     std::vector<LongPair> pairvec = {};
     std::vector<Detection> pairdets = {};
     std::vector<std::vector<int>> indvecs = {};
-    std::tie(pairdets, pairvec, indvecs) = buildTracklets(config, detvec, img_log);
+    std::tie(pairdets, pairvec, indvecs) = buildTracklets(config, detvec, imglog);
     cout << "Done." << endl;
     fflush(stdout);
 
@@ -279,8 +267,8 @@ PYBIND11_MODULE(hela, m) {
 
     // Structures/Classes
     PYBIND11_NUMPY_DTYPE(Observatory, obscode, obslon, plxcos, plxsin);
-    PYBIND11_NUMPY_DTYPE(Detection, MJD, RA, Dec, x, y, z, idstring, mag, band, obscode, index);
-    // PYBIND11_NUMPY_DTYPE(ImageLog, MJD, RA, Dec, obscode, startind, endind);
+    PYBIND11_NUMPY_DTYPE(Detection, MJD, RA, Dec, idstring, mag, band, obscode, x, y, z, index);
+    PYBIND11_NUMPY_DTYPE(ImageLog, MJD, RA, Dec, obscode, startind, endind);
 
     // Config class
     py::class_<MakeTrackletsConfig>(m, "MakeTrackletsConfig")
@@ -304,7 +292,12 @@ PYBIND11_MODULE(hela, m) {
     m.def("makeTracklets", py::overload_cast<MakeTrackletsConfig>(&makeTracklets), "Make tracklets from set of detections.");
     m.def(
         "makeTracklets",
-        py::overload_cast<MakeTrackletsConfig, py::array_t<Observatory>, py::array_t<Detection>>(&makeTracklets),
+        py::overload_cast<
+            MakeTrackletsConfig,
+            py::array_t<Observatory>,
+            py::array_t<Detection>,
+            py::array_t<ImageLog>
+            >(&makeTracklets),
         "Make tracklets from set of detections."
     );
 }
