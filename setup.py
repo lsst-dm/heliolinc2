@@ -5,6 +5,7 @@ ext_modules = [
     Pybind11Extension(
         "hela",
         ["hela/hela.cc", "src/makeTracklets.cpp"],
+        cxx_std=17,
         include_dirs=["include/", "pybind11/include"]
     ),
 ]
