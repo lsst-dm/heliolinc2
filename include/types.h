@@ -14,20 +14,20 @@ public:
     long double MJD;
     double RA;
     double Dec;
-    long double x;
-    long double y;
-    long double z;
     char idstring[SHORTSTRINGLEN];
     double mag;
     char band[MINSTRINGLEN];
     char obscode[MINSTRINGLEN];
+    long double x;
+    long double y;
+    long double z;
     long index;
 
     Detection() = default;
 
     Detection(long double mjd, double ra, double dec, long double x, long double y, long double z,
               string const& idstring, double mag, string const& band, string const& obscode, long index)
-            : MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), mag(mag), index(index) {
+            : MJD(mjd), RA(ra), Dec(dec), mag(mag), x(x), y(y), z(z), index(index) {
         // Copy input value of idstring, making sure it's not too long
         assert(idstring.size() < sizeof(this->idstring));
         std::strncpy(this->idstring, idstring.c_str(), sizeof(this->idstring));
