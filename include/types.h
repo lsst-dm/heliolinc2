@@ -83,6 +83,22 @@ public:
     }
 };
 
+struct EarthState {
+    long double MJD;
+    long double x;
+    long double y;
+    long double z;
+    long double vx;
+    long double vy;
+    long double vz;
+
+    EarthState() = default;
+
+    EarthState(long double MJD, long double x, long double y, long double z,
+               long double vx, long double vy, long double vz)
+            : MJD(MJD), x(x), y(y), z(z), vx(vx), vy(vy), vz(vz) {}
+};
+
 struct LongPair {  // Pair of long integers
     long i1;
     long i2;
