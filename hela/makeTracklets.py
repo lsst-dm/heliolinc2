@@ -2,10 +2,34 @@ from hela import *
 
 import numpy as np
 import numpy.lib.recfunctions as rfn
+import pandas as pd
 
 REAL = '<f16'
 SSHORT = 'S20'
 SMIN = 'S5'
+
+def load_detections_dataframe(fn, **kwargs):
+    """Load detections from a csv through pandas to numpy
+
+    *Testing method to convert from dataframe to structured array*
+    """
+    intype = {
+        "MJD":REAL,
+        "RA":float,
+        "Dec":float,
+        "idstring":SSHORT,
+        "mag":float,
+        "band":SMIN,
+        "obscode":SMIN,
+        "x":REAL,
+        "y":REAL,
+        "z":REAL,
+        "index":int
+    }
+
+    df = pd.read_csv(fn, index_col=0, **kwargs)
+    data = df.to_records(index=False, column_dtypes=intype)
+    return data
 
 def load_detections(fn, **kwargs):
     """Load detections file
@@ -14,8 +38,8 @@ def load_detections(fn, **kwargs):
     """
     intype = np.dtype(list(dict(
         MJD=REAL,
-        RA=REAL,
-        Dec=REAL,
+        RA=float,
+        Dec=float,
         idstring=SSHORT,
         mag=float,
         band=SMIN,
@@ -111,4 +135,14 @@ if __name__ == "__main__":
     dets = load_detections(config.indetfile)
     imgs = load_images(config.inimfile)
 
-    makeTracklets(config, obsv, dets, imgs)
+    # Need proper input files
+    # earthsv = load_earth_ephemerides(config.earthfile)
+
+    outs = makeTracklets(config, obsv, dets, imgs)
+
+    df_imgs = pd.DataFrame(outs[0])
+    df_pairs = pd.DataFrame(outs[1])
+
+    df_imgs.to_csv("imgs_test.csv")
+    df_pairs.to_csv("pairdets_test.csv")
+
