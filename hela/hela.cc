@@ -21,7 +21,18 @@ void fill_struct(Detection & out, Detection const& in, long i) {
     out.mag = in.mag;
     memcpy(out.band, in.band, sizeof(in.band));
     memcpy(out.obscode, in.obscode, sizeof(in.obscode));
-    out.index = -i-2;
+
+    if (in.index == 0) {
+        // Only do this if we're inputing data into the c++ layer
+        // Otherwise, 'in' should have an index assigned
+        out.index = -i - 2;
+    } else {
+        // Assuming we're outputting to the user
+        out.x = in.x;
+        out.y = in.y;
+        out.z = in.z;
+        out.index = in.index;
+    }
 }
 
 void fill_struct(ImageLog & out, ImageLog const& in, long i) {
@@ -29,6 +40,22 @@ void fill_struct(ImageLog & out, ImageLog const& in, long i) {
     out.RA = in.RA;
     out.Dec = in.Dec;
     memcpy(out.obscode, in.obscode, sizeof(in.obscode));
+
+    // Only do this if we're outputting to the user
+    if (in.startind != 0 || in.endind != 0) {
+        out.startind = in.startind;
+        out.endind = in.endind;
+    }
+}
+
+void fill_struct(EarthState & out, EarthState const& in, long i) {
+    out.MJD = in.MJD;
+    out.x = in.x;
+    out.y = in.y;
+    out.z = in.z;
+    out.vx = in.vx;
+    out.vy = in.vy;
+    out.vz = in.vz;
 }
 
 template<typename T>
@@ -39,7 +66,7 @@ std::vector<T> ndarray_to_vec(py::array_t<T> py_vec) {
     auto data_ref = py_vec.unchecked();
 
     // Place the numpy data into the c++ type
-    for (long i = 0; i < data_ref.size(); i++) {
+    for (size_t i = 0; i < data_ref.size(); i++) {
         T data_out;
         auto &data_in = data_ref[i];
 
@@ -49,6 +76,24 @@ std::vector<T> ndarray_to_vec(py::array_t<T> py_vec) {
     }
 
     return vec;
+}
+
+template<typename T>
+py::array vec_to_ndarray(std::vector<T> const& vec) {
+    // Allocate a structured numpy array of type T
+    auto py_vec = py::array_t<T>(vec.size());
+
+    // Get a mutable reference to the ndarray data
+    auto data_ref = py_vec.mutable_unchecked();
+
+    // Place vector data into numpy array
+    for (size_t i = 0; i < data_ref.size(); i++) {
+        auto data_in = vec[i];
+        auto &data_out = data_ref[i];
+
+        fill_struct(data_out, data_in, i);
+    }
+    return py_vec;
 }
 
 void makeTracklets(
@@ -159,7 +204,7 @@ void makeTracklets(
     return;
 }
 
-void makeTracklets(
+std::tuple<py::array, py::array> makeTracklets(
     MakeTrackletsConfig config,
     py::array_t<Observatory> py_obsv,
     py::array_t<Detection> py_detvec,
@@ -197,6 +242,8 @@ void makeTracklets(
     std::vector<Point3LD> Earthpos = {};
     std::vector<Point3LD> Earthvel = {};
     std::tie(EarthMJD, Earthpos, Earthvel) = readEarthEphemerides(config.earthfile);
+    // Need the correct files for this to work
+    // std::vector<EarthState> earthvec = ndarray_to_vec(py_earthvec);
     cout << "Done." << endl;
     fflush(stdout);
 
@@ -205,7 +252,7 @@ void makeTracklets(
     ofstream outstream;
 
     // Hard-code files for now
-    string outimfile = "imfile_month04a.txt";
+    /*string outimfile = "imfile_month04a.txt";
     if (outimfile.size() > 0) {
         // Write and print image log table
         outstream.open(outimfile);
@@ -221,10 +268,12 @@ void makeTracklets(
         outstream.close();
     }
     cout << "Done." << endl;
-    fflush(stdout);
+    fflush(stdout);*/
+    auto py_imglog_out = vec_to_ndarray<ImageLog>(imglog);
 
     cout << "Compute heliocentric positions... ";
     computeHelioPositions(detvec, imglog, observatory_list, EarthMJD, Earthpos);
+    // computeHelioPositions(detvec, imglog, observatory_list, earthvec);
     cout << "Done." << endl;
     fflush(stdout);
 
@@ -237,7 +286,8 @@ void makeTracklets(
     fflush(stdout);
 
     cout << "Writing paired detections file... ";
-    string pairdetfile = "pairdets_sol_month04a.csv";
+    auto py_pairdets_out = vec_to_ndarray<Detection>(pairdets);
+    /*string pairdetfile = "pairdets_sol_month04a.csv";
     outstream.open(pairdetfile);
     outstream << "#MJD,RA,Dec,observerX,observerY,observerZ,stringID,mag,band,obscode,origindex\n";
     for (size_t i = 0; i < pairdets.size(); i++) {
@@ -249,7 +299,7 @@ void makeTracklets(
                   << pairdets[i].band << ",";
         outstream << pairdets[i].obscode << "," << pairdets[i].index << "\n";
     }
-    outstream.close();
+    outstream.close();*/
     cout << "Done." << endl;
     fflush(stdout);
 
@@ -259,7 +309,8 @@ void makeTracklets(
     cout << "Done." << endl;
     fflush(stdout);
 
-    return;
+    // Need to return python arrays
+    return std::make_tuple(py_imglog_out, py_pairdets_out);
 }
 
 PYBIND11_MODULE(hela, m) {
@@ -269,6 +320,7 @@ PYBIND11_MODULE(hela, m) {
     PYBIND11_NUMPY_DTYPE(Observatory, obscode, obslon, plxcos, plxsin);
     PYBIND11_NUMPY_DTYPE(Detection, MJD, RA, Dec, idstring, mag, band, obscode, x, y, z, index);
     PYBIND11_NUMPY_DTYPE(ImageLog, MJD, RA, Dec, obscode, startind, endind);
+    PYBIND11_NUMPY_DTYPE(EarthState, MJD, x, y, z, vx, vy, vz);
 
     // Config class
     py::class_<MakeTrackletsConfig>(m, "MakeTrackletsConfig")
