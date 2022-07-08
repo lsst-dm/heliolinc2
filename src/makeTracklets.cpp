@@ -47,12 +47,11 @@ int read_horizons_fileLD(string infile, std::vector<long double> &mjdvec, std::v
     Point3LD velpoint = Point3LD(0.0,0.0,0.0);
     int reachedeof=0;
     int ondata=0;
-    int i=0;
     char c = '0';
     int reachedend=0;
     string teststring, lnfromfile;
     long double x,y,z,vx,vy,vz,MJD;
-    MJD=x=y=z=vz=vy=vz=0.0;
+    MJD=x=y=z=vx=vy=vz=0.0;
 
     if(!instream1) {
         cerr << "ERROR: can't open input file " << infile << "\n";
@@ -69,7 +68,7 @@ int read_horizons_fileLD(string infile, std::vector<long double> &mjdvec, std::v
             else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
 
             if(lnfromfile.size()>=5) {
-                for(i=0;i<5;i++) {
+                for(size_t i=0;i<5;i++) {
                     teststring.push_back(lnfromfile[i]);
                 }
                 if(teststring == "$$SOE") ondata=1;
@@ -84,7 +83,7 @@ int read_horizons_fileLD(string infile, std::vector<long double> &mjdvec, std::v
             else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
             else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
             if(lnfromfile.size()>=5) {
-                for(i=0;i<5;i++) {
+                for(size_t i=0;i<5;i++) {
                     teststring.push_back(lnfromfile[i]);
                 }
                 if(teststring == "$$EOE") reachedend=1;
@@ -94,7 +93,7 @@ int read_horizons_fileLD(string infile, std::vector<long double> &mjdvec, std::v
                 //First line has MJD
                 teststring = "";
                 c='0';
-                i=0;
+                size_t i=0;
                 while(i<lnfromfile.size() && reachedeof == 0 && c!='=' && c!=' ' && c!='\n' && c!=EOF) {
                     c=lnfromfile[i];
                     if(c!=' ' && c!='=' && c!='\n' && c!=EOF) teststring.push_back(c);
@@ -366,11 +365,8 @@ int solvematrix01LD(std::vector<std::vector<long double>> const& inmat, int eqnu
 int perfectpoly01LD(std::vector<long double> const& x, std::vector<long double> const& y, std::vector<long double> &fitvec) {
     std::vector<std::vector<long double>> dmatrix;
     std::vector<long double> outvec;
-    int i = 0;
-    int j = 0;
-    int k = 0;
     int status = 0;
-    int npoints = x.size();
+    size_t npoints = x.size();
     if (y.size() != npoints) {
         cerr << "ERROR: x and y vectors in perfectpoly don't have the same number of points!\n";
         return (1);
@@ -382,12 +378,12 @@ int perfectpoly01LD(std::vector<long double> const& x, std::vector<long double> 
     make_LDmat(npoints, npoints + 1, dmatrix);
     make_LDvec(npoints, outvec);
     // cout << "perfectpoly fitting matrix:\n";
-    for (i = 0; i < npoints; i++) {
+    for (size_t i = 0; i < npoints; i++) {
         dmatrix[i][0] = -y[i];
         // cout << dmatrix[i][0] << " ";
-        for (j = 1; j <= npoints; j++) {
+        for (size_t j = 1; j <= npoints; j++) {
             dmatrix[i][j] = 1.0;
-            for (k = 2; k <= j; k++) dmatrix[i][j] *= x[i];
+            for (size_t k = 2; k <= j; k++) dmatrix[i][j] *= x[i];
             // cout << dmatrix[i][j] << " ";
         }
         // cout << "\n";
@@ -429,7 +425,7 @@ int planetpos01LD(long double detmjd, int polyorder, std::vector<long double> co
     // of the detection.
     pbf = 0;
     i = posmjd.size();
-    if (planetpos.size() != i) {
+    if (planetpos.size() != posmjd.size()) {
         cerr << "ERROR: planetpos01 finds time and position vectors\n";
         cerr << "to have different lengths\n";
         return (1);
@@ -658,7 +654,7 @@ int observer_barycoords01LD(
 
 long medindex(std::vector<XYIndex> const& xyvec, int dim) {
     std::vector<XYIndex> xyv = xyvec; //Mutable copy of immutable input vector
-    for(int i=0; i<xyv.size(); i++) xyv[i].index=i; //Redefine indices
+    for(size_t i=0; i<xyv.size(); i++) xyv[i].index=i; //Redefine indices
     long medpt = xyv.size()/2;
     if(dim%2==1) sort(xyv.begin(), xyv.end(), compareXYIndexX);
     else sort(xyv.begin(), xyv.end(), compareXYIndexY);
@@ -857,47 +853,44 @@ int distradec02(double ra1,double dec1,double ra2,double dec2,double *dist,doubl
 
 int splitxy(std::vector<XYIndex> const& xyvec, int dim, long splitpoint,
             std::vector<XYIndex> & left, std::vector<XYIndex> & right) {
-    long i=0;
     double xval = xyvec[splitpoint].x;
     double yval = xyvec[splitpoint].y;
+    auto splitpoint_i = static_cast<size_t>(splitpoint);
 
     if(dim%2==1) {
         // Split on x
-        for(i=0 ; i<xyvec.size() ; i++) {
-            if(i!=splitpoint && xyvec[i].x<=xval) {
+        for(size_t i=0 ; i<xyvec.size() ; i++) {
+            if(i!=splitpoint_i && xyvec[i].x<=xval) {
                 left.push_back(xyvec[i]);
-            } else if(i!=splitpoint) {
+            } else if(i!=splitpoint_i) {
                 right.push_back(xyvec[i]);
             }
         }
     } else {
         // Split on y
-        for(i=0 ; i<xyvec.size() ; i++) {
-            if(i!=splitpoint && xyvec[i].y<=yval) {
+        for(size_t i=0 ; i<xyvec.size() ; i++) {
+            if(i!=splitpoint_i && xyvec[i].y<=yval) {
                 left.push_back(xyvec[i]);
-            } else if(i!=splitpoint) right.push_back(xyvec[i]);
+            } else if(i!=splitpoint_i) right.push_back(xyvec[i]);
         }
     }
     return(0);
 }
 
 int kdtree01(std::vector<XYIndex> const& xyvec, int dim, long rootptxy, long rootptkd, std::vector<KDPoint> &kdvec) {
-    int status=0;
     int lmed=0;
     int rmed=0;
     int kdct = kdvec.size()-1;
-    int i=0;
     long leftrootkd=-1;
     long rightrootkd=-1;
     XYIndex xyi = XYIndex(0.0,0.0,0);
-    KDPoint root = kdvec[kdct];
     KDPoint lp = KDPoint(xyi,-1,-1,0);
     KDPoint rp = KDPoint(xyi,-1,-1,0);
     KDPoint kdtest = KDPoint(xyi,-1,-1,0);
     std::vector<XYIndex> leftvec = {};
     std::vector<XYIndex> rightvec = {};
 
-    status = splitxy(xyvec,dim,rootptxy,leftvec,rightvec);
+    splitxy(xyvec,dim,rootptxy,leftvec,rightvec);
 
     if(dim==1) dim=2;
     else dim=1;
@@ -966,10 +959,10 @@ int kdtree01(std::vector<XYIndex> const& xyvec, int dim, long rootptxy, long roo
 // Assumes that kdvec[0] is the root of the k-d tree.
 // NOTE THAT THIS IS FOR 2-D KD trees.
 int kdrange01(std::vector<KDPoint> const& kdvec, double x, double y, double range, std::vector<long> &indexvec) {
-    int branchct=0;
+    // int branchct=0;
     double rng2 = range*range;
     int notdone=1;
-    int kdveclen = kdvec.size();
+    //int kdveclen = kdvec.size();
     int dim=1;
     int currentpoint=0;
     int leftpoint=0;
@@ -979,8 +972,8 @@ int kdrange01(std::vector<KDPoint> const& kdvec, double x, double y, double rang
     double xdiff=0.0;
     double ydiff=0.0;
     std::vector<long> checkit={};
-    int i=0;
-    int checknum=0;
+    //int i=0;
+    size_t checknum=0;
 
     while(notdone>0) {
         // Climb to the top of the k-d tree, keeping track
@@ -1094,7 +1087,7 @@ int kdrange01(std::vector<KDPoint> const& kdvec, double x, double y, double rang
         }
         // We have climbed up the tree to a leaf. Go backwards through
         // the checkit vector and see if there is anything to check.
-        checknum=checkit.size();
+        int checknum = checkit.size();
         while(checknum>=1 && checkit[checknum-1]<0) checknum--;
         if(checknum<=0) {
             //There were no valid entries to check: we're done.
@@ -1115,8 +1108,8 @@ int kdrange01(std::vector<KDPoint> const& kdvec, double x, double y, double rang
 int linfituw01(std::vector<double> const& x, std::vector<double> const& y, double &slope, double &intercept) {
     int i;
     int pointnum = x.size();
-    double delta,xal,yal,xty,xsq,nsum,rms,err,errmax;
-    double siga,sigb;
+    double delta,xal,yal,xty,xsq,nsum; //,rms,err,errmax;
+    // double siga,sigb;
 
     if(pointnum<=1) {
         cerr << "ERROR: linfituw01 CALLED WITH ONLY ONE POINT\n";
@@ -1300,7 +1293,7 @@ std::vector<Detection> readDetectionsFile(
             reachedeof = -1;  // Something wrong, warn
         else if (instream.bad())
             reachedeof = -2;  // Worse problem, warn
-        int i = 0;
+        size_t i = 0;
         int j = 0;
         char c = '0';
         while (i < lnfromfile.size() && lnfromfile.size() >= 30 && reachedeof == 0) {
@@ -1387,7 +1380,7 @@ std::vector<ImageLog> readImageFile(
             reachedeof = -1;  // Something wrong, warn
         else if (instream.bad())
             reachedeof = -2;  // Worse problem, warn
-        int i = 0;
+        size_t i = 0;
         int j = 0;
         char c = '0';
         MJD = 0.0;
@@ -1431,7 +1424,7 @@ std::vector<ImageLog> readImageFile(
     // find the indices in the time-sorted detection file
     // that correspond to the earliest and latest detections
     // on each image, and load these values into imglog02.
-    long detct = 0;
+    size_t detct = 0;
     for (size_t imct = 0; imct < img_log_tmp.size(); imct++) {
         while (detct < detvec.size() &&
                 detvec[detct].MJD < img_log_tmp[imct].MJD - config.imagetimetol / SOLARDAY)
@@ -1463,10 +1456,10 @@ std::vector<ImageLog> makeImageLogs(
     std::vector<ImageLog> img_log = {};
     double mjdnorm = 1.0;
     double mjdmean = detvec[0].MJD;
-    int i = 0;  // Used later (Can this be removed?)
+    // int i = 0;  // Used later (Can this be removed?)
     int startind = 0;
     int endind = 0;
-    for (i = 1; i < detvec.size(); i++) {
+    for (size_t i = 1; i < detvec.size(); i++) {
         double tdelt = detvec[i].MJD - detvec[i - 1].MJD;
         if (tdelt < config.imagetimetol / SOLARDAY &&
             stringnmatch01(detvec[i].obscode, detvec[i - 1].obscode, 3) == 0) {
@@ -1496,7 +1489,7 @@ std::vector<ImageLog> makeImageLogs(
     }
     // Account for the final image.
     if (isnormal(mjdnorm)) {
-        endind = i;
+        endind = detvec.size();
         mjdmean /= mjdnorm;
         // Load it into the vector with mean MJD for all images,
         //  and increment image count.
@@ -1592,7 +1585,60 @@ void computeHelioPositions(
         if (imct == 0 ||
             (imct > 0 && stringnmatch01(img_log[imct].obscode, img_log[imct - 1].obscode, 3) == 0)) {
             // Observatory has changed: get observatory coordinates for this image.
+            // int status = obscode_lookup(observatory_list, img_log[imct].obscode, obslon, plxcos, plxsin);
+            obscode_lookup(observatory_list, img_log[imct].obscode, obslon, plxcos, plxsin);
+
+            // Figure out what to do with this...
+            /*if (status > 0) {
+                cerr << "ERROR: obscode_lookup failed for observatory code " << img_log[imct].obscode << "\n";
+                return (3);
+            }*/
+        }
+        Point3LD outpos = Point3LD(0, 0, 0);
+        observer_barycoords01LD(img_log[imct].MJD, 5, obslon, plxcos, plxsin, EarthMJD, Earthpos, outpos);
+        observer_heliopos.push_back(outpos);
+    }
+    // assign observer heliocentric position to each detection.
+    for (size_t imct = 0; imct < img_log.size(); imct++) {
+        for (int i = img_log[imct].startind; i < img_log[imct].endind; i++) {
+            detvec[i].x = observer_heliopos[imct].x;
+            detvec[i].y = observer_heliopos[imct].y;
+            detvec[i].z = observer_heliopos[imct].z;
+            // Check that the obscodes match between image and detection
+            if (stringnmatch01(detvec[i].obscode, img_log[imct].obscode, 3) != 0) {
+                cout << "ERROR: obscode mismatch (" << detvec[i].obscode << " vs. " << img_log[imct].obscode
+                     << " between image " << imct << " and detection " << i << "\n";
+                // return (4); // fix this later
+            }
+            // detvec[i].indvec = {};  // Just making sure the index vectors are empty at this point.
+        }
+    }
+}
+
+void computeHelioPositions(
+    std::vector<Detection> &detvec,
+    std::vector<ImageLog> const& img_log,
+    std::vector<Observatory> const& observatory_list,
+    std::vector<EarthState> const& earthvec
+) {
+    double obslon, plxcos, plxsin;
+
+    // For now, just load into vectors
+    std::vector<long double> EarthMJD = {};
+    std::vector<Point3LD> Earthpos = {};
+    for (size_t i = 0; i < earthvec.size(); i++) {
+        EarthMJD.push_back(earthvec[i].MJD);
+        Earthpos.push_back(Point3LD(earthvec[i].x, earthvec[i].y, earthvec[i].z));
+    }
+
+    // Calculate observer's heliocentric position at the time of each image.
+    std::vector<Point3LD> observer_heliopos = {};
+    for (size_t imct = 0; imct < img_log.size(); imct++) {
+        if (imct == 0 ||
+            (imct > 0 && stringnmatch01(img_log[imct].obscode, img_log[imct - 1].obscode, 3) == 0)) {
+            // Observatory has changed: get observatory coordinates for this image.
             int status = obscode_lookup(observatory_list, img_log[imct].obscode, obslon, plxcos, plxsin);
+            obscode_lookup(observatory_list, img_log[imct].obscode, obslon, plxcos, plxsin);
 
             // Figure out what to do with this...
             /*if (status > 0) {
@@ -1633,8 +1679,8 @@ std::tuple<std::vector<Detection>, std::vector<LongPair>, std::vector<std::vecto
     int i = 0;
     int j = 0;
     int k = 0;
-    int imct = 0;
-    long detct = 0;
+    // int imct = 0;
+    // long detct = 0;
     int startind = 0;
     int endind = 0;
     long double MJD, RA, Dec;
@@ -1662,16 +1708,16 @@ std::tuple<std::vector<Detection>, std::vector<LongPair>, std::vector<std::vecto
     int mintrkpts = config.mintrkpts;
 
     // PERFORM PAIRING
-    long pdct = 0;    // count of detections that have been paired
-    long pairct = 0;  // count of actual pairs
+    size_t pdct = 0;    // count of detections that have been paired
+    size_t pairct = 0;  // count of actual pairs
     // Loop over images for image A
-    for (imct = 0; imct < img_log.size(); imct++) {
+    for (size_t imct = 0; imct < img_log.size(); imct++) {
         int apct = 0;
         int adetct = 0;
         // See if there are any images that might match
         std::vector<int> imagematches = {};
-        int imatchcount = 0;
-        int imtarg = imct + 1;
+        // int imatchcount = 0;
+        size_t imtarg = imct + 1;
         while (imtarg < img_log.size() && img_log[imtarg].MJD < img_log[imct].MJD + maxtime) {
             // See if the images are close enough on the sky.
             double timediff = img_log[imtarg].MJD - img_log[imct].MJD;
@@ -1698,7 +1744,7 @@ std::tuple<std::vector<Detection>, std::vector<LongPair>, std::vector<std::vecto
             axyvec = {};
             dist = pa = 0.0;
             dettarg = 0;
-            for (detct = img_log[imct].startind; detct < img_log[imct].endind; detct++) {
+            for (long detct = img_log[imct].startind; detct < img_log[imct].endind; detct++) {
                 distradec02(img_log[imct].RA, img_log[imct].Dec, detvec[detct].RA, detvec[detct].Dec, &dist,
                             &pa);
                 xyind = XYIndex(dist * sin(pa / DEGPRAD), dist * cos(pa / DEGPRAD), detct);
@@ -1712,7 +1758,7 @@ std::tuple<std::vector<Detection>, std::vector<LongPair>, std::vector<std::vecto
                 }
             }
             // Loop over images with potential matches (image B's)
-            for (imatchcount = 0; imatchcount < imagematches.size(); imatchcount++) {
+            for (size_t imatchcount = 0; imatchcount < imagematches.size(); imatchcount++) {
                 imtarg = imagematches[imatchcount];
                 double range = (img_log[imtarg].MJD - img_log[imct].MJD) * maxvel;
                 vector<XYIndex> bxyvec = {};
@@ -1741,7 +1787,7 @@ std::tuple<std::vector<Detection>, std::vector<LongPair>, std::vector<std::vecto
                 if (DEBUG >= 1)
                     cout << "Looking for pairs between " << axyvec.size() << " detections on image " << imct
                          << " and " << kdvec.size() << " on image " << imtarg << "\n";
-                for (detct = 0; detct < axyvec.size(); detct++) {
+                for (size_t detct = 0; detct < axyvec.size(); detct++) {
                     vector<long> indexvec = {};
                     if ((isnormal(axyvec[detct].x) || axyvec[detct].x == 0) &&
                         (isnormal(axyvec[detct].y) || axyvec[detct].y == 0)) {
