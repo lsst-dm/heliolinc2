@@ -1,7 +1,42 @@
 /// May 02, 2022: interstellar_sim01a.cpp
-// Fit an input observations file using the downhill simplex method.
-// The observation file must contain MJD, RA, Dec,
-// astrometric uncertainty, obscode.
+// Creates simulated observations of interstellar objects, given an input
+// image catalog with MJD and boresight RA, Dec for each image. Models the
+// population of interstellar objects as a power law in absolute magnitude,
+// with v_infinity relative to the sun distributed according to a Gaussian
+// ellipsoid in terms of the Galactic U, V, and W velocities. The central
+// coordinate and the widths (Gaussian sigmas) of this ellipsoid in the
+// U, V, and W velocity coordinates are set by the user. Given a U, V, W
+// velocity selected randomly from this distribution, the program also
+// randomly selects an impact parameter (b_infinity) distributed according
+// to the area of concentric rings P(b) ~ b db. The actual encounter
+// distance is calculated from b_infinity and the total velocity, and if
+// the resulting value is close enough to the sun that the object might
+// be detectable given its absolute magnitude, the U, V, and W velocity
+// and the impact parameter are converted into a hyperbolic Keplerian orbit
+// starting from a set (very large, e.g., 2000 AU) distance from the sun.
+// Start time is adjusted so the perihelion will occur within some prescribed range
+// of time. The resulting hyperbolic Keplerian orbit is then re-evaluated
+// at a prescribed start time, presumed to be just before the earliest
+// possible perihelion time, so that the object will then be much closer
+// to the Sun. The evaluation of the hyperbolic Keplerian orbit yields new
+// barycentric state vectors, which are then propagated forward with
+// full n-body integration to produce a finely sampled ephemeris spanning
+// all of the image times. This ephemeris is interpolated to predict exact
+// positions and magnitudes (accounting for phase) on each image where the
+// object is detected. Detection depends on the object's RA and Dec lying
+// within a specified angular arc (image radius) of the image boresight,
+// and the magnitude being brighter than a specified constant limiting
+// magnitude.
+//
+// As an example of reasonable values for the U, V, W distribution,
+// Charles Francis and Erik Anderson 2009, New Astronomy, 14, 615,
+// find that most stars within 300 pc of the Sun form a local
+// velocity ellipsoid (an ellipsoidal Gaussian distribution
+// of velocities), with sigma_U = 32.6 km/sec, sigma_V = 22.4 km/sec,
+// and sigma_W = 16.5 km/sec. The mean velocities relative to the Sun
+// (that is, the center of the elliposoid) are -10.2, -18.3, and -7.4 km/sec,
+// for U, V, and W respectively.
+//
 
 #include "solarsyst_dyn_geo01.h"
 #include "cmath"
