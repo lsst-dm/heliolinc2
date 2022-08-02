@@ -1,3 +1,20 @@
+// June 22, 2022: projectpairs06d.cpp:
+// Like projectpairs06c.cpp, but besides the viewing geometries
+// handled by all earlier versions, also handles the previously-ignored
+// geometry, possible only at solar elongation less than 90 degrees,
+// where the line-of-sight from the observer intersects the
+// the heliocentric sphere defined by the asteroid distance hypothesis
+// on the near side of the sun -- that is, the asteroid is at the
+// point where the line-of-sight vector pierces the heliocentric
+// sphere from the **outside**. An alternative specification for
+// this geometry is that the Sun-object-observer phase angle is
+// **greater** than 90 degrees. It corresponds to a second solution
+// of the quadratic equation for the intersection of a line with
+// a sphere. This second solution was ignored in previous versions,
+// but the current program handles **both** solutions correctly.
+// Hence, it is not a supplement but a replacement for previous
+// versions.
+//
 // March 15, 2022: projectpairs06c.cpp:
 // Like projectpairs06b.cpp, but reads the pairdets file in csv format
 // with a header, as output by maketrack04c.cpp. Also replaces the
