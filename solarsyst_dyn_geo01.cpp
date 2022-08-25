@@ -4271,6 +4271,11 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   cout.precision(17);
   a = -MGsun*0.5L/E;
   e = sqrt(1.0L + 2.0L*E*lscalar*lscalar/MGsun/MGsun);
+  if(e < 0L && e > -KEPTRANSTOL) {
+    // eccentricity is formally negative, but very close to zero, so instead
+    // of throwing an error, we simply set it to exactly zero.
+    e = 0L;
+  }
   if(e<0L || e>=1.0L) {
     cerr << "ERROR: Keplerint finds eccentricity out of range: " << e << "\n";
     return(1);
@@ -4279,13 +4284,12 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   //cout << "semimajor axis = " << a/AU_KM << " and eccentricity = " << e << "\n";
 	       
   // Calculate angle theta0 from perihelion using simple ellipse geometry.
-  if(e>0L) {
-    costheta = ((a-a*e*e)/r0 - 1.0L)/e;
-    if(costheta>=-1.0L && costheta<=1.0L) theta0 = acos(costheta);
-    else {
-      cerr << "ERROR: Keplerint finds costheta = " << costheta << "\n";
-      return(1);
-    }
+  if(e>0L) costheta = ((a-a*e*e)/r0 - 1.0L)/e;
+  else costheta = 1.0L;
+  if(costheta>=-1.0L && costheta<=1.0L) theta0 = acos(costheta);
+  else {
+    cerr << "ERROR: Keplerint finds costheta = " << costheta << "\n";
+    return(1);
   }
   radvel = dotprod3LD(startpos,startvel)/r0;
   //cout << "Radial velocity = " << radvel << " km/sec\n";
@@ -4299,7 +4303,7 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
     theta0 = 2.0L*M_PI - theta0;
     //cout << "Moving inward towards perihelion.\n";
   }
-  //cout << "theta0 = " << theta0*DEGPRAD << "\n";
+  // If e=0, we'll have costheta = 1.0 and theta0 = 0.0
   
   // Calculate Goldstein's psi variable from theta.
   cospsi = (costheta + e)/(1.0L + costheta*e);
@@ -4312,19 +4316,19 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
     // We are moving inward towards perihelion: psi needs adjustment.
     psi = 2.0L*M_PI - psi;
   }
-  //cout << "psi = " << psi*DEGPRAD << "\n";
- 
+  // If e=0, we'll have cospsi = 1.0 and psi = 0.0
+
   // Calculate time since perihelion using psi.
   omega = sqrt(MGsun/(a*a*a));
   //cout << "Period = " << 2.0L*M_PI/omega/SOLARDAY/365.25 << " years\n";
   t0omega = psi - e*sin(psi);
-  //cout << "t0omega = " << t0omega;
+  // If e=0, we'll have t0omega = 0.0
  
   // The new time t1 for which we want to re-evaluate psi is
   // given by t0 + mjdend-mjdstart.
   t1omega = t0omega + (mjdend-mjdstart)*SOLARDAY*omega;
   //cout << " t1omega = " << t1omega;
-  while(t1omega > 2.0L*M_PI) t1omega -= 2.0L*M_PI;
+  while(t1omega >= 2.0L*M_PI) t1omega -= 2.0L*M_PI;
   while(t1omega < 0.0L) t1omega += 2.0L*M_PI;
   //cout << " t1omega = " << t1omega << "\n";
   // Solve Kepler's equation for psi(t1)
