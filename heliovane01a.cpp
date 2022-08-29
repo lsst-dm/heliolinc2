@@ -276,7 +276,7 @@ int main(int argc, char *argv[])
   int minobsnights = MINDAYSTEPS+1;
   double mintimespan = MINSPAN;
   
-  if(argc<=17)
+  if(argc<15)
     {
       show_usage();
       return(1);
@@ -344,7 +344,6 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	minheliodist=stod(argv[++i]);
-	i++;
       }
       else {
 	cerr << "Heliocentric distance range keyword supplied with no corresponding argument\n";
