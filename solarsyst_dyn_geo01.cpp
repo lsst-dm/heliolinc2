@@ -2012,12 +2012,15 @@ int celestial_to_statevec(double RA, double Dec,double delta,point3d &baryvec)
   phi = RA/DEGPRAD;
   thetapole = NEPDEC/DEGPRAD;
       
-  z = sin(theta);
-  x = -cos(theta)*sin(phi);
-  y = cos(theta)*cos(phi);
-  baryvec.z = delta*(z*sin(thetapole) + x*cos(thetapole));
-  baryvec.y = delta*(z*cos(thetapole) - x*sin(thetapole));
+  x = -cos(theta)*sin(phi); // sin(phi) and cos(phi) are switched here
+  y = cos(theta)*cos(phi);  // because we're rotating by 270 degrees: that's
+  z = sin(theta);           // the RA of the Ecliptic Pole.
   baryvec.x = delta*y;
+  baryvec.y = delta*(-x*sin(thetapole) + z*cos(thetapole));
+  baryvec.z = delta*(x*cos(thetapole) + z*sin(thetapole));
+  // -x and y are switched above becuase we are rotating by 90 degrees
+  // after the pole-switch, to get the old North Celestial Pole
+  // on the +y axis where it should be.
   return(0);
 }
 
@@ -2029,12 +2032,15 @@ int celestial_to_statevecLD(long double RA, long double Dec,long double delta,po
   phi = RA/DEGPRAD;
   thetapole = NEPDEC/DEGPRAD;
       
-  z = sin(theta);
-  x = -cos(theta)*sin(phi);
-  y = cos(theta)*cos(phi);
-  baryvec.z = delta*(z*sin(thetapole) + x*cos(thetapole));
-  baryvec.y = delta*(z*cos(thetapole) - x*sin(thetapole));
+  x = -cos(theta)*sin(phi); // sin(phi) and cos(phi) are switched here
+  y = cos(theta)*cos(phi);  // because we're rotating by 270 degrees: that's
+  z = sin(theta);           // the RA of the Ecliptic Pole.
   baryvec.x = delta*y;
+  baryvec.y = delta*(-x*sin(thetapole) + z*cos(thetapole));
+  baryvec.z = delta*(x*cos(thetapole) + z*sin(thetapole));
+  // -x and y are switched above becuase we are rotating by 90 degrees
+  // after the pole-switch, to get the old North Celestial Pole
+  // on the +y axis where it should be.
   return(0);
 }
 
@@ -2046,12 +2052,15 @@ int celestial_to_stateunit(double RA, double Dec,point3d &baryvec)
   phi = RA/DEGPRAD;
   thetapole = NEPDEC/DEGPRAD;
       
-  z = sin(theta);
-  x = -cos(theta)*sin(phi);
-  y = cos(theta)*cos(phi);
-  baryvec.z = z*sin(thetapole) + x*cos(thetapole);
-  baryvec.y = z*cos(thetapole) - x*sin(thetapole);
+  x = -cos(theta)*sin(phi); // sin(phi) and cos(phi) are switched here
+  y = cos(theta)*cos(phi);  // because we're rotating by 270 degrees: that's
+  z = sin(theta);           // the RA of the Ecliptic Pole.
   baryvec.x = y;
+  baryvec.y = -x*sin(thetapole) + z*cos(thetapole);
+  baryvec.z = x*cos(thetapole) + z*sin(thetapole);
+  // -x and y are switched above becuase we are rotating by 90 degrees
+  // after the pole-switch, to get the old North Celestial Pole
+  // on the +y axis where it should be.
   return(0);
 }
 
@@ -2063,12 +2072,15 @@ int celestial_to_stateunitLD(long double RA, long double Dec, point3LD &baryvec)
   phi = RA/DEGPRAD;
   thetapole = NEPDEC/DEGPRAD;
       
-  z = sin(theta);
-  x = -cos(theta)*sin(phi);
-  y = cos(theta)*cos(phi);
-  baryvec.z = z*sin(thetapole) + x*cos(thetapole);
-  baryvec.y = z*cos(thetapole) - x*sin(thetapole);
+  x = -cos(theta)*sin(phi); // sin(phi) and cos(phi) are switched here
+  y = cos(theta)*cos(phi);  // because we're rotating by 270 degrees: that's
+  z = sin(theta);           // the RA of the Ecliptic Pole.
   baryvec.x = y;
+  baryvec.y = -x*sin(thetapole) + z*cos(thetapole);
+  baryvec.z = x*cos(thetapole) + z*sin(thetapole);
+  // -x and y are switched above becuase we are rotating by 90 degrees
+  // after the pole-switch, to get the old North Celestial Pole
+  // on the +y axis where it should be.
   return(0);
 }
 
@@ -5668,6 +5680,60 @@ int read_accel_fileLD(string accelfile, vector <long double> &heliodist, vector 
   return(0);
 }
 
+// read_longitude_fileLD: August 25, 2022:
+// Read a file giving the angular velocity and acceleration in
+// terms of the heliocentric ecliptic longitude.
+// This file is expected to have a one-line header, marked as
+// a non-data line by the fact that it begins with #. There
+// follow any number of lines whose first two columns are
+// (1) velocity in ecliptic longitude (deg/day), and (2)
+// accleration in ecliptic longitude (deg/day^2).
+int read_longitude_fileLD(string accelfile, vector <long double> &longitude_vel, vector <long double> &longitude_acc)
+{
+  string lnfromfile;
+  string stest;
+  int i=0;
+  int lnct=0;
+  char c = '0';
+  long double vel,acc;
+  vel = acc = 0L;
+
+  ifstream instream1 {accelfile};
+  if(!instream1) {
+    cerr << "ERROR: can't open input acceleration file " << accelfile << "\n";
+    return(1);
+  }
+ 
+  while(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
+    // Read first character in the current line.
+    instream1 >> c;
+    if(c=='#') {
+      // Comment line in file: skip to the end of the line.
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad()) getline(instream1,lnfromfile);
+    } else if (!instream1.eof() && !instream1.fail() && !instream1.bad()) {
+      // Put the character back
+      instream1.unget();
+      // Read velocity and acceleration.
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad()) instream1 >> vel;
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad()) instream1 >> acc;
+      // Skip the rest of the line.
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad()) getline(instream1,lnfromfile);
+       // Finished reading.
+      longitude_vel.push_back(vel);
+      longitude_acc.push_back(acc);
+    }
+  }
+  if(instream1.eof()) {
+    return(0); // Reached end of file, fine.
+  } else if(instream1.fail()) {
+    return(2); // Some problem.
+  } else if(instream1.bad()) {
+    return(3); // Worse problem.
+  }
+  // if we get here, we probably finished reading OK.
+  return(0);
+}
+
 // weight_posvel_rms: December 16, 2021:
 // Given vectors containing the positions and velocities
 // for a set of 6-D state vectors (e.g. a cluster of heliocentric
@@ -6300,10 +6366,15 @@ int stateunit_to_celestial(point3d &baryvec, double &RA, double &Dec)
 {
   double tempra,tempdec,newRA,newDec,poleRA,poleDec,oldpoleRA;
 
-  /*Ecliptic polar coordinates*/  
-  if(baryvec.y>=0.0) tempra = M_PI/2.0L - atan(baryvec.x/baryvec.y);
-  else tempra = 3.0L*M_PI/2.0L - atan(baryvec.x/baryvec.y);
-  tempdec = atan(baryvec.z/sqrt(baryvec.x*baryvec.x + baryvec.y*baryvec.y));
+  /*Ecliptic polar coordinates*/
+  if(baryvec.y==0 && baryvec.x>=0) tempra = 0;
+  else if(baryvec.y==0 && baryvec.x<0) tempra = M_PI;
+  else if(baryvec.y > 0.0) tempra = M_PI/2.0L - atan(baryvec.x/baryvec.y);
+  else if(baryvec.y < 0.0) tempra = 3.0L*M_PI/2.0L - atan(baryvec.x/baryvec.y);
+
+  if(baryvec.x==0 && baryvec.y==0 && baryvec.z>=0) tempdec = M_PI/2.0L;
+  else if(baryvec.x==0 && baryvec.y==0 && baryvec.z<0) tempdec = -M_PI/2.0L;
+  else tempdec = atan(baryvec.z/sqrt(baryvec.x*baryvec.x + baryvec.y*baryvec.y));
 
   poleRA=M_PI/2.0L;
   poleDec = NEPDEC/DEGPRAD;
@@ -6329,11 +6400,16 @@ int stateunitLD_to_celestial(point3LD &baryvec, long double &RA, long double &De
   long double tempra,tempdec,newRA,newDec,poleRA,poleDec,oldpoleRA;
 
   /*Ecliptic polar coordinates*/  
-  if(baryvec.y>=0.0) tempra = M_PI/2.0L - atan(baryvec.x/baryvec.y);
-  else tempra = 3.0L*M_PI/2.0L - atan(baryvec.x/baryvec.y);
-  tempdec = atan(baryvec.z/sqrt(baryvec.x*baryvec.x + baryvec.y*baryvec.y));
+  if(baryvec.y==0L && baryvec.x>=0L) tempra = 0L;
+  else if(baryvec.y==0L && baryvec.x<0L) tempra = M_PI;
+  else if(baryvec.y > 0L) tempra = M_PI/2.0L - atan(baryvec.x/baryvec.y);
+  else if(baryvec.y < 0L) tempra = 3.0L*M_PI/2.0L - atan(baryvec.x/baryvec.y);
 
-  poleRA=M_PI/2.0L;
+  if(baryvec.x==0L && baryvec.y==0L && baryvec.z>=0L) tempdec = M_PI/2.0L;
+  else if(baryvec.x==0L && baryvec.y==0L && baryvec.z<0L) tempdec = -M_PI/2.0L;
+  else tempdec = atan(baryvec.z/sqrt(baryvec.x*baryvec.x + baryvec.y*baryvec.y));
+
+    poleRA=M_PI/2.0L;
   poleDec = NEPDEC/DEGPRAD;
   oldpoleRA = 1.5L*M_PI;
   
@@ -8044,5 +8120,60 @@ int polyfit01(const vector <double> &yvec, const vector <double> &sigvec, const 
     }
   }
   multilinfit01(yvec, sigvec, xmat, pnum, polyorder+1, avec);
+  return(0);
+}
+
+// vaneproj01LD: Given a unit vector unitbary giving the direction
+// toward which an object was seen, find its intersection with a
+// heliocentric vane of constant ecliptic longitude.
+int vaneproj01LD(point3LD unitbary, point3LD obsbary, long double ecliplon, long double &geodist, point3LD &projbary)
+{
+  long double barydist,normdot1,normaldist;
+  point3LD plane_normvec = point3LD(0L,0L,0L);
+  point3LD plane_to_obs = point3LD(0L,0L,0L);
+  point3LD periobs = point3LD(0L,0L,0L);
+  
+  // 1. The input heliocentric ecliptic longitude defines a plane.
+  //    Calculate the unit vector normal from the sun.
+  plane_normvec = point3LD(-sin(ecliplon/DEGPRAD),cos(ecliplon/DEGPRAD),0L);
+
+  // 2. We already have the instantaneous position of the observer in obsbary
+  // 3. Find the point on the plane closest to the observer, as follows:
+  // 3a. Calculate dot-product of the sun-observer vector and the plane normal.
+  //     This is the distance from the observer to the nearest point on the plane
+  normaldist = dotprod3LD(obsbary,plane_normvec);
+  if(!isnormal(normaldist)) return(-1); // Mainly this is to catch the case that the observer
+                                        // is already in the plane, in which case the
+                                        // dot product is exactly zero and fails the
+                                        // isnormal test.
+    
+  // 3c. Multiply the plane-normal unit vector by the resulting physical length
+  plane_to_obs.x = normaldist*plane_normvec.x;
+  plane_to_obs.y = normaldist*plane_normvec.y;
+  plane_to_obs.z = normaldist*plane_normvec.z;
+  
+  // 3d. Subtract the resulting physical vector from the instantaneous position of the observer,
+  //     yielding the position of the point on the plane closest to the observer.
+  //     Call this point 'periobs'.
+  periobs.x = obsbary.x - plane_to_obs.x;
+  periobs.y = obsbary.y - plane_to_obs.y;
+  periobs.z = obsbary.z - plane_to_obs.z;
+  
+  // 4. Calculate the normalized dot product of the vector from the observer to periobs
+  //     and the observation unit vector. Reject the point if the normalized dot product
+  //     is too small.
+  normdot1 = -dotprod3LD(plane_to_obs,unitbary)/fabs(normaldist);
+  if(normdot1<=0L) return(-1); // Observer was looking away from the plane
+  
+  // 5. Divide the length of the vector from the observer to periobs by the normalized
+  //    dot product.
+  geodist = fabs(normaldist)/normdot1;
+  
+  // 6. Mutiply the observation unit vector by the resulting physical length.
+  // 7. Add the resulting physical vector to the instantaneous position of the observer.
+  projbary.x = obsbary.x + unitbary.x*geodist;
+  projbary.y = obsbary.y + unitbary.y*geodist;
+  projbary.z = obsbary.z + unitbary.z*geodist;
+  
   return(0);
 }
