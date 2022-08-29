@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
   outstream1 << "#longitude_vel(deg/day) longitude_acc(deg/day^2)\n";
   for(velct=0;velct<velnum;velct++) {
     angvel = velstart + velstep*double(velct);
-    accelrange = accelscale*2*angvel*sqrt(2.0L*MGsun/intpowLD(mindist*AU_KM,3))*SOLARDAY;
+    accelrange = accelscale*2*fabs(angvel)*sqrt(2.0L*MGsun/intpowLD(mindist*AU_KM,3))*SOLARDAY;
     accelnum = accelrange/accelstep;
     for(act = -accelnum ; act <= accelnum ; act++) {
       angacc = accelstep*double(act);
