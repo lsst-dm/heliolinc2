@@ -131,6 +131,7 @@
 #define MINGEODIST 0.1 // Geocentric distance corresponding to the center of the
                        // smallest logarithmic bin
 #define MINSUNELONG 45.0 // Minimum solar elongation to be considered in degrees.
+#define MAXSUNELONG 180.0 // Maximum solar elongation to be considered in degrees.
 #define GEOBIN_HALF_WIDTH 1.5 // Logarithmic half-width for bins in geocentric distance.
                               // for example, if set to 2.0, a bin centered on 1.0 AU
                               // will extend from 0.5 to 2.0 AU
@@ -146,7 +147,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: heliovane01a -dets detfile -pairs pairfile -mjd mjdref -obspos observer_position_file -heliolong heliocentric_longitude_file -heliorange mindist maxdist -longsteps lonstepnum -minsunelong minsunelong -clustrad cluster_radius -npt dbscan_npt -minobsnights minobsnights -mintimespan mintimespan -mingeodist minium_geocentric_distance -maxgeodist maximum_geocentric_distance -geologstep logarithmic_step_size_for_geocentric_distance_bins -out outfile -outrms rmsfile \n";
+  cerr << "Usage: heliovane01a -dets detfile -pairs pairfile -mjd mjdref -obspos observer_position_file -heliolong heliocentric_longitude_file -heliorange mindist maxdist -longsteps lonstepnum -minsunelong minsunelong -maxsunelong minsunelong -clustrad cluster_radius -npt dbscan_npt -minobsnights minobsnights -mintimespan mintimespan -mingeodist minium_geocentric_distance -maxgeodist maximum_geocentric_distance -geologstep logarithmic_step_size_for_geocentric_distance_bins -out outfile -outrms rmsfile \n";
 }
     
 int main(int argc, char *argv[])
@@ -216,7 +217,6 @@ int main(int argc, char *argv[])
   int accelnum=0;
   int accelct=0;
   int valid_accel_num=0;
-  int badpoint=0;
   long double X=0.0L;
   long double Y=0.0L;
   long double Z=0.0L;
@@ -250,12 +250,16 @@ int main(int argc, char *argv[])
   int trackpointnum=0;
   int trackpointct=0;
   long pairct=0;
+  long double observerdist = 0L;
+  long double coselong = 0L;
+  long double sunelong = 0L;
   double mingeodist = MINGEODIST;
   double maxgeodist = MAXGEODIST;
   double geologstep = GEOBIN_HALF_WIDTH;
   double minheliodist = MINHELIODIST;
   double maxheliodist = MAXHELIODIST;
   double minsunelong = MINSUNELONG;
+  double maxsunelong = MAXSUNELONG;
   int lonstepnum = LONGITUDE_STEPS;
   int lonstepct = 0;
 
@@ -368,7 +372,7 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-minsunelong" || string(argv[i]) == "-mse" || string(argv[i]) == "--minsunelong") {
+    } else if(string(argv[i]) == "-minsunelong" || string(argv[i]) == "-minse" || string(argv[i]) == "--minsunelong") {
       if(i+1 < argc) {
 	//There is still something to read;
 	minsunelong=stod(argv[++i]);
@@ -376,6 +380,17 @@ int main(int argc, char *argv[])
       }
       else {
 	cerr << "Minimum solar elongation keyword keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    }  else if(string(argv[i]) == "-maxsunelong" || string(argv[i]) == "-maxse" || string(argv[i]) == "--maxsunelong") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	maxsunelong=stod(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "Maximum solar elongation keyword keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
@@ -495,6 +510,7 @@ int main(int argc, char *argv[])
   cout << "range in heliocentric distance to be probed: " << minheliodist << "--" << maxheliodist << " AU\n";
   cout << "number of steps in ecliptic longitude " << lonstepnum << "\n";
   cout << "minimum solar elongation " << minsunelong << " degrees\n"; 
+  cout << "maximum solar elongation " << maxsunelong << " degrees\n"; 
   cout << "input reference MJD " << mjdref << "\n";
   cout << "input clustering radius " << cluster_radius << "km\n";
   cout << "npt for DBSCAN is " << npt << "\n";
@@ -679,7 +695,6 @@ int main(int argc, char *argv[])
   for(lonstepct=0; lonstepct<lonstepnum; lonstepct++) {
     ecliptic_longitude = 180.0L*double(lonstepct)/double(lonstepnum);
     for(accelct=0;accelct<accelnum;accelct++) {
-      badpoint=0;
       // Calculate approximate heliocentric ecliptic longitudes
       // from the input quadratic approximation.
       cout << "Working on longitude " << ecliptic_longitude << " grid point " << accelct << ": " << longitude_vel[accelct] << " " << longitude_acc[accelct] << "\n";
@@ -696,7 +711,6 @@ int main(int argc, char *argv[])
       }
       allstatevecs={};
       for(pairct=0; pairct<pairvec.size(); pairct++) {
-	badpoint=0;
 	//cout << "Working on pair " << i << " of " << pairvec.size() << "\n";
 	// Obtain indices to the detection and heliocentric distance vectors.
 	i1=pairvec[pairct][0];
@@ -706,13 +720,32 @@ int main(int argc, char *argv[])
 	Dec = detvec[i1].Dec;
 	celestial_to_stateunitLD(RA,Dec,unitbary);
 	observerpos = point3LD(detvec[i1].x,detvec[i1].y,detvec[i1].z);
-	status1 = vaneproj01LD(unitbary,observerpos,ecliptic_longitude_vec[i1], delta1, targpos1);
+	observerdist = vecabs3LD(observerpos);
+	coselong = dotprod3LD(observerpos,unitbary)/observerdist;
+	if(coselong>=1.0) sunelong = 0L;
+	else if(coselong<=-1.0) sunelong = 180.0L;
+	else sunelong = DEGPRAD*acos(coselong);
+	if(sunelong>=minsunelong && sunelong<=maxsunelong) {
+	  status1 = vaneproj01LD(unitbary,observerpos,ecliptic_longitude_vec[i1], delta1, targpos1);
+	  ldval = vecabs3LD(targpos1)/AU_KM;
+	  if(ldval<minheliodist || ldval>maxheliodist) status1=2; // Marks the point as bad.
+	} else status1=1; // Marks the point as bad.
+	// Project the second point
 	RA = detvec[i2].RA;
 	Dec = detvec[i2].Dec;
 	celestial_to_stateunitLD(RA,Dec,unitbary);
 	observerpos = point3LD(detvec[i2].x,detvec[i2].y,detvec[i2].z);
-	status2 = vaneproj01LD(unitbary,observerpos,ecliptic_longitude_vec[i2], delta2, targpos2);
-	if(status1 == 0 && status2 == 0 && badpoint==0) {
+	observerdist = vecabs3LD(observerpos);
+	coselong = dotprod3LD(observerpos,unitbary)/observerdist;
+	if(coselong>=1.0) sunelong = 0L;
+	else if(coselong<=-1.0) sunelong = 180.0L;
+	else sunelong = DEGPRAD*acos(coselong);
+	if(sunelong>=minsunelong && sunelong<=maxsunelong) {
+	  status2 = vaneproj01LD(unitbary,observerpos,ecliptic_longitude_vec[i2], delta2, targpos2);
+	  ldval = vecabs3LD(targpos2)/AU_KM;
+	  if(ldval<minheliodist || ldval>maxheliodist) status2=2; // Marks the point as bad.
+	} else status2 = 1; // Marks the pair as bad
+	if(status1 == 0 && status2 == 0) {
 	  // Calculate time difference between the observations
 	  timediff = (detvec[i2].MJD - detvec[i1].MJD)*SOLARDAY;
 	  // Calculate velocity using a simple difference of positions	  
@@ -727,7 +760,7 @@ int main(int argc, char *argv[])
 	  mjdavg = 0.5L*detvec[i1].MJD + 0.5L*detvec[i2].MJD;
 	  // Integrate orbit to the reference time.
 	  status1 = Keplerint(GMSUN_KM3_SEC2,mjdavg,targpos1,targvel1,mjdref,targpos2,targvel2);
-	  if(status1 == 0 && badpoint==0) {
+	  if(status1 == 0) {
 	    statevec1 = point6LDx2(targpos2.x,targpos2.y,targpos2.z,chartimescale*targvel2.x,chartimescale*targvel2.y,chartimescale*targvel2.z,pairct,i1);
 	    // Note that the multiplication by chartimescale converts velocities in km/sec
 	    // to units of km, for apples-to-apples comparison with the positions.
@@ -738,7 +771,6 @@ int main(int argc, char *argv[])
 	    continue;
 	  }
 	} else {
-	badpoint=1;
 	// Heliocentric projection found no physical solution.
 	continue;
 	}
