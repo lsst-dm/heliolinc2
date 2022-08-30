@@ -144,6 +144,7 @@
 #define DBSCAN_NPT 3  // Default value of npt (min cluster size) for DBSCAN algorithm.
 
 #define DEBUG_A 0
+#define DEBUG_B 1
 
 static void show_usage()
 {
@@ -684,7 +685,7 @@ int main(int argc, char *argv[])
   ofstream outstream2 {outfile};
   ofstream outstream1 {rmsfile};
   outstream2 << "#ptct,MJD,RA,Dec,idstring,mag,band,obscode,index1,index2,clusternum\n";
-  outstream1 << "#clusternum,posRMS,velRMS,totRMS,pairnum,timespan,uniquepoints,obsnights,metric,rating,heliodist,heliovel,helioacc,posX,posY,posZ,velX,velY,velZ\n";
+  outstream1 << "#clusternum,posRMS,velRMS,totRMS,pairnum,timespan,uniquepoints,obsnights,metric,rating,eclip_long,longitude_vel,longitude_acc,posX,posY,posZ,velX,velY,velZ\n";
   cout << "Writing to " << outfile << "\n";
   cout << "Read " << detvec.size() << " detections and " << pairvec.size() << " pairs.\n";
 
@@ -720,7 +721,7 @@ int main(int argc, char *argv[])
 	celestial_to_stateunitLD(RA,Dec,unitbary);
 	observerpos = point3LD(detvec[i1].x,detvec[i1].y,detvec[i1].z);
 	observerdist = vecabs3LD(observerpos);
-	coselong = dotprod3LD(observerpos,unitbary)/observerdist;
+	coselong = -dotprod3LD(observerpos,unitbary)/observerdist;
 	if(coselong>=1.0) sunelong = 0L;
 	else if(coselong<=-1.0) sunelong = 180.0L;
 	else sunelong = DEGPRAD*acos(coselong);
@@ -735,7 +736,7 @@ int main(int argc, char *argv[])
 	celestial_to_stateunitLD(RA,Dec,unitbary);
 	observerpos = point3LD(detvec[i2].x,detvec[i2].y,detvec[i2].z);
 	observerdist = vecabs3LD(observerpos);
-	coselong = dotprod3LD(observerpos,unitbary)/observerdist;
+	coselong = -dotprod3LD(observerpos,unitbary)/observerdist;
 	if(coselong>=1.0) sunelong = 0L;
 	else if(coselong<=-1.0) sunelong = 180.0L;
 	else sunelong = DEGPRAD*acos(coselong);
