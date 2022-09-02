@@ -1,7 +1,8 @@
 // April 05, 2022: count_findable02a.cpp
 // Hopefully a more polished and production-like version of
 // count_findable01c.cpp. The important changes include calculating
-// all the metrics even for objects ulti
+// all the metrics even for objects ultimately not classified as
+// findable.
 //
 // April 01, 2022: count_findable01c.cpp:
 // Like count_findable01b.cpp, but also calculates the

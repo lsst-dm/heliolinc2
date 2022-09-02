@@ -6362,64 +6362,89 @@ int fmedian_minmax(const vector <float> &invec, float &median, float &min, float
 // an asteroid relative to an observer in the barycentric system,
 // the output will be the asteroid's RA and Dec in the sky as seen
 // by that observer.
+// Note: this is an improved version that replaces an older (April 8, 2022)
+// routine of the same name that was slower because it used an unnecessarily
+// clumsy sequence of mathematical operations, including a call to poleswitch.
 int stateunit_to_celestial(point3d &baryvec, double &RA, double &Dec)
 {
-  double tempra,tempdec,newRA,newDec,poleRA,poleDec,oldpoleRA;
+  double poleDec,yszc,yczs,xe;
 
-  /*Ecliptic polar coordinates*/
-  if(baryvec.y==0 && baryvec.x>=0) tempra = 0;
-  else if(baryvec.y==0 && baryvec.x<0) tempra = M_PI;
-  else if(baryvec.y > 0.0) tempra = M_PI/2.0L - atan(baryvec.x/baryvec.y);
-  else if(baryvec.y < 0.0) tempra = 3.0L*M_PI/2.0L - atan(baryvec.x/baryvec.y);
-
-  if(baryvec.x==0 && baryvec.y==0 && baryvec.z>=0) tempdec = M_PI/2.0L;
-  else if(baryvec.x==0 && baryvec.y==0 && baryvec.z<0) tempdec = -M_PI/2.0L;
-  else tempdec = atan(baryvec.z/sqrt(baryvec.x*baryvec.x + baryvec.y*baryvec.y));
-
-  poleRA=M_PI/2.0L;
   poleDec = NEPDEC/DEGPRAD;
-  oldpoleRA = 1.5L*M_PI;
-  
-  // Convert from ecliptic to celestial coordinates 
-  poleswitch01(tempra, tempdec, poleRA, poleDec, oldpoleRA, newRA, newDec);
+  yszc = baryvec.y*sin(poleDec) - baryvec.z*cos(poleDec);
+  yczs = baryvec.y*cos(poleDec) + baryvec.z*sin(poleDec);
+  xe = baryvec.x;
 
-  RA = newRA*DEGPRAD;
-  Dec = newDec*DEGPRAD;
+  if(yszc==0 && xe>=0) RA = 0.0;
+  else if(yszc==0 && xe<0) RA = M_PI;
+  else if(yszc>0) RA = M_PI/2.0L - atan(xe/yszc);
+  else if(yszc<0) RA = 3.0L*M_PI/2.0L - atan(xe/yszc);
+  else {
+    //Logically excluded case
+    cerr << "Logically excluded case in stateunit_to_celestial\n";
+    cerr << "xe = " << xe << " yszc = " << yszc << "\n";
+    return(1);
+  }
+
+  if(yczs>1.0) {
+    cerr << "Warning: stateunit_to_celestial attempting to take arcsin of 1 + " << yczs-1.0L << "\n";
+    Dec = M_PI/2.0L;
+  } else if(yczs<-1.0) {
+    cerr << "Warning: stateunit_to_celestial attempting to take arcsin of -1 - " << yczs+1.0L << "\n";
+    Dec = -M_PI/2.0L;
+  } else {
+    Dec = asin(yczs);
+  }
+
+  RA *= DEGPRAD;
+  Dec *= DEGPRAD;
   return(0);
 }
- 
-// stateunitLD_to_celestial: April 08, 2022:
+
+// stateunitLD_to_celestial: September 01, 2022:
 // Given an input unit vector in the solar system barycentric coordinate
 // system, calculate the RA, Dec coordinates to which it points.
 // Example: if the input unit vector is the relative position of
 // an asteroid relative to an observer in the barycentric system,
 // the output will be the asteroid's RA and Dec in the sky as seen
 // by that observer.
+// Note: this is an improved version that replaces an older routine of
+// the same name that was slower because it used an unnecessarily clumsy
+// sequence of mathematical operations, including a call to poleswitch.
 int stateunitLD_to_celestial(point3LD &baryvec, long double &RA, long double &Dec)
 {
-  long double tempra,tempdec,newRA,newDec,poleRA,poleDec,oldpoleRA;
+  long double poleDec,yszc,yczs,xe;
 
-  /*Ecliptic polar coordinates*/  
-  if(baryvec.y==0L && baryvec.x>=0L) tempra = 0L;
-  else if(baryvec.y==0L && baryvec.x<0L) tempra = M_PI;
-  else if(baryvec.y > 0L) tempra = M_PI/2.0L - atan(baryvec.x/baryvec.y);
-  else if(baryvec.y < 0L) tempra = 3.0L*M_PI/2.0L - atan(baryvec.x/baryvec.y);
-
-  if(baryvec.x==0L && baryvec.y==0L && baryvec.z>=0L) tempdec = M_PI/2.0L;
-  else if(baryvec.x==0L && baryvec.y==0L && baryvec.z<0L) tempdec = -M_PI/2.0L;
-  else tempdec = atan(baryvec.z/sqrt(baryvec.x*baryvec.x + baryvec.y*baryvec.y));
-
-    poleRA=M_PI/2.0L;
   poleDec = NEPDEC/DEGPRAD;
-  oldpoleRA = 1.5L*M_PI;
-  
-  // Convert from ecliptic to celestial coordinates 
-  poleswitch01LD(tempra, tempdec, poleRA, poleDec, oldpoleRA, newRA, newDec);
+  yszc = baryvec.y*sin(poleDec) - baryvec.z*cos(poleDec);
+  yczs = baryvec.y*cos(poleDec) + baryvec.z*sin(poleDec);
+  xe = baryvec.x;
 
-  RA = newRA*DEGPRAD;
-  Dec = newDec*DEGPRAD;
+  if(yszc==0 && xe>=0) RA = 0.0;
+  else if(yszc==0 && xe<0) RA = M_PI;
+  else if(yszc>0) RA = M_PI/2.0L - atan(xe/yszc);
+  else if(yszc<0) RA = 3.0L*M_PI/2.0L - atan(xe/yszc);
+  else {
+    //Logically excluded case
+    cerr << "Logically excluded case in stateunitLD_to_celestial\n";
+    cerr << "xe = " << xe << " yszc = " << yszc << "\n";
+    return(1);
+  }
+
+  if(yczs>1.0) {
+    cerr << "Warning: stateunitLD_to_celestial attempting to take arcsin of 1 + " << yczs-1.0L << "\n";
+    Dec = M_PI/2.0L;
+  } else if(yczs<-1.0) {
+    cerr << "Warning: stateunitLD_to_celestial attempting to take arcsin of -1 - " << yczs+1.0L << "\n";
+    Dec = -M_PI/2.0L;
+  } else {
+    Dec = asin(yczs);
+  }
+
+  RA *= DEGPRAD;
+  Dec *= DEGPRAD;
   return(0);
 }
+
 
 #define DEBUG 0
 
