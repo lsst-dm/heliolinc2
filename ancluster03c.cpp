@@ -107,6 +107,8 @@ int main(int argc, char *argv[])
   int goodclusternum=0;
   int istimedup=0;
   int badread=0;
+  ldouble_index ldi = ldouble_index(0L,0);
+  vector <ldouble_index> sortclust;
 
   if(argc!=9 && argc!=11) {
     show_usage();
@@ -571,9 +573,18 @@ int main(int argc, char *argv[])
 	  stringncopy01(rating,"MIXED",SHORTSTRINGLEN);
 	}
       }
+      // Figure out the time order of cluster points, so we can write them out in order.
+      sortclust = {};
+      for(i=0; i<clustanvec[clusterct].clustind.size(); i++) {
+	i1 = clustanvec[clusterct].clustind[i];
+	ldi = ldouble_index(detvec[i1].MJD,i1);
+	sortclust.push_back(ldi);
+      }
+      sort(sortclust.begin(), sortclust.end(), lower_ldouble_index());
+      
       // Write all individual detections in this cluster to the output cluster file
       for(i=0; i<clustanvec[clusterct].clustind.size(); i++) {
-	i1 = clustanvec[clusterct].clustind[i];	
+	i1 = sortclust[i].index;
 	outstream1  << fixed << setprecision(6) << intzero01i(i,4) << "," << detvec[i1].MJD << "," << detvec[i1].RA << "," << detvec[i1].Dec << "," << detvec[i1].idstring << ",";
 	outstream1  << fixed << setprecision(3) << detvec[i1].mag << "," << detvec[i1].band << "," << detvec[i1].obscode << "," << i1 << "," << detvec[i1].index << "," << goodclusternum << "\n";
       }
