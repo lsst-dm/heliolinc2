@@ -73,6 +73,7 @@
 #define IMAGERAD 2.0 // radius from image center to most distant corner (deg)
 #define MAX_GCR 0.5 // Default maximum Great Circle Residual allowed for a valid tracklet
 #define DEBUG 0
+#define DEBUGA 1
 
       
 static void show_usage()
@@ -667,10 +668,10 @@ int main(int argc, char *argv[])
     detct=0;
     for(imct=0;imct<img_log_tmp.size();imct++) {
       while(detct<detvec.size() && detvec[detct].MJD < img_log_tmp[imct].MJD-IMAGETIMETOL/SOLARDAY) detct++; //Not on any image
-      if(detct<detvec.size() && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY) {
+      if(detct<detvec.size() && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log_tmp[imct].obscode,3)==0) {
 	// This should be the first detection on image imct.
 	img_log_tmp[imct].startind = detct;
-	while(detct<detvec.size() && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY) detct++; //Still on this same image
+	while(detct<detvec.size() && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log_tmp[imct].obscode,3)==0) detct++; //Still on this same image
 	// This should be the first detection on the next image
 	img_log_tmp[imct].endind = detct;
       }
@@ -743,7 +744,8 @@ int main(int argc, char *argv[])
       vector <det_obsmag_indvec> imobs = {};
       num_dets=0;
       p3avg = point3d(0,0,0);
-      while(detct<detnum && detvec[detct].MJD < img_log[imct].MJD + IMAGETIMETOL/SOLARDAY) {
+      if(DEBUGA>0) cout << fixed << setprecision(6) << "imct = " << imct << "detct,detnum,detvec[detct].MJD,img_log[imct].MJD = " << detct << " " << detnum << " " << detvec[detct].MJD << " " << img_log[imct].MJD << " " << img_log[imct].MJD + IMAGETIMETOL/SOLARDAY << "\n";
+      while(detct<detnum && detvec[detct].MJD < img_log[imct].MJD + IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)==0) {
 	num_dets++; //Keep count of detections on this image
 	imobs.push_back(detvec[detct]); //Load vector of observations for this image
 	p3 =  celeproj01(detvec[detct].RA,detvec[detct].Dec); // Project current detection
@@ -759,6 +761,7 @@ int main(int argc, char *argv[])
 	p3avg.y /= double(num_dets);
 	p3avg.z /= double(num_dets);
 	i=celedeproj01(p3avg, &img_log[imct].RA, &img_log[imct].Dec);
+	if(DEBUGA>0) cout << "imct = " << imct << ": " << img_log[imct].RA << ", " << img_log[imct].Dec << "\n";
 	if(i==0) ; // All is well.
 	else if(i==1) {
 	  cout << "Warning: vector of zeros fed to celedeproj01\n";
