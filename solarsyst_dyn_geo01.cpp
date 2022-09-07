@@ -3958,19 +3958,18 @@ int helioproj01(point3d unitbary, point3d obsbary,double heliodist,double &geodi
 int helioproj01LD(point3LD unitbary, point3LD obsbary, long double heliodist, long double &geodist, point3LD &projbary)
 {
   long double a,b,c;
-  long double alphapos,alphaneg;
-  long double opdistcos,sunelong,barydist;
-  long double obsdot,opelong;
+  long double alphapos,alphaneg,obsdot,barydist;
+  // long double opdistcos,sunelong,opelong;
   
   //cout << fixed << setprecision(9) << "helioproj01 input observer pos: " << obsbary.x << " " << obsbary.y << " " << obsbary.z << "\n";
   //cout << "barycentric unit vector: " << unitbary.x << " " << unitbary.y << " " << unitbary.z << "\n";
 
   barydist = sqrt(dotprod3LD(obsbary,obsbary));
   obsdot = dotprod3LD(unitbary,obsbary);
-  opdistcos = obsdot/barydist;
-  opelong = acos(opdistcos)*DEGPRAD;
-  if(opelong < 0.0L) opelong = 90.0L - opelong;
-  sunelong = 180.0L - opelong;
+  //opdistcos = obsdot/barydist;
+  //opelong = acos(opdistcos)*DEGPRAD;
+  //if(opelong < 0.0L) opelong = 90.0L - opelong;
+  //sunelong = 180.0L - opelong;
 
   //cout << "barydist = " << barydist << ", obsdot = " << obsdot << ", opdistcos = " << opdistcos << ", opelong = " << opelong << ", sunelong = " << sunelong << "\n";
   
@@ -4017,17 +4016,16 @@ int helioproj01LD(point3LD unitbary, point3LD obsbary, long double heliodist, lo
 int helioproj02LD(point3LD unitbary, point3LD obsbary, long double heliodist, vector <long double> &geodist, vector <point3LD> &projbary)
 {
   long double a,b,c;
-  long double alphapos,alphaneg;
-  long double opdistcos,sunelong,barydist;
-  long double obsdot,opelong;
+  long double alphapos,alphaneg,barydist,obsdot;
+  //long double opdistcos,sunelong,opelong;
   point3LD barypos = point3LD(0.0L,0.0L,0.0L);
   
   barydist = sqrt(dotprod3LD(obsbary,obsbary));
   obsdot = dotprod3LD(unitbary,obsbary);
-  opdistcos = obsdot/barydist;
-  opelong = acos(opdistcos)*DEGPRAD;
-  if(opelong < 0.0L) opelong = 90.0L - opelong;
-  sunelong = 180.0L - opelong;
+  //opdistcos = obsdot/barydist;
+  //opelong = acos(opdistcos)*DEGPRAD;
+  //if(opelong < 0.0L) opelong = 90.0L - opelong;
+  //sunelong = 180.0L - opelong;
 
   // Make sure output vectors start out empty
   geodist = {};
