@@ -4297,10 +4297,19 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   if(e>0L) costheta = ((a-a*e*e)/r0 - 1.0L)/e;
   else costheta = 1.0L;
   if(costheta>=-1.0L && costheta<=1.0L) theta0 = acos(costheta);
-  else {
+  else if(costheta<-1.0) {
+    cerr << "WARNING: Keplerint finds costheta+1.0 = " << costheta+1.0 << "\n";
+    costheta = -1.0L;
+    theta0 = M_PI;
+  } else if(costheta>1.0) {
+    cerr << "WARNING: Keplerint finds costheta-1.0 = " << costheta-1.0 << "\n";
+    costheta = 1.0L;
+    theta0 = 0L;
+  } else {
     cerr << "ERROR: Keplerint finds costheta = " << costheta << "\n";
     return(1);
   }
+    
   radvel = dotprod3LD(startpos,startvel)/r0;
   //cout << "Radial velocity = " << radvel << " km/sec\n";
   
@@ -4318,7 +4327,15 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   // Calculate Goldstein's psi variable from theta.
   cospsi = (costheta + e)/(1.0L + costheta*e);
   if(cospsi>=-1.0L && cospsi<=1.0L) psi = acos(cospsi);
-  else {
+  else if(cospsi<-1.0) {
+    cerr << "WARNING: Keplerint finds cospsi+1.0 = " << cospsi+1.0 << "\n";
+    cospsi = -1.0L;
+    psi = M_PI;
+  } else if(cospsi>1.0) {
+    cerr << "WARNING: Keplerint finds cospsi-1.0 = " << cospsi-1.0 << "\n";
+    cospsi = 1.0L;
+    psi = 0L;  
+  } else {
     cerr << "ERROR: Keplerint finds cospsi = " << cospsi << "\n";
     return(1);
   }
