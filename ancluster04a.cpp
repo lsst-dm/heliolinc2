@@ -41,7 +41,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: ancluster03c -pairdet pairdet_file -clist clusterlist -maxrms maxrms -outfile outfile -outrms rmsfile\n";
+  cerr << "Usage: ancluster04a -pairdet pairdet_file -clist clusterlist -maxrms maxrms -outfile outfile -outrms rmsfile\n";
 }
     
 int main(int argc, char *argv[])
