@@ -333,7 +333,7 @@ int main(int argc, char *argv[])
       getline(instream2,lnfromfile);
       rmslinect++;
       badread=0;
-      if(lnfromfile.size()>40) {
+      if(lnfromfile.size()>40 && !instream1.bad() && !instream1.fail() && !instream1.eof()) {
 	// Read cluster index number;
 	startpoint=0;
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
@@ -468,7 +468,7 @@ int main(int argc, char *argv[])
 	      clustlinect++;
 	    }
 	    badread=0;
-	    if(lnfromfile.size()>40) {
+	    if(lnfromfile.size()>40 && !instream1.bad() && !instream1.fail() && !instream1.eof()) {
 	      // Read and discard the first eight quantities: ptct, MJD, RA, Dec, mag, band, and obscode.
 	      startpoint=0;
 	      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
@@ -604,7 +604,7 @@ int main(int argc, char *argv[])
 	  // Close if-statement checking the RMS was low enough.
 	}	
 	// Close if-statement checking if RMS line was long enough
-      } else {
+      } else if(!instream1.bad() && !instream1.fail() && !instream1.eof()) {
 	cerr << "WARNING: line " << rmslinect << " of rms file " << rmsnames[clusterfilect] << " is too short\n";
       }
       // Close loop checking if we're still successfully reading both files
