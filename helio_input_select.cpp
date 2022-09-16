@@ -46,7 +46,8 @@ int main(int argc, char *argv[])
     show_usage();
     return(1);
   }
-  
+
+  i=1;
   while(i<argc) {
     cout << "Checking out argv[" << i << "] = " << argv[i] << ".\n";
     if(string(argv[i]) == "-infile" || string(argv[i]) == "-if" || string(argv[i]) == "-in" || string(argv[i]) == "--infile" || string(argv[i]) == "--inputfile" || string(argv[i]) == "--input_detections_file" || string(argv[i]) == "--indetfile") {
