@@ -101,7 +101,7 @@
 #define IMAGERAD 2.0 // radius from image center to most distant corner (deg)
 #define MAX_GCR 0.5 // Default maximum Great Circle Residual allowed for a valid tracklet
 #define DEBUG 0
-#define DEBUGA 1
+#define DEBUGA 0
 
       
 static void show_usage()
@@ -457,7 +457,7 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-colformat" || string(argv[i]) == "-format" || string(argv[i]) == "-cf" || string(argv[i]) == "-colfmt" || string(argv[i]) == "--colformat" || string(argv[i]) == "--columnformat" || string(argv[i]) == "--cformat") {
+    } else if(string(argv[i]) == "-colformat" || string(argv[i]) == "-format"  || string(argv[i]) == "-col" || string(argv[i]) == "-cf" || string(argv[i]) == "-colfmt" || string(argv[i]) == "--colformat" || string(argv[i]) == "--columnformat" || string(argv[i]) == "--cformat") {
       if(i+1 < argc) {
 	//There is still something to read;
 	colformatfile=argv[++i];
@@ -495,13 +495,13 @@ int main(int argc, char *argv[])
   
   if(mintrkpts<2) mintrkpts=2;
   
-  cout << "indet file " << indetfile << "\n";
+  cout << "\nInput detection file is called " << indetfile << "\n\n";
   
-  if(inimfile_set == 1) cout << "input image file = " << inimfile << "\n";
-  else cout << "No input image file specified;\nimage catalog will be generated internally\n";	
+  if(inimfile_set == 1) cout << "Input image file = " << inimfile << "\n";
+  else cout << "No input image file specified: image catalog will be generated internally.\n";	
 
   if(outimfile_set ==1) cout << "output image file = " << outimfile << "\n";
-  else cout << "No output image file will be written:\nrequired image information will be kept for internal use only.\n";
+  else cout << "No output image file specified: required image information will only be used internally.\n";
 
   if(colformatfile_set == 1) cout << "column formatting file = " << colformatfile << "\n";
   else {
@@ -516,34 +516,34 @@ int main(int argc, char *argv[])
     cout << "Observatory code in column " << obscodecol << "\n";
   }
   
-  cout << "observatory code file " << obscodefile << "\n";
+  cout << "Observatory code file " << obscodefile << "\n";
 
-  if(outpairfile_default == 0) cout << "output pair file will be called " << outpairfile << "\n";
+  if(outpairfile_default == 0) cout << "Output pair file will be called " << outpairfile << "\n";
   else cout << "Defaulting to output pair file name = " << outpairfile << "\n";
   
-  if(pairdetfile_default == 0) cout << "output paired detection file will be called " << pairdetfile << "\n";
+  if(pairdetfile_default == 0) cout << "Output paired detection file will be called " << pairdetfile << "\n";
   else cout << "Defaulting to output paired detection file name = " << pairdetfile << "\n";
  
   cout << "Heliocentric ephemeris file for the Earth: " << earthfile << "\n";
   
-  if(imrad_default == 0) cout << "image radius = " << imrad << " degrees\n";
-  else cout << "Defaulting to image radius = " << imrad << " degrees\n";
+  if(imrad_default == 0) cout << "Image radius = " << imrad << " degrees.\n";
+  else cout << "Defaulting to image radius = " << imrad << " degrees.\n";
   
-  if(maxtime_default == 0) cout << "max time interval = " << maxtime*24.0 << " hours\n";
-  else cout << "Defaulting to max time interval = " << maxtime*24.0 << " hours\n";
-  if(mintime_default ==0) cout << "min time interval = " << mintime*24.0 << " hours\n";
-  else cout << "Defaulting to min time interval = " << mintime*24.0 << " hours\n";
+  if(maxtime_default == 0) cout << "Max time interval = " << maxtime*24.0 << " hours.\n";
+  else cout << "Defaulting to max time interval = " << maxtime*24.0 << " hours.\n";
+  if(mintime_default ==0) cout << "Min time interval = " << mintime*24.0 << " hours.\n";
+  else cout << "Defaulting to min time interval = " << mintime*24.0 << " hours.\n";
 
-  if(minvel_default == 0) cout << "min angular velocity = " << minvel << " deg/day\n";
-  else cout << "Defaulting to min angular velocity = " << minvel << " deg/day\n";
-  if(maxvel_default == 0) cout << "maximum angular velocity = " << maxvel << " deg/day\n";
-  else cout << "Defaulting to maximum angular velocity = " << maxvel << " deg/day\n";
-  if(mintrkpts_default == 0) cout << "minimum number of points per tracklet = " << mintrkpts << "\n";
+  if(minvel_default == 0) cout << "Min angular velocity = " << minvel << " deg/day.\n";
+  else cout << "Defaulting to min angular velocity = " << minvel << " deg/day.\n";
+  if(maxvel_default == 0) cout << "Maximum angular velocity = " << maxvel << " deg/day.\n";
+  else cout << "Defaulting to maximum angular velocity = " << maxvel << " deg/day.\n";
+  if(mintrkpts_default == 0) cout << "Minimum number of points per tracklet = " << mintrkpts << "\n";
   else cout << "Defaulting to minimum number of points per tracklet = " << mintrkpts << "\n";
-  if(minarc_default == 0) cout << "minimum tracklet length = " << minarc << " arcsec\n";
-  else cout << "Defaulting to minimum tracklet length = " << minarc << " arcsec\n";
-  if(maxgcr_default == 0) cout << "maximum tracklet Great Circle residual = " << maxgcr << " arcsec\n";
-  else cout << "Defulting to maximum tracklet Great Circle residual = " << maxgcr << " arcsec\n";
+  if(minarc_default == 0) cout << "Minimum tracklet length = " << minarc << " arcsec.\n";
+  else cout << "Defaulting to minimum tracklet length = " << minarc << " arcsec.\n";
+  if(maxgcr_default == 0) cout << "Maximum tracklet Great Circle residual = " << maxgcr << " arcsec.\n";
+  else cout << "Defulting to maximum tracklet Great Circle residual = " << maxgcr << " arcsec.\n";
   maxdist = maxtime*maxvel;
   
   // Read the column formatting file, if any
@@ -618,7 +618,7 @@ int main(int argc, char *argv[])
       getline(instream1,lnfromfile);
     }
   instream1.close();
-  cout << "Read " << observatory_list.size() << " lines from observatory code file " << obscodefile << ":\n";
+  cout << "Read " << observatory_list.size() << " lines from observatory code file " << obscodefile << "\n";
   
   if(DEBUG>=2) {
     for(i=0;i<observatory_list.size();i++) {
@@ -635,7 +635,7 @@ int main(int argc, char *argv[])
   // Skip one-line header
   getline(instream1,lnfromfile);
   lct++;
-  cout << lnfromfile << "\n";
+  //cout << lnfromfile << "\n";
   while(reachedeof==0) {
     getline(instream1,lnfromfile);
     lct++;
@@ -676,18 +676,18 @@ int main(int argc, char *argv[])
   }
   instream1.close();
   if(reachedeof==1) { 
-    cout << "File read successfully to the end.\n";
+    cout << "Input file " << indetfile << " read successfully to the end.\n";
   }
   else if(reachedeof==-1) cout << "Warning: file read failed\n";
   else if(reachedeof==-2) cout << "Warning: file possibly corrupted\n";
   else cout << "Warning: unknown file read problem\n";
 
-  cout << "Last two obscodes: " << detvec[detvec.size()-2].obscode << " and " << detvec[detvec.size()-1].obscode << "\n"; 
+  // cout << "Last two obscodes: " << detvec[detvec.size()-2].obscode << " and " << detvec[detvec.size()-1].obscode << "\n"; 
   
   // time-sort the detection vector
   sort(detvec.begin(), detvec.end(), early_det_obsmag_indvec());
   
-  cout << "Last two obscodes: " << detvec[detvec.size()-2].obscode << " and " << detvec[detvec.size()-1].obscode << "\n"; 
+  // cout << "Last two obscodes: " << detvec[detvec.size()-2].obscode << " and " << detvec[detvec.size()-1].obscode << "\n"; 
   
   // Get image information.
   if(inimfile.size()>0) {
@@ -732,7 +732,7 @@ int main(int argc, char *argv[])
       }
     }
     if(reachedeof==1) { 
-      cout << "File read successfully to the end.\n";
+      cout << "Input file " << inimfile << " read successfully to the end.\n";
     }
     else if(reachedeof==-1) cout << "Warning: file read failed\n";
     else if(reachedeof==-2) cout << "Warning: file possibly corrupted\n";
@@ -789,8 +789,6 @@ int main(int argc, char *argv[])
 	startind=i;
       }
     }
-    cout << "OK here, now for final image\n";
-    fflush(stdout);
     // Account for the final image.
     if(isnormal(mjdnorm)) {
       endind=i;
@@ -800,8 +798,6 @@ int main(int argc, char *argv[])
       imlog = img_log03(mjdmean,0.0,0.0,detvec[endind-1].obscode,startind,endind);
       img_log.push_back(imlog);
     }
-    cout << "Done with final image\n";
-    fflush(stdout);
 
     //We've now loaded the mean MJDs and the starting and ending
     //detection table indices for each image; it still remains to
