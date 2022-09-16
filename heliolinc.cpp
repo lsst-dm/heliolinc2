@@ -1,5 +1,89 @@
-// June 22, 2022: projectpairs06d.cpp:
-// Like projectpairs06c.cpp, but besides the viewing geometries
+// September 14, 2022: heliolinc.cpp (created on this date by copying
+// an earlier prototype file called projectpairs06d.cpp).
+//
+// Implements in C++ (with some modifications) the Heliolinc3D
+// algorithm developed by Siegfried Eggl, which in turn was based
+// on the original HelioLinC algorithm developed by Matthew Holman
+// (Holman et al. 2018, Astronomical Journal, 156, 135).
+//
+// The asteroid linking problem consists in identifying
+// subsets of detections in an input catalog of astronomical
+// transient detections that are in fact repeated detections of the
+// same previously unknown asteroid. For example, by repeatedly
+// observing a 1000 square-degree area of sky over a two-week
+// period, an astronomical survey might identify millions of
+// cases where an apparent source is detected at a position
+// where there is no known star or asteroid. Each detection
+// is uniquely identified by its celestial coordinates (e.g.,
+// right ascension and declination, or RA and Dec) and the time
+// of observation (e.g., modified Julian day, or MJD). These
+// detections could be spurious (cosmic ray hits, electronic
+// crosstalk, fluctuations of Poisson noise); stationary
+// transients (e.g., supernovae or previously unknown
+// variable stars); or asteroids. Although thousands of unknown
+// asteroids may each have been detected many times, none can
+// be said to have been 'discovered' until the linking problem
+// has been solved and it is known which sets of detections are
+// actually repeated measurements of the same unknown asteroid.
+// Then the asteroid has really been discovered; its orbit can
+// be calculated; future followup observations can be planned; and
+// serendipitous past detections ('precoveries') may be identified.
+//
+// Heliolinc3D solves the asteroid linking problem by probing a
+// number of hypotheses for the time-dependent heliocentric distance
+// of undiscovered asteroids that may be present in the input data.
+// It requires five input files: one is the detection catalog,
+// one is a 'pair' file (see below), and one specifies the hypotheses
+// to be probed. The remaining two files are reference files that
+// will not typically need to be changed from one execution to another:
+// one is a JPL Horizons ephemeris for the Earth, and the other is
+// an observatory code file based on the one available from the Minor
+// Planet Center at https://minorplanetcenter.net/iau/lists/ObsCodesF.html
+// For digestion by the current version of heliolinc, the incomplete
+// lines that relate to space-based observatories in this file must
+// be deleted. Useful defaults for these last two files,
+// Earth1day2020s_02a.txt and ObsCodes.txt, are available in the
+// same github repository as this source code.
+//
+// The input detection catalog and preliminary 'pair' file required
+// by heliolinc can be produced by using make_tracklets, available in the
+// same github repository as the current code. The input to make_tracklets
+// is a .csv detection catalog of very flexible formatting, which is
+// described in more detail in the documentation for make_tracklets.
+// The pair file lists pairs of entries in the detection catalog that
+// might be detections of the same object within a relatively short
+// span of time (e.g., 1.5 hours). These 'pairs' can also be 'tracklets'
+// consisting of more than two detections, if the input catalog
+// includes cases where more than two observations obtained close
+// together in time lie along a consistent linear trajectory.
+//
+// The input file providing the hypotheses that should be probed, where
+// each hypothesis proposes a particular dependence of unknown asteroids'
+// heliocentric distance as a function of time, has one line per
+// hypothesis, and four columns, as follows:
+//
+// 1. Heliocentric distance (AU)
+// 2. Heliocentric radial velocity (AU/day)
+// 3. Normalization (0: skip this line. Positive: don't skip).
+// 4. 2nd time-derivative of heliocentric distance, scaled by -GMsun/r^2
+//
+// Columns 1, 2, and 4 effectively approximate the time-dependent
+// heliocentric distance as a Taylor Series, providing the 0th,
+// 1st, and 2nd time-derivatives of the heliocentric distance.
+// The forth column can be thought of as an acceleration, but it's
+// important to note that it is **not** the vector acceleration
+// away from the sun, which always -GMsun/r^2 for any orbit. Instead,
+// it's the second derivative of the distance from the sun, which is
+// zero for a circular orbit, and reaches -GMsun/r^2 (1.0 in the
+// normalized units used by heliolinc), only in the limit of an orbit
+// with zero angular momentum (i.e., with eccentricty exactly 1.0)
+//
+//
+//
+//
+// DEVELOPMENT NOTES IN REVERSE CHRONOLOGICAL ORDER:
+//
+// June 22, 2022: besides the viewing geometries
 // handled by all earlier versions, also handles the previously-ignored
 // geometry, possible only at solar elongation less than 90 degrees,
 // where the line-of-sight from the observer intersects the
@@ -15,9 +99,8 @@
 // Hence, it is not a supplement but a replacement for previous
 // versions.
 //
-// March 15, 2022: projectpairs06c.cpp:
-// Like projectpairs06b.cpp, but reads the pairdets file in csv format
-// with a header, as output by maketrack04c.cpp. Also replaces the
+// March 15, 2022: reads the pairdets file in csv format
+// with a header. Also replaces the
 // daysteps parameter with obsnights = daysteps+1 (on output).
 // The parameter daysteps is still used internally exactly as before.
 //
@@ -30,32 +113,26 @@
 // is not expected to create compatibility issues for programs external
 // to the heliolinc suite.
 // 
-// March 11, 2022: projectpairs06b.cpp:
-// Like projectpairs06a.cpp, but reads and keeps track of magnitude,
+// March 11, 2022: reads and keeps track of magnitude,
 // photometric band, and observatory code for each observation.
 //
-// March 04, 2022: projectpairs06a.cpp:
-// Like projectpairs05a.cpp, but uses a clustering radius that
+// March 04, 2022: uses a clustering radius that
 // depends on geocentric distance. The user-defined clustering
 // radius will now be taken to apply to a standard geocentric
 // distance of 1.0 AU.
 //
-// January 24, 2022: projectpairs05a.cpp:
-// Like projectpairs04c.cpp, but reads a more sophisticated pair
+// January 24, 2022: reads a more sophisticated pair
 // file that aggregates tracklets into single effective pairs.
 //
-// January 07, 2022: projectpairs04c.cpp:
-// Like projectpairs04b.cpp, but uses an integerized form of the
+// January 07, 2022: uses an integerized form of the
 // state vectors for the k-d tree and DBSCAN implementations,
 // for speed.
 //
-// January 06, 2022: projectpairs04b.cpp
-// Like projectpairs04a.cpp, but streamlined a bunch of kludgy
+// January 06, 2022: streamlined a bunch of kludgy
 // aspects of the DBSCAN implementation that were good for debugging
 // but not appropriate for production.
 //
-// projectpairs04a.cpp
-// Like projectpairs03a.cpp, but aimed at performing the further
+// January 04, 2022: aimed at performing the further
 // step of clustering state vectors propagated to the reference
 // time in order link asteroid discoveries. In support of doing
 // this very fast in cases where we have millions of detections,
@@ -63,10 +140,9 @@
 // the input paired detection file, along with string identifiers
 // indicating which detections correspond to the same unique object,
 // which are required for testing purposes. NOTE: I first successfully
-// implemented the DBSCAN algorithm for projectpairs04a.
+// implemented the DBSCAN algorithm at this stage of developement
 //
-// December 07, 2021: projectpairs03a.cpp
-// Read pair files output by maketrack01a.cpp, and use a
+// December 07, 2021: Read pair files output by maketrack01a.cpp, and use a
 // constant-acceleration model of the heliocentric distance.
 // This is the first version that searches a grid
 // of heliocentric distance and velocity. The grid is
@@ -74,7 +150,7 @@
 // configuration file, which also supplies best-guess
 // heliocentric accelerations for each heliocentric distance
 // and radial velocity.
-// The proceed as in projectpairs01a.cpp:
+//
 // Analysis performed:
 // 1. Calculate the observer's precise barycentric
 //    position at the moment of each observation.
@@ -131,7 +207,12 @@
 
 static void show_usage()
 {
-  cerr << "Usage: projectpairs06c -dets detfile -pairs pairfile -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad cluster_radius -npt dbscan_npt -minobsnights minobsnights -mintimespan mintimespan -mingeodist minium_geocentric_distance -maxgeodist maximum_geocentric_distance -geologstep logarithmic_step_size_for_geocentric_distance_bins -out outfile -outrms rmsfile \n";
+  cerr << "Usage: heliolinc -dets detfile -pairs pairfile -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad cluster_radius -npt dbscan_npt -minobsnights minobsnights -mintimespan mintimespan -mingeodist minium_geocentric_distance -maxgeodist maximum_geocentric_distance -geologstep logarithmic_step_size_for_geocentric_distance_bins -out outfile -outsum summary_file \n";
+  cerr << "\nor, at minimum:\n\n";
+  cerr << "heliolinc -dets detfile -pairs pairfile -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file\n";
+  cerr << "\nNote that the minimum invocation leaves some things set to defaults\n";
+  cerr << "that you may well wish to specify: in particular, the output file names\n";
+  
 }
     
 int main(int argc, char *argv[])
@@ -148,8 +229,8 @@ int main(int argc, char *argv[])
   string indetfile;
   string inpairfile;
   string accelfile;
-  string outfile;
-  string rmsfile;
+  string outfile="hlout.all";
+  string rmsfile="hlout.summary";
   string lnfromfile;
   long double MJD,RA,Dec;
   int reachedeof=0;
@@ -259,8 +340,15 @@ int main(int argc, char *argv[])
   int mindaysteps = MINDAYSTEPS;
   int minobsnights = MINDAYSTEPS+1;
   double mintimespan = MINSPAN;
+  ifstream instream1;
+  vector <long double> mjdvec;
+  int default_cluster_radius, default_npt, default_mindaysteps;
+  int default_mintimespan, default_mingeodist, default_maxgeodist;
+  int default_geologstep,default_outfile,default_rmsfile;
+  default_cluster_radius = default_npt = default_mindaysteps = default_mintimespan = 1;
+  default_mingeodist = default_maxgeodist = default_geologstep = default_outfile = default_rmsfile = 1;
   
-  if(argc<=17)
+  if(argc<11)
     {
       show_usage();
       return(1);
@@ -328,6 +416,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	cluster_radius=stod(argv[++i]);
+	default_cluster_radius = 0;
 	i++;
       }
       else {
@@ -339,10 +428,11 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	npt=stoi(argv[++i]);
+	default_npt = 0;
 	i++;
       }
       else {
-	cerr << "Clustering radius keyword supplied with no corresponding argument\n";
+	cerr << "DBSCAN npt keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
@@ -351,6 +441,7 @@ int main(int argc, char *argv[])
 	//There is still something to read;
 	minobsnights=stoi(argv[++i]);
 	mindaysteps = minobsnights-1; // Nights are fenceposts, daysteps are the spaces in between.
+	default_mindaysteps = 0;
 	i++;
       }
       else {
@@ -362,6 +453,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	mintimespan=stod(argv[++i]);
+	default_mintimespan = 0;
 	i++;
       }
       else {
@@ -373,6 +465,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	mingeodist=stod(argv[++i]);
+	default_mingeodist = 0;
 	i++;
       }
       else {
@@ -384,6 +477,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	maxgeodist=stod(argv[++i]);
+	default_maxgeodist = 0;
 	i++;
       }
       else {
@@ -395,6 +489,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	geologstep=stod(argv[++i]);
+	default_geologstep = 0;
 	i++;
       }
       else {
@@ -406,6 +501,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	outfile=argv[++i];
+	default_outfile = 0;
 	i++;
       }
       else {
@@ -413,14 +509,15 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-rms" || string(argv[i]) == "-outrms" || string(argv[i]) == "-or" || string(argv[i]) == "--outrmsfile" || string(argv[i]) == "--outrms" || string(argv[i]) == "--rmsfile") {
+    } else if(string(argv[i]) == "-outsum" || string(argv[i]) == "-sum" || string(argv[i]) == "-rms" || string(argv[i]) == "-outrms" || string(argv[i]) == "-or" || string(argv[i]) == "--outsummaryfile" || string(argv[i]) == "--outsum" || string(argv[i]) == "--sum") {
       if(i+1 < argc) {
 	//There is still something to read;
 	rmsfile=argv[++i];
+	default_rmsfile = 0;
 	i++;
       }
       else {
-	cerr << "Output RMS file keyword supplied with no corresponding argument\n";
+	cerr << "Output summary file keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
@@ -435,17 +532,93 @@ int main(int argc, char *argv[])
   cout << "input detection file " << indetfile << "\n";
   cout << "input pair file " << inpairfile << "\n";
   cout << "input observer position file " << planetfile << "\n";
-  cout << "input heliocentric distance, radial velocity, and radial acceleration file " << accelfile << "\n";
+  cout << "input heliocentric hypothesis file " << accelfile << "\n";
   cout << "input reference MJD " << mjdref << "\n";
-  cout << "input clustering radius " << cluster_radius << "km\n";
-  cout << "npt for DBSCAN is " << npt << "\n";
-  cout << "minimum number of DBSCAN points (i.e. min. cluster size) is " << npt << "\n";
-  cout << "minimum number of unique nights is " << mindaysteps+1 << "\n";
-  cout << "minimum time span is " << mintimespan << "\n";
-  cout << "minimum geocentric distance is " << mingeodist << " AU\n";
-  cout << "maximum geocentric distance is " << maxgeodist << " AU\n";
-  cout << "logarithmic step size for geocentric distance bins is " << geologstep << "\n";
-  cout << "output file " << outfile << "\n";
+
+  // Catch required parameters if missing
+  if(indetfile.size()<=0) {
+    cout << "ERROR: input detection file is required\n";
+    show_usage();
+    return(1);
+  } else if(inpairfile.size()<=0) {
+    cout << "ERROR: input pair file is required\n";
+    show_usage();
+    return(1);
+  } else if(planetfile.size()<=0) {
+    cout << "ERROR: input observer position file is required:\n";
+    cout << "e.g. Earth1day2020s_02a.txt\n";
+    show_usage();
+    return(1);
+  } else if(accelfile.size()<=0) {
+    cout << "ERROR: input heliocentric hypothesis file is required\n";
+    show_usage();
+    return(1);
+  } else if(mjdref<=0L) {
+    // Read input detection file to suggest optimal MJDref 
+    instream1.open(indetfile,ios_base::in);
+    if(!instream1) {
+      cerr << "ERROR: unable to open input file " << indetfile << "\n";
+      return(1);
+    }
+    mjdvec={};
+    // Skip header line
+    getline(instream1,lnfromfile);
+    // Read body of the file
+    detfilelinect=0;
+    while(!instream1.bad() && !instream1.fail() && !instream1.eof()) {
+      // Read a line from the paired detections file, and store the MJD
+      getline(instream1,lnfromfile);
+      detfilelinect++;
+      badread=0;
+      if(lnfromfile.size()>60) {
+	// Read MJD
+	startpoint=0;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) MJD = stold(stest);
+	else badread=1;
+	// If there was a file read error, abort.
+	if(badread==1) {
+	  cerr << "ERROR reading line " << detfilelinect << " of paired detection file" << indetfile << "\n";
+	  return(1);
+	} else if(MJD<=0L) {
+	  cerr << "ERROR reading line " << detfilelinect << " of paired detection file" << indetfile << ":\n";
+	  cerr << "non-positive MJD value " << MJD << "\n";
+	  return(1);
+	}
+	// If we reach this point, the line was read OK. Write it to mjdvec
+	mjdvec.push_back(MJD);
+      } else if(!instream1.bad() && !instream1.fail() && !instream1.eof()) {
+	cerr << "WARNING: line " << detfilelinect << " of paired detection file " << indetfile << " was too short\n";
+      }
+    }
+    instream1.close();
+    sort(mjdvec.begin(),mjdvec.end());
+    cout << "ERROR: input positive-valued reference MJD is required\n";
+    cout << fixed << setprecision(2) << "Suggested value is " << mjdvec[0]*0.5L + mjdvec[mjdvec.size()-1]*0.5L << "\n";
+    cout << "based on your input detection catalog " << indetfile << "\n";
+    show_usage();
+    return(1);
+  }
+
+
+  if(default_cluster_radius==1) cout << "Defaulting to cluster radius = " << cluster_radius << "km\n";
+  else cout << "input clustering radius " << cluster_radius << "km\n";
+  if(default_npt==1) cout << "Defaulting to DBSCAN npt (min. no. of tracklets in a linkage) = " << npt << "\n";
+  else cout << "input DBSCAN npt (min. no. of tracklets in a linkage) is " << npt << "\n";
+  if(default_mindaysteps==1) cout << "Defaulting to minimum number of unique nights = " << mindaysteps+1 << "\n";
+  else cout << "minimum number of unique nights is " << mindaysteps+1 << "\n";
+  if(default_mintimespan==1) cout << "Defaulting to minimum time span for a linkage = " << mintimespan << " days\n";
+  else cout << "minimum time span for a linkage is " << mintimespan << " days\n";
+  if(default_mingeodist==1) cout << "Defaulting to minimum geocentric distance = " << mingeodist << " AU\n";
+  else cout << "minimum geocentric distance is " << mingeodist << " AU\n";
+  if(default_maxgeodist==1) cout << "Defaulting to maximum geocentric distance = " << maxgeodist << " AU\n";
+  else cout << "maximum geocentric distance is " << maxgeodist << " AU\n";
+  if(default_geologstep==1) cout << "Defaulting to logarithmic step size for geocentric distance bins = " << geologstep << "\n";
+  else cout << "logarithmic step size for geocentric distance bins is " << geologstep << "\n";
+  if(default_outfile==1) cout << "WARNING: using default name " << outfile << " for comprehensive output file\n";
+  else cout << "comprehensive output file " << outfile << "\n";
+  if(default_rmsfile==1) cout << "WARNING: using default name " << rmsfile << " for summary output file\n";
+  else cout << "summary output file " << rmsfile << "\n";
 
   cout << "Heliocentric ephemeris for Earth is named " << planetfile << "\n";
   mjd={};
@@ -479,7 +652,7 @@ int main(int argc, char *argv[])
   }
   
   // Read input detection file.
-  ifstream instream1 {indetfile};
+  instream1.open(indetfile,ios_base::in);
   if(!instream1) {
     cerr << "ERROR: unable to open input file " << indetfile << "\n";
     return(1);

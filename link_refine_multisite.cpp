@@ -1,3 +1,29 @@
+// September 14, 2022: link_refine_multisite.cpp (created on this date
+// by copying an earlier prototype file called ancluster03c.cpp).
+//
+// Refine linkage files produced by heliolinc, eliminating cases
+// of overlapping linkages by identifying sets of mutually overlapping
+// linkages, choosing the best one in each such set using a quality
+// metric, and discarding the rest. This enables heliolinc to be
+// used aggressively to find all plausible linkages without concerns
+// about redundancy, since link_refine is guaranteed to produce
+// a non-redundant set with optimized quality metrics.
+//
+// The choice of the quality metric is obviously of great importance
+// for the ultimate level of linkage success, because a badly
+// chosen quality metric can cause a poor choice to be made from
+// a selection of mutually overlapping linkages, such that a bad
+// linkage is retained and good ones (if any) are rejected.
+//
+// This program uses a quality metric that relies on inferred state
+// vectors and not fits to the on-sky motion. This means it is less
+// less powerful for a single site than its sister program link_refine,
+// but it is not confused by parallax with multiple sites. The current
+// program is the best option for use in combining data from multiple
+// observing sites, but should NOT be used if all the observations are
+// from a single site: link_refine has more diagnostic power in that
+// case.
+//
 // March 11, 2022: ancluster03c.cpp:
 // Like ancluster03b, but reads input
 // files with a new, standardized csv format.
@@ -36,7 +62,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: ancluster03c -pairdet pairdet_file -clist clusterlist -maxrms maxrms -outfile outfile -outrms rmsfile\n";
+  cerr << "Usage: link_refine_multisite -pairdet pairdet_file -clist clusterlist -maxrms maxrms -outfile outfile -outrms rmsfile\n";
 }
     
 int main(int argc, char *argv[])

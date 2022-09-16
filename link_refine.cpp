@@ -1,3 +1,32 @@
+// September 14, 2022: link_refine.cpp (created on this date by copying
+// an earlier prototype file called ancluster04a.cpp).
+//
+// Refine linkage files produced by heliolinc, eliminating cases
+// of overlapping linkages by identifying sets of mutually overlapping
+// linkages, choosing the best one in each such set using a quality
+// metric, and discarding the rest. This enables heliolinc to be
+// used aggressively to find all plausible linkages without concerns
+// about redundancy, since link_refine is guaranteed to produce
+// a non-redundant set with optimized quality metrics.
+//
+// The choice of the quality metric is obviously of great importance
+// for the ultimate level of linkage success, because a badly
+// chosen quality metric can cause a poor choice to be made from
+// a selection of mutually overlapping linkages, such that a bad
+// linkage is retained and good ones (if any) are rejected.
+//
+// This program uses a quality metric that involves a polynomial
+// fit to the sky positions (RA and Dec) as a function of time.
+// This is better than alternatives using only inferred state vectors,
+// if and only the observations are all from one observatory.
+// If observations are from multiple observatories, especially
+// ones widely separated across the Earth, the alternative program
+// link_refine_multisite should be used. It relies on inferred state
+// vectors and hence is less powerful for a single site, but it
+// is not confused by parallax with multiple sites. The current
+// program is NOT suitable for use in combining data from multiple
+// observing sites.
+//
 // June 28, 2022: ancluster04a.cpp:
 // Like ancluster03c.cpp, but additionally fits a polynomial
 // of order tracknightcount to the data, and includes the
@@ -41,7 +70,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: ancluster03c -pairdet pairdet_file -clist clusterlist -maxrms maxrms -outfile outfile -outrms rmsfile\n";
+  cerr << "Usage: link_refine -pairdet pairdet_file -lflist link_file_list -maxrms maxrms -outfile outfile -outrms rmsfile\n";
 }
     
 int main(int argc, char *argv[])
@@ -149,7 +178,7 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-clist" || string(argv[i]) == "-cl" || string(argv[i]) == "-clustlist" || string(argv[i]) == "--clusterlist" || string(argv[i]) == "--clist" || string(argv[i]) == "--clusterl" || string(argv[i]) == "--clustlist") {
+    } else if(string(argv[i]) == "-lflist" || string(argv[i]) == "-clist" || string(argv[i]) == "-cl" || string(argv[i]) == "-clustlist" || string(argv[i]) == "--clusterlist" || string(argv[i]) == "--clist" || string(argv[i]) == "--clusterl" || string(argv[i]) == "--clustlist") {
       if(i+1 < argc) {
 	//There is still something to read;
 	clusterlist=argv[++i];
@@ -182,7 +211,7 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-rms" || string(argv[i]) == "-outrms" || string(argv[i]) == "-or" || string(argv[i]) == "--outrmsfile" || string(argv[i]) == "--outrms" || string(argv[i]) == "--rmsfile") {
+    } else if(string(argv[i]) == "-rms" || string(argv[i]) == "-sum" || string(argv[i]) == "-outsum" || string(argv[i]) == "-outrms" || string(argv[i]) == "-or" || string(argv[i]) == "--outrmsfile" || string(argv[i]) == "--outrms" || string(argv[i]) == "--rmsfile") {
       if(i+1 < argc) {
 	//There is still something to read;
 	outrmsfile=argv[++i];

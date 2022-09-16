@@ -1,3 +1,31 @@
+// September 14, 2022: make_tracklets.cpp (created on this date
+// by copying an earlier prototype file called maketrack04c.cpp).
+//
+// make_tracklets was written to create input files for heliolinc.
+// Two files required as input for heliolinc are produced on each
+// successful execution of make_tracklets. One is a reformatted
+// detection catalog ('paired detection file'), and the other is a
+// 'pair file' specifying which sets of detections form pairs
+// or tracklets that could plausibly be detections of the same
+// moving object.
+//
+// make_tracklets ingests a csv-formatted detection catalog and
+// creates tracklets: sets of detections obtained within a relatively
+// short period of time (default 1.5 hr) that could plausibly
+// be detections of a single object moving with in an approximate
+// Great Circle trajectory with approximately constant angular velocity
+// below some velocity cutoff. Pairs (i.e., tracklets with only
+// two points) will be produced unless the parameter mintrkpts is set
+// to more than 2. Any pair of non-simultaneous detections is of
+// course consistent with some constant-velocity Great Circle trajectory
+// by necessity. While tracklets of more than two points can be
+// rejected for not sufficiently following a Great Circle trajectory,
+// pairs are constrained only by the angular and time separations of
+// the two detections, and by whether these imply an angular velocity
+// within the range being considered.
+//
+//
+// DEVELOPMENT NOTES IN REVERSE CHRONOLOGICAL ORDER
 // March 15, 2022: maketrack04c.cpp:
 // Like maketrack04b.cpp, but writes output pairdets file in csv format
 // with a header.
@@ -59,12 +87,12 @@
 #define NUMPOS 3
 
 #define IDCOL 1
-#define MJDCOL 3
-#define RACOL 6
-#define DECCOL 8
-#define MAGCOL 32
-#define BANDCOL 26
-#define OBSCODECOL 38
+#define MJDCOL 2
+#define RACOL 3
+#define DECCOL 4
+#define MAGCOL 5
+#define BANDCOL 6
+#define OBSCODECOL 7
 #define COLS_TO_READ 7
 #define IMAGETIMETOL 1.0 // Tolerance for matching image time, in seconds
 #define MAXVEL 1.5 // Default max angular velocity in deg/day.
@@ -78,14 +106,14 @@
       
 static void show_usage()
 {
-  cerr << "Usage: maketrack04b -dets detfile -imgs imfile -outimgs output image file/ \n";
+  cerr << "Usage: make_tracklets -dets detfile -imgs imfile -outimgs output image file/ \n";
   cerr << "-pairs pairfile -pairdets paired detection file -colformat column format file/ \n";
   cerr << "-imrad image radius(deg) -maxtime max inter-image time interval (hr)/ \n";
   cerr << "-mintime min inter-image time interval (hr) -maxGCR maximum GRC -mintrkpts min. num. of tracklet points/\n";
   cerr << "-minvel minimum angular velocity (deg/day) -maxvel maximum angular velocity (deg/day) \n";
   cerr << "-minarc minimum total angular arc (arcsec) -earth earthfile -obscode obscodefile\n";
   cerr << "\nor, at minimum\n\n";
-  cerr << "maketrack04b -dets detfile -earth earthfile -obscode obscodefile\n";
+  cerr << "make_tracklets -dets detfile -earth earthfile -obscode obscodefile\n";
   cerr << "Note well that the minimum invocation will leave a bunch of things\n";
   cerr << "set to defaults that may not be what you want.\n";
 }
@@ -149,8 +177,8 @@ int main(int argc, char *argv[])
   string earthfile;
   string obscodefile;
   string colformatfile;
-  string outpairfile="outpairfile01.txt";
-  string pairdetfile="pairdetfile01.txt";
+  string outpairfile="outpairfile01";
+  string pairdetfile="pairdetfile01.csv";
   double obslon = 289.26345L;
   double plxcos = 0.865020L;
   double plxsin = -0.500901L;
@@ -197,7 +225,15 @@ int main(int argc, char *argv[])
   ofstream outstream1;
   string stest;
   int mintrkpts=2;
-  
+  int inimfile_set,outimfile_set,colformatfile_set;
+  inimfile_set = outimfile_set = colformatfile_set = 0;
+  int outpairfile_default,pairdetfile_default,imrad_default;
+  int maxtime_default,mintime_default,minvel_default,maxvel_default;
+  int maxgcr_default,minarc_default,mintrkpts_default;
+  outpairfile_default = pairdetfile_default = imrad_default = 1;
+  maxtime_default = mintime_default = minvel_default = maxvel_default = 1;
+  maxgcr_default = minarc_default = mintrkpts_default = 1;
+
   if(argc<7)
     {
       show_usage();
@@ -222,6 +258,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	inimfile=argv[++i];
+	inimfile_set = 1;
 	i++;
       }
       else {
@@ -233,6 +270,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	outimfile=argv[++i];
+	outimfile_set = 1;
 	i++;
       }
       else {
@@ -244,6 +282,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	outpairfile=argv[++i];
+	outpairfile_default = 0;
 	i++;
       }
       else {
@@ -255,6 +294,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
         pairdetfile=argv[++i];
+	pairdetfile_default = 0;
 	i++;
       }
       else {
@@ -266,6 +306,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
         imrad=stod(argv[++i]);
+	imrad_default = 0;
 	i++;
 	if(!isnormal(imrad) || imrad<=0.0) {
 	  cerr << "Error: invalid image radius (" << imrad << " deg) supplied.\n";
@@ -282,6 +323,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
         maxtime=stod(argv[++i]);
+	maxtime_default = 0;
 	i++;
 	if(isnormal(maxtime) && maxtime>0.0) {
 	  maxtime/=24.0; // Convert from hours to days.
@@ -299,6 +341,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
         mintime=stod(argv[++i]);
+	mintime_default = 0;
 	i++;	
 	if((isnormal(mintime) || mintime==0.0) && mintime>=0.0) {
 	  mintime/=24.0; // Convert from hours to days
@@ -316,6 +359,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
         minvel=stod(argv[++i]);
+	minvel_default = 0;
 	i++;
 	if(!isnormal(minvel) && minvel!=0.0l) {
 	  cerr << "Error: invalid minimum angular velocity\n";
@@ -332,6 +376,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
         maxvel=stod(argv[++i]);
+	maxvel_default = 0;
 	i++;
 	if(!isnormal(maxvel) || maxvel<=0.0) {
 	  cerr << "Error: invalid maximum angular velocity\n";
@@ -348,6 +393,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
         maxgcr=stod(argv[++i]);
+	maxgcr_default = 0;
 	i++;
 	if(!isnormal(maxgcr) || maxgcr<=0.0) {
 	  cerr << "Error: invalid maximum Great Circle residual\n";
@@ -364,6 +410,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
         minarc=stod(argv[++i]);
+	minarc_default = 0;
 	i++;
 	if(!isnormal(minarc) && minarc!=0.0l) {
 	  cerr << "Error: invalid minimum angular arc\n";
@@ -391,6 +438,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	mintrkpts=stoi(argv[++i]);
+	mintrkpts_default = 0;
 	i++;
       }
       else {
@@ -413,6 +461,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	colformatfile=argv[++i];
+	colformatfile_set = 1;
 	i++;
       }
       else {
@@ -447,21 +496,54 @@ int main(int argc, char *argv[])
   if(mintrkpts<2) mintrkpts=2;
   
   cout << "indet file " << indetfile << "\n";
-  cout << "inimage file " << inimfile << "\n";
-  cout << "column formatting file " << colformatfile << "\n";
+  
+  if(inimfile_set == 1) cout << "input image file = " << inimfile << "\n";
+  else cout << "No input image file specified;\nimage catalog will be generated internally\n";	
+
+  if(outimfile_set ==1) cout << "output image file = " << outimfile << "\n";
+  else cout << "No output image file will be written:\nrequired image information will be kept for internal use only.\n";
+
+  if(colformatfile_set == 1) cout << "column formatting file = " << colformatfile << "\n";
+  else {
+    cout << "No column formatting file specified for input file " << indetfile << "\n";
+    cout << "The following default format will be assumed:\n";
+    cout << "String identifer in column " << idcol << "\n";
+    cout << "Modified Julian Day in column " << mjdcol << "\n";
+    cout << "Right Ascension (RA) in column " << racol << "\n";
+    cout << "Declination (Dec) in column " << deccol << "\n";
+    cout << "Magnitude in column " << magcol << "\n";
+    cout << "Photometric band in column " << bandcol << "\n";
+    cout << "Observatory code in column " << obscodecol << "\n";
+  }
+  
   cout << "observatory code file " << obscodefile << "\n";
-  cout << "output image file " << outimfile << "\n";
-  cout << "pairfile file " << outpairfile << "\n";
-  cout << "paired detection file " << pairdetfile << "\n";
+
+  if(outpairfile_default == 0) cout << "output pair file will be called " << outpairfile << "\n";
+  else cout << "Defaulting to output pair file name = " << outpairfile << "\n";
+  
+  if(pairdetfile_default == 0) cout << "output paired detection file will be called " << pairdetfile << "\n";
+  else cout << "Defaulting to output paired detection file name = " << pairdetfile << "\n";
+ 
   cout << "Heliocentric ephemeris file for the Earth: " << earthfile << "\n";
-  cout << "image radius " << imrad << " degrees\n";
-  cout << "max time interval " << maxtime*24.0 << " hours\n";
-  cout << "min time interval " << mintime*24.0 << " hours\n";
-  cout << "minvel " << minvel << " deg/day\n";
-  cout << "maxvel " << maxvel << " deg/day\n";
-  cout << "minimum number of points per tracklet " << mintrkpts << "\n";
-  cout << "minarc " << minarc << " arcsec\n";
-  cout << "maxGCR " << maxgcr << " arcsec\n";
+  
+  if(imrad_default == 0) cout << "image radius = " << imrad << " degrees\n";
+  else cout << "Defaulting to image radius = " << imrad << " degrees\n";
+  
+  if(maxtime_default == 0) cout << "max time interval = " << maxtime*24.0 << " hours\n";
+  else cout << "Defaulting to max time interval = " << maxtime*24.0 << " hours\n";
+  if(mintime_default ==0) cout << "min time interval = " << mintime*24.0 << " hours\n";
+  else cout << "Defaulting to min time interval = " << mintime*24.0 << " hours\n";
+
+  if(minvel_default == 0) cout << "min angular velocity = " << minvel << " deg/day\n";
+  else cout << "Defaulting to min angular velocity = " << minvel << " deg/day\n";
+  if(maxvel_default == 0) cout << "maximum angular velocity = " << maxvel << " deg/day\n";
+  else cout << "Defaulting to maximum angular velocity = " << maxvel << " deg/day\n";
+  if(mintrkpts_default == 0) cout << "minimum number of points per tracklet = " << mintrkpts << "\n";
+  else cout << "Defaulting to minimum number of points per tracklet = " << mintrkpts << "\n";
+  if(minarc_default == 0) cout << "minimum tracklet length = " << minarc << " arcsec\n";
+  else cout << "Defaulting to minimum tracklet length = " << minarc << " arcsec\n";
+  if(maxgcr_default == 0) cout << "maximum tracklet Great Circle residual = " << maxgcr << " arcsec\n";
+  else cout << "Defulting to maximum tracklet Great Circle residual = " << maxgcr << " arcsec\n";
   maxdist = maxtime*maxvel;
   
   // Read the column formatting file, if any
@@ -606,11 +688,6 @@ int main(int argc, char *argv[])
   sort(detvec.begin(), detvec.end(), early_det_obsmag_indvec());
   
   cout << "Last two obscodes: " << detvec[detvec.size()-2].obscode << " and " << detvec[detvec.size()-1].obscode << "\n"; 
-
-  //Print out sorted detvec for debugging.
-  //for(i=0;i<detvec.size();i++) {
-  //   cout << "det# " << i << ": " << detvec[i].MJD << " " << detvec[i].RA << " " << detvec[i].Dec << " " << detvec[i].idstring << " " << detvec[i].mag << " " << detvec[i].band << " " << detvec[i].obscode << " " << detvec[i].index << "\n";
-  // }
   
   // Get image information.
   if(inimfile.size()>0) {

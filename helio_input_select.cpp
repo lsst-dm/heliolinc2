@@ -1,4 +1,4 @@
-// September 13, 2022: helio_input_select01.cpp
+// September 13, 2022: helio_input_select.cpp
 // Given a file of astronomical detections suitable for input
 // into the make_tracklets programs and a file of
 // linked detections produced by heliolinc or heliovane,
@@ -7,7 +7,14 @@
 // detections that WERE (-keeplink 1) or WERE NOT (-keeplink 0)
 // recorded as linked in the linked detection file.
 //
-// The program relies on the fact
+// helio_input_select relies on the fact that in the comprehensive
+// output files (linked detection files) produced both by heliolinc
+// itself and by the post-processing codes link_refine and
+// link_refine_multisite, the line number **in the original input
+// file** is recorded in column 10 of the csv files. Note well
+// that an awk-style counting convention is used for these line
+// numbers: the header line is line 1, so the first data line is
+// line number 2.
 
 #include "solarsyst_dyn_geo01.h"
 #include "cmath"
@@ -16,7 +23,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: helio_input_select01 -infile input_detections_file -linked linked_detection_file -keeplink 0 -outfile output_file\n";
+  cerr << "Usage: helio_input_select -infile input_detections_file -linked linked_detection_file -keeplink 0 -outfile output_file\n";
 }
     
 int main(int argc, char *argv[])
@@ -60,7 +67,7 @@ int main(int argc, char *argv[])
 	i++;
       }
       else {
-	cerr << "Input cluster list keyword supplied with no corresponding argument\n";
+	cerr << "Linked detection file supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
@@ -147,9 +154,6 @@ int main(int argc, char *argv[])
   sort(tempvec.begin(),tempvec.end());
   // Copy unique-ified version of tempvec into indvec
 
-  for(ldct=0;ldct<ldnum;ldct++) {
-    cout << ldct << " " << tempvec[ldct] << "\n";
-  }
   indvec={};
   indvec.push_back(tempvec[0]);
   for(ldct=1;ldct<ldnum;ldct++) {
