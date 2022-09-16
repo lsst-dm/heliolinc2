@@ -91,6 +91,9 @@ using namespace std;
 #define PHASECONST_A2 1.87L // for calculating asteroid apparent magnitudes.
 #define PHASECONST_B1 0.63L
 #define PHASECONST_B2 1.22L
+#define WARN_INVERSE_TRIG 0 // If 0, don't print warning messages about taking arcsin or arccos of values
+                            // or arccos of values infinitesimally outside the range [-1,1]. Just collapse
+                            // them to exactly 1.0 or -1.0 like a good robot.
 
 // String-handling stuff that has to be declared early because other things depend on it.
 void stringncopy01(char *dest, const string &source, int n);

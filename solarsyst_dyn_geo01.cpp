@@ -440,7 +440,7 @@ int distradec02(double ra1,double dec1,double ra2,double dec2,double *dist,doubl
       d=2.0*asin(h/2.0l);
     }
     else {
-      cerr << "WARNING: distradec02 attempting to take arcsine of 1 + " << h/2.0l - 1.0l << "\n";
+      if(WARN_INVERSE_TRIG>0) cerr << "WARNING: distradec02 attempting to take arcsine of 1 + " << h/2.0l - 1.0l << "\n";
       d = M_PI/2.0l;
     }
     *dist = d*DEGPRAD;
@@ -459,7 +459,7 @@ int distradec02(double ra1,double dec1,double ra2,double dec2,double *dist,doubl
       if(sinepa<=1.0l) {
 	arcsinepa = asin(sinepa);
       } else {
-	cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
+	if(WARN_INVERSE_TRIG>0) cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
 	arcsinepa = M_PI/2.0l;
       }
       if(cosinepa>=0.0) celpa = arcsinepa;
@@ -475,7 +475,7 @@ int distradec02(double ra1,double dec1,double ra2,double dec2,double *dist,doubl
       if(sinepa<=1.0l) {
 	arcsinepa = asin(sinepa);
       } else {
-	cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
+	if(WARN_INVERSE_TRIG>0) cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
 	arcsinepa = M_PI/2.0l;
       }
       if(cosinepa>=0.0) celpa = arcsinepa;
@@ -490,7 +490,7 @@ int distradec02(double ra1,double dec1,double ra2,double dec2,double *dist,doubl
       if(sinepa<=1.0l) {
 	arcsinepa = asin(sinepa);
       } else {
-	cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
+	if(WARN_INVERSE_TRIG>0) cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
 	arcsinepa = M_PI/2.0l;
       }
       if(cosinepa>=0.0) celpa = arcsinepa;
@@ -506,7 +506,7 @@ int distradec02(double ra1,double dec1,double ra2,double dec2,double *dist,doubl
       if(sinepa<=1.0l) {
 	arcsinepa = asin(sinepa);
       } else {
-	cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
+	if(WARN_INVERSE_TRIG>0) cerr << "WARNING: distradec02 attempting to take the arcsine of 1 + " << sinepa-1.0l << "\n";
 	arcsinepa = M_PI/2.0l;
       }
       if(cosinepa>=0.0) celpa = arcsinepa;
@@ -5917,7 +5917,7 @@ int arc2cel01(double racenter,double deccenter,double dist,double pa,double &out
 
   coscolat = cos(arc)*cos(colat1) + sin(arc)*sin(colat1)*cos(rpa);
   if(coscolat>1.0l) {
-    cerr << "WARNING: arc2cel01 attempting to take arccos of 1 + " << coscolat-1.0l << "\n";
+    if(WARN_INVERSE_TRIG>0) cerr << "WARNING: arc2cel01 attempting to take arccos of 1 + " << coscolat-1.0l << "\n";
     colat2 = 0.0l;
   } else colat2 = acos(coscolat);
   outdec = 90.0l - colat2*DEGPRAD;
@@ -5928,7 +5928,7 @@ int arc2cel01(double racenter,double deccenter,double dist,double pa,double &out
     }
   cosdra = (cos(arc) - cos(colat1)*cos(colat2)) / (sin(colat1)*sin(colat2));
   if(cosdra>1.0l) {
-    cerr  << "WARNING: arc2cel01 attempting to take arccos of 1 + " << cosdra-1.0l << "\n";
+    if(WARN_INVERSE_TRIG>0) cerr  << "WARNING: arc2cel01 attempting to take arccos of 1 + " << cosdra-1.0l << "\n";
     deltaRA = 0.0l;
   } else deltaRA = acos(cosdra)*DEGPRAD;
 
@@ -6401,10 +6401,10 @@ int stateunit_to_celestial(point3d &baryvec, double &RA, double &Dec)
   }
 
   if(yczs>1.0) {
-    cerr << "Warning: stateunit_to_celestial attempting to take arcsin of 1 + " << yczs-1.0L << "\n";
+    if(WARN_INVERSE_TRIG>0) cerr << "Warning: stateunit_to_celestial attempting to take arcsin of 1 + " << yczs-1.0L << "\n";
     Dec = M_PI/2.0L;
   } else if(yczs<-1.0) {
-    cerr << "Warning: stateunit_to_celestial attempting to take arcsin of -1 - " << yczs+1.0L << "\n";
+    if(WARN_INVERSE_TRIG>0) cerr << "Warning: stateunit_to_celestial attempting to take arcsin of -1 - " << yczs+1.0L << "\n";
     Dec = -M_PI/2.0L;
   } else {
     Dec = asin(yczs);
@@ -6446,10 +6446,10 @@ int stateunitLD_to_celestial(point3LD &baryvec, long double &RA, long double &De
   }
 
   if(yczs>1.0) {
-    cerr << "Warning: stateunitLD_to_celestial attempting to take arcsin of 1 + " << yczs-1.0L << "\n";
+    if(WARN_INVERSE_TRIG>0) cerr << "Warning: stateunitLD_to_celestial attempting to take arcsin of 1 + " << yczs-1.0L << "\n";
     Dec = M_PI/2.0L;
   } else if(yczs<-1.0) {
-    cerr << "Warning: stateunitLD_to_celestial attempting to take arcsin of -1 - " << yczs+1.0L << "\n";
+    if(WARN_INVERSE_TRIG>0) cerr << "Warning: stateunitLD_to_celestial attempting to take arcsin of -1 - " << yczs+1.0L << "\n";
     Dec = -M_PI/2.0L;
   } else {
     Dec = asin(yczs);
@@ -8042,10 +8042,10 @@ int uvw_to_galcoord(const double &u, const double &v, const double &w, double &R
   }
   sinedec = w/vtot;
   if(sinedec>1.0l) {
-    cout << "Warning: attempting to take arcsine of w/vtot = 1.0 + " << sinedec-1.0l << "\n";
+    if(WARN_INVERSE_TRIG>0) cout << "Warning: attempting to take arcsine of w/vtot = 1.0 + " << sinedec-1.0l << "\n";
     Dec = 90.0l;
   } else if(sinedec<-1.0l) {
-    cout << "Warning: attempting to take arcsine of w/vtot = -1.0 - " << -sinedec-1.0l << "\n";
+    if(WARN_INVERSE_TRIG>0) cout << "Warning: attempting to take arcsine of w/vtot = -1.0 - " << -sinedec-1.0l << "\n";
     Dec = -90.0l;
   } else if(isnormal(sinedec) || sinedec==0.0l) {
     Dec = asin(sinedec)*180.0l/M_PI;
