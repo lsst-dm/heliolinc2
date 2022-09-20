@@ -1899,7 +1899,7 @@ double cluster_stats6i01(const vector <KD_point6ix2> &cluster, double intconvsca
 // DBSCAN_6i01: January 07, 2022:
 // Like DBSCAN_6D02 (NOT DBSCAN_6D01), but uses integerized state
 // vectors for speed.
-int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double intconvscale, vector <KD6i_clust> &outclusters)
+int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double intconvscale, vector <KD6i_clust> &outclusters, int verbose)
 {
   long kdnum = kdtree.size();
   long kdct=0;
@@ -1930,11 +1930,10 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
       // If it's alone, mark it as noise.
       if(queryout.size()<=1) {
 	kdtree[kdct].flag = -1; // Noise point.
-	// cout << "Point " << kdct << ": noise\n";
       }
       else if(queryout.size() >= npt) {
 	// This is a core point of a new cluster.
-	cout << "Point " << kdct << ": cluster core with " << queryout.size() << " neighbors.\n";
+	if(verbose>=1) cout << "Point " << kdct << ": cluster core with " << queryout.size() << " neighbors.\n";
 	clusternum++;
 	kdtree[kdct].flag = clusternum;
 	// Begin loading cluster

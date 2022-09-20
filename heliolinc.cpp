@@ -347,6 +347,7 @@ int main(int argc, char *argv[])
   int default_geologstep,default_outfile,default_rmsfile;
   default_cluster_radius = default_npt = default_mindaysteps = default_mintimespan = 1;
   default_mingeodist = default_maxgeodist = default_geologstep = default_outfile = default_rmsfile = 1;
+  int verbose=0;
     
   i=1;
   while(i<argc) {
@@ -491,6 +492,17 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
+    }  else if(string(argv[i]) == "-verbose" || string(argv[i]) == "-verb" || string(argv[i]) == "-VERBOSE" || string(argv[i]) == "-VERB" || string(argv[i]) == "--verbose" || string(argv[i]) == "--VERBOSE" || string(argv[i]) == "--VERB") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	verbose=stoi(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "Verbosity keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
     } else if(string(argv[i]) == "-out" || string(argv[i]) == "-outfile" || string(argv[i]) == "-o" || string(argv[i]) == "--outfile" || string(argv[i]) == "--outpair" || string(argv[i]) == "--outpairs") {
       if(i+1 < argc) {
 	//There is still something to read;
@@ -565,7 +577,7 @@ int main(int argc, char *argv[])
     }
     instream1.close();
     sort(mjdvec.begin(),mjdvec.end());
-    cout << "ERROR: input positive-valued reference MJD is required\n";
+    cout << "\nERROR: input positive-valued reference MJD is required\n";
     cout << fixed << setprecision(2) << "Suggested value is " << mjdvec[0]*0.5L + mjdvec[mjdvec.size()-1]*0.5L << "\n";
     cout << "based on your input detection catalog " << indetfile << "\n\n\n";
     show_usage();
@@ -588,20 +600,20 @@ int main(int argc, char *argv[])
 
   // Catch required parameters if missing
   if(indetfile.size()<=0) {
-    cout << "ERROR: input detection file is required\n";
+    cout << "\nERROR: input detection file is required\n";
     show_usage();
     return(1);
   } else if(inpairfile.size()<=0) {
-    cout << "ERROR: input pair file is required\n";
+    cout << "\nERROR: input pair file is required\n";
     show_usage();
     return(1);
   } else if(planetfile.size()<=0) {
-    cout << "ERROR: input observer position file is required:\n";
+    cout << "\nERROR: input observer position file is required:\n";
     cout << "e.g. Earth1day2020s_02a.txt\n";
     show_usage();
     return(1);
   } else if(accelfile.size()<=0) {
-    cout << "ERROR: input heliocentric hypothesis file is required\n";
+    cout << "\nERROR: input heliocentric hypothesis file is required\n";
     show_usage();
     return(1);
   }
@@ -673,10 +685,8 @@ int main(int argc, char *argv[])
   while(!instream1.bad() && !instream1.fail() && !instream1.eof()) {
     // Read a line from the paired detections file, and load an object of class det_obsmag_indvec
     getline(instream1,lnfromfile);
-    // cout << lnfromfile << "\n";
     detfilelinect++;
     badread=0;
-    //while(instream1 >> MJD >> RA >> Dec >> X >> Y >> Z >> detid >> mag >> band >> obscode >> origind) {
     if(lnfromfile.size()>60) {
       // Read MJD, RA, Dec, observer x, y, z
       startpoint=0;
@@ -807,15 +817,13 @@ int main(int argc, char *argv[])
     badpoint=0;
     // Calculate approximate heliocentric distances from the
     // input quadratic approximation.
-    cout << "Working on grid point " << accelct << ": " << heliodist[accelct] << " " << heliovel[accelct]/SOLARDAY << " " << helioacc[accelct]*1000.0/SOLARDAY/SOLARDAY << "\n";
+    if(verbose>=0) cout << "Working on grid point " << accelct << ": " << heliodist[accelct] << " " << heliovel[accelct]/SOLARDAY << " " << helioacc[accelct]*1000.0/SOLARDAY/SOLARDAY << "\n";
 
     heliodistvec={};
-    //cout << "Approximate heliocentric distances:\n";
     for(i=0;i<detvec.size();i++)
       {
 	delta1 = detvec[i].MJD - mjdref;
 	heliodistvec.push_back(heliodist[accelct] + heliovel[accelct]*delta1 + 0.5*helioacc[accelct]*delta1*delta1);
-	//cout << detvec[i].MJD << " " << delta1 << " " << heliodistvec[i] << "\n";
 	if(heliodistvec[i]<=0.0L) {
 	  badpoint=1;
 	  break;
@@ -830,7 +838,6 @@ int main(int argc, char *argv[])
     allstatevecs={};
     for(pairct=0; pairct<pairvec.size(); pairct++) {
       badpoint=0;
-      //cout << "Working on pair " << i << " of " << pairvec.size() << "\n";
       // Obtain indices to the detection and heliocentric distance vectors.
       i1=pairvec[pairct][0];
       i2=pairvec[pairct][1];
@@ -855,10 +862,6 @@ int main(int argc, char *argv[])
 	// Did helioproj find two solutions in both cases, or only one?
 	num_dist_solutions = status1;
 	if(num_dist_solutions > status2) num_dist_solutions = status2;
-	//if(num_dist_solutions == 2) {
-	//  cout << "Two solutions found at solar dist " << heliodist[accelct]/AU_KM << "\n";
-	//  cout << "geodist = " << deltavec1[0]/AU_KM << " to " << deltavec2[0]/AU_KM << " OR " << deltavec1[1]/AU_KM << " to " << deltavec2[1]/AU_KM << "\n";
-	// }
 	// Loop over solutions (num_dist_solutions can only be 1 or 2).
 	for(solnct=0; solnct<num_dist_solutions; solnct++) {
 	  targpos1 = targposvec1[solnct];
@@ -894,7 +897,7 @@ int main(int argc, char *argv[])
     }
   
     if(allstatevecs.size()<=1) continue; // No clusters possible, skip to the next step.
-    cout << "Calculated " << allstatevecs.size() << " state vectors from " << pairvec.size() << " pairs\n";
+    if(verbose>=0) cout << "Calculated " << allstatevecs.size() << " state vectors from " << pairvec.size() << " pairs\n";
 
     // Loop over geocentric bins, selecting the subset of state-vectors
     // in each bin, and running DBSCAN only on those, with clustering radius
@@ -921,7 +924,7 @@ int main(int argc, char *argv[])
 	  }
 	}
 
-      cout << "Found " << binstatevecs.size() << " state vectors in geocentric bin from " << georadmin << " to " << georadmax << " AU\n";
+      if(verbose>=1) cout << "Found " << binstatevecs.size() << " state vectors in geocentric bin from " << georadmin << " to " << georadmax << " AU\n";
       if(binstatevecs.size()<=1) {
 	geobinct++;
 	continue; // No clusters possible, skip to the next step.
@@ -934,11 +937,11 @@ int main(int argc, char *argv[])
       kdvec.push_back(kdpoint);
       kdtree_6i01(binstatevecs,1,splitpoint,kdroot,kdvec);
     
-      cout << "Created a KD tree with " << kdvec.size() << " branches\n";
+      if(verbose>=1) cout << "Created a KD tree with " << kdvec.size() << " branches\n";
 
       outclusters={};
-      int clusternum = DBSCAN_6i01(kdvec, cluster_radius*(georadcen/CRAD_REF_GEODIST)/INTEGERIZING_SCALE, npt, INTEGERIZING_SCALE, outclusters);
-      cout << "DBSCAN_6i01 finished, with " << clusternum << " = " << outclusters.size() << " clusters found\n";
+      int clusternum = DBSCAN_6i01(kdvec, cluster_radius*(georadcen/CRAD_REF_GEODIST)/INTEGERIZING_SCALE, npt, INTEGERIZING_SCALE, outclusters, verbose);
+      if(verbose>=1) cout << "DBSCAN_6i01 finished, with " << clusternum << " = " << outclusters.size() << " clusters found\n";
       for(clusterct=0; clusterct<outclusters.size(); clusterct++) {
 	// Scale cluster RMS down to reference geocentric distance
 	if(DEBUG_A >= 1) cout << "scaling outclusters rms for cluster " << clusterct << " out of " << outclusters.size() << "\n";
