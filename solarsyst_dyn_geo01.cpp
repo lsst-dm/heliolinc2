@@ -4297,11 +4297,11 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   else costheta = 1.0L;
   if(costheta>=-1.0L && costheta<=1.0L) theta0 = acos(costheta);
   else if(costheta<-1.0) {
-    cerr << "WARNING: Keplerint finds costheta+1.0 = " << costheta+1.0 << "\n";
+    // cerr << "WARNING: Keplerint finds costheta+1.0 = " << costheta+1.0 << "\n";
     costheta = -1.0L;
     theta0 = M_PI;
   } else if(costheta>1.0) {
-    cerr << "WARNING: Keplerint finds costheta-1.0 = " << costheta-1.0 << "\n";
+    // cerr << "WARNING: Keplerint finds costheta-1.0 = " << costheta-1.0 << "\n";
     costheta = 1.0L;
     theta0 = 0L;
   } else {
@@ -4327,11 +4327,11 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   cospsi = (costheta + e)/(1.0L + costheta*e);
   if(cospsi>=-1.0L && cospsi<=1.0L) psi = acos(cospsi);
   else if(cospsi<-1.0) {
-    cerr << "WARNING: Keplerint finds cospsi+1.0 = " << cospsi+1.0 << "\n";
+    // cerr << "WARNING: Keplerint finds cospsi+1.0 = " << cospsi+1.0 << "\n";
     cospsi = -1.0L;
     psi = M_PI;
   } else if(cospsi>1.0) {
-    cerr << "WARNING: Keplerint finds cospsi-1.0 = " << cospsi-1.0 << "\n";
+    // cerr << "WARNING: Keplerint finds cospsi-1.0 = " << cospsi-1.0 << "\n";
     cospsi = 1.0L;
     psi = 0L;  
   } else {

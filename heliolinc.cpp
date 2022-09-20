@@ -897,7 +897,7 @@ int main(int argc, char *argv[])
     }
   
     if(allstatevecs.size()<=1) continue; // No clusters possible, skip to the next step.
-    if(verbose>=0) cout << "Calculated " << allstatevecs.size() << " state vectors from " << pairvec.size() << " pairs\n";
+    if(verbose>=0) cout << pairvec.size() << " input pairs/tracklets led to " << allstatevecs.size() << " geometrically valid state vectors\n";
 
     // Loop over geocentric bins, selecting the subset of state-vectors
     // in each bin, and running DBSCAN only on those, with clustering radius
