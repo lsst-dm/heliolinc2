@@ -321,6 +321,7 @@ int main(int argc, char *argv[])
   int numobsnights=0;
   int clusterct=0;
   int realclusternum=0;
+  int gridpoint_clusternum=0;
   string rating;
   int trackpointnum=0;
   int trackpointct=0;
@@ -814,11 +815,15 @@ int main(int argc, char *argv[])
   valid_accel_num=0;  
   realclusternum=0;
   for(accelct=0;accelct<accelnum;accelct++) {
+    gridpoint_clusternum=0;
     badpoint=0;
     // Calculate approximate heliocentric distances from the
     // input quadratic approximation.
-    if(verbose>=0) cout << "Working on grid point " << accelct << ": " << heliodist[accelct] << " " << heliovel[accelct]/SOLARDAY << " " << helioacc[accelct]*1000.0/SOLARDAY/SOLARDAY << "\n";
-
+    if(verbose>=0) {
+      cout.precision(4);  
+      cout << "Working on grid point " << accelct << ": r = " << heliodist[accelct]/AU_KM << " AU, v = " << heliovel[accelct]/SOLARDAY << " km/sec, dv/dt = " << helioacc[accelct]/(GMSUN_KM3_SEC2*SOLARDAY*SOLARDAY/heliodist[accelct]/heliodist[accelct]) << " GMsun/r^2\n";
+      cout.precision(17);
+    }
     heliodistvec={};
     for(i=0;i<detvec.size();i++)
       {
@@ -897,7 +902,7 @@ int main(int argc, char *argv[])
     }
   
     if(allstatevecs.size()<=1) continue; // No clusters possible, skip to the next step.
-    if(verbose>=0) cout << pairvec.size() << " input pairs/tracklets led to " << allstatevecs.size() << " geometrically valid state vectors\n";
+    if(verbose>=0) cout << pairvec.size() << " input pairs/tracklets led to " << allstatevecs.size() << " physically reasonable state vectors\n";
 
     // Loop over geocentric bins, selecting the subset of state-vectors
     // in each bin, and running DBSCAN only on those, with clustering radius
@@ -1012,6 +1017,7 @@ int main(int argc, char *argv[])
 	// Does cluster pass the criteria for a linked detection?
 	if(timespan >= mintimespan && numdaysteps >= mindaysteps) {
 	  realclusternum++;
+	  gridpoint_clusternum++;
 	  if(DEBUG_A >= 1) cout << "Loading good cluster " << realclusternum << " with timespan " << timespan << " and numdaysteps " << numdaysteps << "\n";
 	  fflush(stdout);
 	  numobsnights = numdaysteps+1;
@@ -1048,6 +1054,7 @@ int main(int argc, char *argv[])
       }
       // Move on to the next bin in geocentric distance
       geobinct++;
+      if(verbose>=0) cout << "Identified " << gridpoint_clusternum << " candidate linkages\n";
     }
   }
   return(0);
