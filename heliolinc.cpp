@@ -347,13 +347,7 @@ int main(int argc, char *argv[])
   int default_geologstep,default_outfile,default_rmsfile;
   default_cluster_radius = default_npt = default_mindaysteps = default_mintimespan = 1;
   default_mingeodist = default_maxgeodist = default_geologstep = default_outfile = default_rmsfile = 1;
-  
-  if(argc<11)
-    {
-      show_usage();
-      return(1);
-    }
-  
+    
   i=1;
   while(i<argc) {
     cout << "Checking out argv[" << i << "] = " << argv[i] << ".\n";
@@ -379,7 +373,7 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-m" || string(argv[i]) == "-mjd" || string(argv[i]) == "-MJD" || string(argv[i]) == "--mjd" || string(argv[i]) == "--MJD" || string(argv[i]) == "--modifiedjulianday" || string(argv[i]) == "--ModifiedJulianDay") {
+    } else if(string(argv[i]) == "-m" || string(argv[i]) == "-mjd" || string(argv[i]) == "-mjdref" || string(argv[i]) == "-MJD" || string(argv[i]) == "--mjd" || string(argv[i]) == "--MJD" || string(argv[i]) == "--modifiedjulianday" || string(argv[i]) == "--ModifiedJulianDay") {
       if(i+1 < argc) {
 	//There is still something to read;
 	mjdref=stold(argv[++i]);
@@ -527,33 +521,11 @@ int main(int argc, char *argv[])
     }
   }
   if(mindaysteps > npt-1) mindaysteps = npt-1; // Otherwise the low setting of npt is not operative.
-  
-  cout.precision(17);  
-  cout << "input detection file " << indetfile << "\n";
-  cout << "input pair file " << inpairfile << "\n";
-  cout << "input observer position file " << planetfile << "\n";
-  cout << "input heliocentric hypothesis file " << accelfile << "\n";
-  cout << "input reference MJD " << mjdref << "\n";
 
-  // Catch required parameters if missing
-  if(indetfile.size()<=0) {
-    cout << "ERROR: input detection file is required\n";
-    show_usage();
-    return(1);
-  } else if(inpairfile.size()<=0) {
-    cout << "ERROR: input pair file is required\n";
-    show_usage();
-    return(1);
-  } else if(planetfile.size()<=0) {
-    cout << "ERROR: input observer position file is required:\n";
-    cout << "e.g. Earth1day2020s_02a.txt\n";
-    show_usage();
-    return(1);
-  } else if(accelfile.size()<=0) {
-    cout << "ERROR: input heliocentric hypothesis file is required\n";
-    show_usage();
-    return(1);
-  } else if(mjdref<=0L) {
+  // Do something useful in the specific case that there is
+  // an input data file, but no reference MJD
+
+  if(indetfile.size()>0 && mjdref<=0L) {
     // Read input detection file to suggest optimal MJDref 
     instream1.open(indetfile,ios_base::in);
     if(!instream1) {
@@ -595,7 +567,41 @@ int main(int argc, char *argv[])
     sort(mjdvec.begin(),mjdvec.end());
     cout << "ERROR: input positive-valued reference MJD is required\n";
     cout << fixed << setprecision(2) << "Suggested value is " << mjdvec[0]*0.5L + mjdvec[mjdvec.size()-1]*0.5L << "\n";
-    cout << "based on your input detection catalog " << indetfile << "\n";
+    cout << "based on your input detection catalog " << indetfile << "\n\n\n";
+    show_usage();
+    return(1);
+  }
+  
+  if(argc<11)
+    {
+      cerr << "Too few arguments even for minimalist invocation:\n";
+      show_usage();
+      return(1);
+    }
+  
+  cout.precision(17);  
+  cout << "input detection file " << indetfile << "\n";
+  cout << "input pair file " << inpairfile << "\n";
+  cout << "input observer position file " << planetfile << "\n";
+  cout << "input heliocentric hypothesis file " << accelfile << "\n";
+  cout << "input reference MJD " << mjdref << "\n";
+
+  // Catch required parameters if missing
+  if(indetfile.size()<=0) {
+    cout << "ERROR: input detection file is required\n";
+    show_usage();
+    return(1);
+  } else if(inpairfile.size()<=0) {
+    cout << "ERROR: input pair file is required\n";
+    show_usage();
+    return(1);
+  } else if(planetfile.size()<=0) {
+    cout << "ERROR: input observer position file is required:\n";
+    cout << "e.g. Earth1day2020s_02a.txt\n";
+    show_usage();
+    return(1);
+  } else if(accelfile.size()<=0) {
+    cout << "ERROR: input heliocentric hypothesis file is required\n";
     show_usage();
     return(1);
   }
