@@ -820,8 +820,7 @@ int main(int argc, char *argv[])
     // Calculate approximate heliocentric distances from the
     // input quadratic approximation.
     if(verbose>=0) {
-      cout.precision(4);  
-      cout << "Working on grid point " << accelct << ": r = " << heliodist[accelct]/AU_KM << " AU, v = " << heliovel[accelct]/SOLARDAY << " km/sec, dv/dt = " << helioacc[accelct]/(GMSUN_KM3_SEC2*SOLARDAY*SOLARDAY/heliodist[accelct]/heliodist[accelct]) << " GMsun/r^2\n";
+      cout << fixed << setprecision(4) << "Working on grid point " << accelct << ": r = " << heliodist[accelct]/AU_KM << " AU, v = " << heliovel[accelct]/SOLARDAY << " km/sec, dv/dt = " << helioacc[accelct]/(GMSUN_KM3_SEC2*SOLARDAY*SOLARDAY/heliodist[accelct]/heliodist[accelct]) << " GMsun/r^2\n";
       cout.precision(17);
     }
     heliodistvec={};
@@ -1054,8 +1053,8 @@ int main(int argc, char *argv[])
       }
       // Move on to the next bin in geocentric distance
       geobinct++;
-      if(verbose>=0) cout << "Identified " << gridpoint_clusternum << " candidate linkages\n";
     }
+    if(verbose>=0) cout << "Identified " << gridpoint_clusternum << " candidate linkages\n";
   }
   return(0);
 }
