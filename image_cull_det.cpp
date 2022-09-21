@@ -444,7 +444,7 @@ int main(int argc, char *argv[])
   }
   instream1.close();
   outstream1.close();
-  if(reachedeof==1) { 
+  if(reachedeof==1 || good_detct==good_detnum) { 
     cout << "Input file " << indetfile << " read successfully to the end.\n";
   }
   else if(reachedeof==-1) cout << "Warning: file read failed\n";
