@@ -582,7 +582,7 @@ int main(int argc, char *argv[])
 	    polyorder = clustan.obsnights;
 	    for(ptct=0; ptct<ptnum; ptct++) {
 	      timevec.push_back(clusterdets[ptct].MJD - clusterdets[0].MJD);
-	      sigvec.push_back(1.0d);
+	      sigvec.push_back(1.0);
 	      celestial_to_stateunit(clusterdets[ptct].RA, clusterdets[ptct].Dec, unitvec);
 	      xvec.push_back(unitvec.x);
 	      yvec.push_back(unitvec.y);

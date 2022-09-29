@@ -4,39 +4,44 @@
 
 #### Source code: ####
 
-solarsyst_dyn_geo01.cpp <br>
-solarsyst_dyn_geo01.h <br>
-make_tracklets.cpp <br>
-heliolinc.cpp <br>
-link_refine.cpp <br>
-link_refine_multisite.cpp <br>
+```
+solarsyst_dyn_geo01.cpp
+solarsyst_dyn_geo01.h
+make_tracklets.cpp
+heliolinc.cpp
+link_refine.cpp
+link_refine_multisite.cpp
+```
 
 #### General-use input files: ####
 
-
-Earth1day2020s_02a.txt <br>
-ObsCodes.txt <br>
-colformat_LSST_01.txt <br>
-accelmat_mb08a_sp04.txt <br>
+```
+Earth1day2020s_02a.txt
+ObsCodes.txt
+colformat_LSST_01.txt
+accelmat_mb08a_sp04.txt
+```
 
 #### Test data files: ####
 
-LSST_raw_input_data01a.csv <br>
-LSST_pairdets_01_check.csv <br>
-LSST_pairs_01_check <br>
-LSST_linkref_all01_check.csv <br>
-LSST_linkref_summary01_check.csv <br>
-
+```
+LSST_raw_input_data01a.csv
+LSST_pairdets_01_check.csv
+LSST_pairs_01_check
+LSST_linkref_all01_check.csv
+LSST_linkref_summary01_check.csv
+```
 
 ## Compile the heliolinc suite ##
 
 #### Use these suggested compile commands, or their equivalents for your system: ####
 
-`c++ -O3 -o heliolinc heliolinc.cpp solarsyst_dyn_geo01.cpp -std=c++11` <br>
-`c++ -O3 -o make_tracklets make_tracklets.cpp solarsyst_dyn_geo01.cpp -std=c++11` <br>
-`c++ -O3 -o link_refine_multisite link_refine_multisite.cpp solarsyst_dyn_geo01.cpp -std=c++11` <br>
-`c++ -O3 -o link_refine link_refine.cpp solarsyst_dyn_geo01.cpp -std=c++11` <br>
-
+```
+c++ -O3 -o heliolinc heliolinc.cpp solarsyst_dyn_geo01.cpp -std=c++11
+c++ -O3 -o make_tracklets make_tracklets.cpp solarsyst_dyn_geo01.cpp -std=c++11
+c++ -O3 -o link_refine_multisite link_refine_multisite.cpp solarsyst_dyn_geo01.cpp -std=c++11
+c++ -O3 -o link_refine link_refine.cpp solarsyst_dyn_geo01.cpp -std=c++11
+```
 
 ## What the programs do: ##
 
@@ -52,7 +57,7 @@ LSST_linkref_summary01_check.csv <br>
 
 If you've downloaded the recommended test data files, you can test your installation immediately. Here is the minimalist invocation for `make_tracklets`, the first program in the suite:
 
-`make_tracklets -dets LSST_raw_input_data01a.csv -earth Earth1day2020s_02a.txt -obscode ObsCodes.txt -colformat colformat_LSST_01.txt`
+`./make_tracklets -dets LSST_raw_input_data01a.csv -earth Earth1day2020s_02a.txt -obscode ObsCodes.txt -colformat colformat_LSST_01.txt`
 
 **This run should take about 10 seconds.**
 
@@ -64,19 +69,22 @@ If you got a final message stating, "Constructing tracklets, and writing pairs t
 
 If the minimalist invocation failed, check that you have the input files used in the example:
 
-LSST_raw_input_data01a.csv <br>
-Earth1day2020s_02a.txt <br>
-ObsCodes.txt <br>
-colformat_LSST_01.txt <br>
-
+```
+LSST_raw_input_data01a.csv
+Earth1day2020s_02a.txt
+ObsCodes.txt
+colformat_LSST_01.txt
+```
 If the minimalist invocation succeeded, you can try a new run in which you specify the output names:
 
-`make_tracklets -dets LSST_raw_input_data01a.csv -pairdets LSST_pairdets_01.csv -pairs LSST_pairs_01 -earth Earth1day2020s_02a.txt -obscode ObsCodes.txt -colformat colformat_LSST_01.txt`
+`./make_tracklets -dets LSST_raw_input_data01a.csv -pairdets LSST_pairdets_01.csv -pairs LSST_pairs_01 -earth Earth1day2020s_02a.txt -obscode ObsCodes.txt -colformat colformat_LSST_01.txt`
 
 If this run succeeds, you can compare the output files to the 'check' files you downloaded along with the source code:
 
-`diff LSST_pairdets_01.csv LSST_pairdets_01_check.csv` <br>
-`diff LSST_pairs_01 LSST_pairs_01_check`
+```
+diff LSST_pairdets_01.csv LSST_pairdets_01_check.csv
+diff LSST_pairs_01 LSST_pairs_01_check
+```
 
 Both diffs should be clean if everything has gone well. If they are not clean, you can check the word count and sizes of the files to see if the differences are innocuous (e.g., roundoff error in the last digit) or significant.
 
@@ -84,7 +92,7 @@ Both diffs should be clean if everything has gone well. If they are not clean, y
 
 As a first test of heliolinc, try this invocation:
 
-`heliolinc -dets LSST_pairdets_01.csv`
+`./heliolinc -dets LSST_pairdets_01.csv`
 
 This is well short of the minimal executable invocation, but it serves a useful purpose: since you have supplied a detection file (LSST_pairdets_01.csv) and no reference time, heliolinc automatically calculates the time at the center of the spread of time values given in the detection file (that is, the average of the earliest time and the latest time), and suggests this as a reference time in its output error message. The time is required to be in Modified Julian Days (MJD), hence the relevant part of the output error message should be:
 
@@ -96,7 +104,7 @@ If you don't see this output (as part of a longer error message including sugges
 
 If the error message came out as expected, try the actual minimum invocation of heliolinc using the suggested reference time (i.e. referece MJD):
 
-`heliolinc -dets LSST_pairdets_01.csv -pairs LSST_pairs_01 -mjd 60608.63 -obspos Earth1day2020s_02a.txt -heliodist accelmat_mb08a_sp04.txt -out LSST_hl_all01.csv -outsum LSST_hl_summary01.csv`
+`./heliolinc -dets LSST_pairdets_01.csv -pairs LSST_pairs_01 -mjd 60608.63 -obspos Earth1day2020s_02a.txt -heliodist accelmat_mb08a_sp04.txt -out LSST_hl_all01.csv -outsum LSST_hl_summary01.csv`
 
 After printing some descriptive lines about its input and configuration (designed to help users catch errors with the input files or other arguments), heliolinc should start reporting its progress like this:
 
