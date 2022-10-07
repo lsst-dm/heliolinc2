@@ -3,7 +3,7 @@
 
 The motivation for this implementation of the heliolinc algorithm is to enable asteroid discovery using the LSST survey strategy of taking just two images of each field per night, rather than the usual practice of taking four images per field per night. This simple change in survey strategy requires a paradigm shift in asteroid detection. Surveys taking the usual four images per night can identify candidate asteroid discoveries based on just a single night's data. With only two images per night, the attempt to do this would result in overwhelming numbers of false positives. Identifying a reasonable discovery candidate requires **linking** multiple detection pairs across multiple nights of data. The new C++ implementation of heliolinc has proven capability to link simulated **and real** asteroid detections across multiple nights, fast enough that ingesting detection catalogs spanning two weeks of output for major surveys -- including detections from more than one observing site -- is computationally tractable. 
 
-This does not mean that heliolinc has rendered obsolete the typical survey strategy of taking four images per field per night. This strategy continues to have significant advantages over a two image per night strategy, even with heliolinc. Relative to LSST, the currently-operating four-image surveys have much better sensitivity to small asteroids that have brief, close encounters with Earth. These include small asteroids passing within the 0.01 AU of Earth, and very small asteroids on their 'final plunge' toward impact with the Earth -- several or which have been discovered by currently operating surveys. The high-performance implementation of the heliolinc algorithm that we present here should **not** be interpreted as a reason for ongoing asteroids surveys to abandon their highly successful four-image strategy.
+This does not mean that heliolinc has rendered obsolete the typical survey strategy of taking four images per field per night. This strategy continues to have significant advantages over a two image per night strategy, even with heliolinc. Relative to LSST, the currently-operating four-image surveys have much better sensitivity to small asteroids that have brief, close encounters with Earth. These include small asteroids passing within the 0.01 AU of Earth, and very small asteroids on their 'final plunge' toward impact with the Earth -- several or which have been discovered by currently operating surveys. The high-performance implementation of the heliolinc algorithm that we present here should **not** be interpreted as a reason for ongoing asteroid surveys to abandon their highly successful four-image strategy.
 
 Instead, heliolinc has something to offer to surveys using the conventional four-image strategy -- even though it was invented to enable a completely different strategy. What heliolinc can offer to a four-image survey is the likelihood of successful linking and discovery of objects detected fewer than four times on a give night. This can happen for many reasons: the survey might not acquire four images of a particular field because of weather or other contingencies, or the asteroid might not be successfully detected on all four images because of varying image quality, superposition on a star, rotational brightness variations, or a host of other reasons. Such 'missing' detections are most likely for the faintest objects, hence heliolinc has the potential to extend a survey's sensitivity toward fainter magnitudes.
 
@@ -78,7 +78,8 @@ cd ../tests
 Here is the minimalist invocation for `make_tracklets`, the first program in the suite:
 
 ```
-../src/make_tracklets -dets LSST_raw_input_data01a.csv -earth Earth1day2020s_02a.txt -obscode ObsCodes.txt -colformat colformat_LSST_01.txt
+../src/make_tracklets -dets LSST_raw_input_data01a.csv -earth Earth1day2020s_02a.txt \
+ -obscode ObsCodes.txt -colformat colformat_LSST_01.txt
 ```
 
 **This run should take about 10 seconds.**
@@ -192,7 +193,8 @@ Its contents should be simply the single line:
 You can then test `link_refine` with the invocation:
 
 ```
-../src/link_refine -pairdet LSST_pairdets_01.csv -lflist LSST_lflist01 -outfile LSST_linkref_all01.csv -outsum LSST_linkref_summary01.csv
+../src/link_refine -pairdet LSST_pairdets_01.csv -lflist LSST_lflist01 \
+ -outfile LSST_linkref_all01.csv -outsum LSST_linkref_summary01.csv
 ```
 
 This should finish in about two minutes.
@@ -369,12 +371,22 @@ The 'mb' suffix indicates they probe mostly main-belt asteroids, while 'neo' ind
 
 For processing large input data files with many hypothesis, we recommend breaking the files into smaller pieces for embarrassingly parallel runs. For example, the file heliohypo_mb05 could be broken into 27 pieces with 2000 hypotheses each (except the last, which would have only 1590. **Don't forget that each individual hypothesis file needs its own one-line header**. Then heliolinc could be run with a series of commands like this:
 ```
-./heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 -obspos Earth1day2020s_02a.txt -heliodist heliohypo_mb05_part01 -out big_all_part01.csv -outsum big_summary_part01.csv &
-./heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 -obspos Earth1day2020s_02a.txt -heliodist heliohypo_mb05_part02 -out big_all_part02.csv -outsum big_summary_part02.csv &
-./heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 -obspos Earth1day2020s_02a.txt -heliodist heliohypo_mb05_part03 -out big_all_part03.csv -outsum big_summary_part03.csv &
+./heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 \
+-obspos Earth1day2020s_02a.txt -heliodist heliohypo_mb05_part01 -out big_all_part01.csv \
+-outsum big_summary_part01.csv &
+
+./heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 \
+-obspos Earth1day2020s_02a.txt -heliodist heliohypo_mb05_part02 -out big_all_part02.csv \
+-outsum big_summary_part02.csv &
+
+./heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 \
+-obspos Earth1day2020s_02a.txt -heliodist heliohypo_mb05_part03 -out big_all_part03.csv \
+-outsum big_summary_part03.csv &
 ...
 ...
-./heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 -obspos Earth1day2020s_02a.txt -heliodist heliohypo_mb05_part27 -out big_all_part27.csv -outsum big_summary_part27.csv &
+./heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 \
+-obspos Earth1day2020s_02a.txt -heliodist heliohypo_mb05_part27 -out big_all_part27.csv \
+-outsum big_summary_part27.csv &
 ```
 
 This creates a list of output files from `big_all_part01.csv` to `big_all_part27.csv` and `big_summary_part01.csv` to `big_summary_part27.csv`. All of these files can be fed into the program `link_refine` at one time: `link_refine` was designed to take file lists rather than individual file names for this very reason. If the files are very large, feeding them all into `link_refine` together might exceed the available memory. In this case, `link_refine` can be run individually on each pair of files (e.g., `big_all_part01.csv` and `big_summary_part01.csv`, then `big_all_part02.csv` and `big_summary_part02.csv`, etc.), and then `link_refine` can be run again on the whole list of smaller output files from each of the individual runs. This is made possible by the fact that `link_refine` uses input and output files of identical format: therefore it can re-ingest its own output whenever needed.
@@ -551,7 +563,8 @@ The program `link_refine` is much simpler in terms of its command line arguments
 The output detection file from heliolinc provides linkage membership, MJD, RA, Dec, magnitude, photometric band, and observatory code for all successfully linked detections. This enables easy conversion to the Minor Planet Centers dated but still useful 80-column format for representing asteroid observations. We have provided a program for doing so. It is not as mature as the heliolinc suite proper, but we hope it may be useful. Its command-line arguments, in order, are the paired detection file produced by `make_tracklets`, the output detection file from `heliolinc`, the output summary file from `heliolinc`, a prefix for temporary string identifiers in the 80-column format, and an output file. Somewhat confusingly, the `heliolinc` detection file is supplied with the command line keyword `-clust` and the summary file is supplied with the command line keyword `rms`. It can be run on files output directly by `heliolinc`, but since those usually have large numbers of overlapping linkages, we strongly recommend that **`cluster2mpc80a` should only be run on files post-processed by `link_refine`**. Hence the following example:
 
 ```
-cluster2mpc80a -pairdet LSST_pairdets_01.csv -clust LSST_linkref_all01.csv -rms LSST_linkref_summary01.csv -prefix hl -outfile LSST_hl_01.mpc
+cluster2mpc80a -pairdet LSST_pairdets_01.csv -clust LSST_linkref_all01.csv \
+-rms LSST_linkref_summary01.csv -prefix hl -outfile LSST_hl_01.mpc
 ```
 
 The table below describes all of the arguments.
