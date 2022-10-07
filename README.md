@@ -381,7 +381,51 @@ This creates a list of output files from `big_all_part01.csv` to `big_all_part27
 
 You should feel free to make your own heliocentric hypothesis files rather than using the ones we have provided. In some cases very coarse sampling using a very small number of hypotheses can produce good results. For example, you could set all the accelerations (4th column) to zero -- or even do the same to the velocities (2nd column), and probe only fixed heliocentric distances. At the other end of the scale, you might want to probe heliocentric distances of less than 1AU (that is, NEOs interior to Earth's orbit), which are not explored by any of the included files. Good results in this regime require fine sampling: we have probed over one million hypotheses in tests. To save time, make sure you figure out the approximate solar escape velocity for the range of heliocentric distances you are exploring, and avoid probing velocities outside this range. Remember that the velocity units are AU/day.
 
-This discussion of the heliocentric hypothesis files, which are input to heliolinc using the command-line keyword -heliodist, concludes the description of file formats used by programs in the heliolinc C++ suite.
+### Files output by heliolinc ###
+
+Two output files are produced for each execution of `heliolinc`: the file that provides all linked detections with a separate line for each detection, and the file that gives a one-line summary of each linkage, including some useful statistics. These are both csv-formatted files. They are complementary, and the post-processing programs such as `link_refine` require both files (or lists thereof) as their input.
+
+The file listing all of the linked detections (default name `hlout.all`) has a one-line header and 11 columns, as follows:
+
+| name | column # | Description |
+| -------------------- | --------- | -------------------------------------------- |
+ ptct | 1 | Count of points within this linkage |
+ MJD | 2 | Modified Julian Day for this detection |
+ RA  | 3 | Right ascension of this detection in decimal degrees |
+ Dec | 4 | Declination of this detection in decimal degrees |
+ idstring | 5 | A string identifier used in the original input file |
+ mag | 6 | Apparent magnitude of this detection |
+ band | 7 | Photometric band for this detection (e.g., u, g, r, etc.) |
+ obscode | 8 | Observatory code for this detection |
+ index1 | 9 | Integer index in paired detection catalog (counting from 0) |
+ index2 | 10 | Integer line number from original detection catalog input to `make_tracklets` (counting from 1) |
+ clusternum | 11 | Integer specifying which candidate linkage ('cluster') this is |
+
+The file providing summary lines for each linkage has a one-line header and 19 columns, as follows:
+
+| name        | <nobr>column #</nobr> | Description |
+| ----------- | --------- | -------------------------------------------- |
+clusternum    | 1         | Integer specifying which candidate linkage ('cluster') this is |
+posRMS        | 2         | RMS scatter of position state vectors for this linkage (km) |
+velRMS        | 3         | RMS scatter of velocity state vectors for this linkage, scaled by characteristic time (km) |
+totRMS	      | 4         | Total RMS scatter for this linkage in 6-D parameter space (km) |
+pairnum       | 5         | Number of pairs or tracklets included in this linkage |
+timespan      | 6         | Total time spanned by detections in this linkage (days ) |
+uniquepoints  | 7         | Total number of unique detections in this linkage |
+obsnights     | 8         | Number of distinct observing nights represented in this linkage |
+metric	      | 9         | Value of a quality metric for this linkage |
+rating        | 10        | Is this linkage pure or mixed, based on input string IDs of constituent detections |
+heliodist     | 11        | Heliocentric distance at the reference time for the hypothesis that led to this linkage (AU) |
+heliovel      | 12        | Heliocentric radial velocity for the hypothesis that led to this linkage (km/sec) |
+helioacc      | 13        | Second time-derivative of heliocentric distance for the hypothesis that led to this linkage, divided by GMsun/r^2 |
+posX	      | 14        | Mean X-component of position state vectors at the reference time (km) |
+posY	      | 15        | Mean Y-component of position state vectors at the reference time (km) |
+posZ	      | 16        | Mean Z-component of position state vectors at the reference time (km) |
+velX          | 16        | Mean X-component of velocity state vectors at the reference time (km/sec) |
+velY          | 16        | Mean Y-component of velocity state vectors at the reference time (km/sec) |
+velZ          | 16        | Mean Z-component of velocity state vectors at the reference time (km/sec) |
+
+This concludes the description of file formats used by programs in the heliolinc C++ suite.
 
 ## Taking Control: understanding the optional arguments ##
 
@@ -448,3 +492,79 @@ Here, we will attempt to describe how you can use the arguments that haven't yet
 **Maximum angular velocity** `-maxvel`: This defaults to 1.5 degrees per day, and should be set with care because it has an extremely strong effect on the number of pairs and tracklets produced. For a given detection, the area of sky containing other detections that could be pair-partners after a given interval of time scales with the square of the maximum angular velocity. Hence, setting large values of the `-maxvel` can result in a huge increase in spurious pairs. `heliolinc` can handle this, up to a point, but runtimes and file sizes may be unnecessarily increased. An important consideration is at what angular velocity the detections would be noticeably trailed. If trailed-source information is available for the input data, it might make sense to run `make_tracklets` two or more times with different target regimes. For example, run it once with `-maxvel` set to the lowest angular velocity where detections are expected to be clearly trailed -- and then create a new input catalog culled down to **only** the trailed detections, and run `make_tracklets` again with a much faster maximum angular velocity. Note that the margin for object motion, mentioned in the discussion of image radius above, is equal to the maximum angular velocity times the time separation of two images being considered.
 
 **Minimum angular arc** `-minarc`: This defaults to zero, and has units of arcseconds. It refers to the minimum angular separation for the endpoints of a valid pair or tracklet. It is very useful for rejecting spurious pairs/tracklets caused by stationary stars. A value similar to that used for `-maxGCR` -- e.g., two or three times the astrometric precision on the faintest detectable objects -- will often be a sensible setting.
+
+### Command-line arguments for heliolinc ###
+
+The table below describes all of the arguments 
+
+| command line keyword | type      | Required? | units   | Default | Description                                            |
+| -------------------- | --------- | --------- | ------- | ------- | --------------------------------------------- |
+-dets                  | file name | yes       | NA      |  none   | csv-formatted input file produced by `make_tracklets` and containing the paired detection catalog |
+-pairs                 | file name | yes       | NA      | none    | specially formatted input file produced by `make_tracklets`, specifying the pairs and tracklets identified, using indices to the paired detection catalog |
+-mjd                   | float     | yes       | days    | none    | reference time in Modified Julian Days (MJD) |
+-obspos                | file name | yes       | km and km/sec | none | heliocentric ephemeris for Earth, from JPL Horizons (same as the `-earth` file used by `make_tracklets` |
+-heliodist             | file name | yes       | AU and AU/day | none | input file containing hypotheses about the heliocentric distance as a function of time |
+-clustrad              | float     | no        | km      | 100000.0 | clustering radius for identifying candidate linkages after propagating orbital state vectors to the reference time |
+-npt                   | integer   | no        | none    | 3        | minimum number of pairs or tracklets for a valid linkage |
+<nobr>-minobsnights</nobr>          | integer   | no        | none    | 3        | minimum number of distinct observation nights for a valid linkage |
+<nobr>-mintimespan</nobr>           | float     | no        | days    | 1.0      | minimum total time span for a valid linkage |
+-mingeodist            | float     | no        | AU      | 0.1      | minimum geocentric distance to be probed |
+-maxgeodist            | float     | no        | AU      | 100.0    | maximum geocentric distance to be probed |
+-geologstep            | float     | no        | none    | 1.5      | step size (and half-width) for logarithmically spaced bins in geocentric distance |
+-verbose	       | integer   | no        | none    | 0	    | sets quantity of progress-reporting messages (negative = none; 0 =  a bit; 1 = a lot) |
+-out                   | file name | no        | NA      | hlout.all | output file giving all detections for each linkage |
+-outsum                | file name | no        | NA      | hlout.summary | output file giving one-line summary statistics for each linkage |
+
+
+#### Purpose and use of arguments not previously described ####
+
+**Clustering radius** `-clustrad`: This is the clustering radius in units of kilometers for identifying candidate linkages after propagating the orbits to the reference time. Recall that for each hypothesis about the heliocentric distance as a function of time, the heliolinc algorithm converts each pair or tracklet into a 3-dimensional position and velocity 'state vectors' which completely define an orbit. This orbit is propagated to the reference time using the Keplerian two-body approximation, producing 3-D position and velocity state vectors at the reference time. Hence, each input pair or tracklet, under each heliocentric hypothesis, becomes a distinct point in the 6-dimensional parameter space of position and velocity state vectors at the reference time. Linkages are identified in this 6-D parameter space using the DBSCAN clustering algorithm. The velocity dimensions are converted to position through multiplication by a characteristic time equal to one fourth the total time spanned by the input data.  For example, if the input data span 14.0 days -- the specified linking range for LSST -- the characteristic timecale is 14.0/4.0 = 3.5 days, and the velocity state vectors are multiplied by 3.5 days to convert them into distance units. The motivation for the one-fourth multiplier is the fact that, for observations uniformly distributed in time, the average distance from the central time is one-fourth of the total time span.
+
+The clustering radius is given in units of kilometers, with a default value of 100,000 km. Internally, `heliolinc` actually uses an adjusted clustering radius that scales linearly with the (inferred, hypothesis-dependent) distance from Earth. To enable this, it divides the state vectors under each heliocentric hypothesis into overlapping, logarithmically spaced and sized bins in terms of geocentric distance. Clustering using DBSCAN is performed independently in each bin, with a clustering radius equal to the specified values (default 100,000 km) times the bin-center geocentric distance in AU. Hence, a smaller clustering radius is used for objects close to the Earth. This distance-dependent clustering radius was added to resolve a problem encountered in testing where spurious clusters comprising unreasonable numbers (e.g. thousands) of tracklets were constructed at small geocentric distances. The linear scaling with distance was suggested by the fact that the original input data effectively correspond to angles on the sky as observed from Earth, and physical length at a given angular scale has the same linear dependence on distance.
+
+**Minimum number of cluster points ** `-npt`: Like the clustering radius, this value corresponds to a parameter of the DBSCAN clustering algorithm: in this case, the minimum number of points 'npt' in a cluster. Note that a 'point' here means a point in 6-D parameter space that originated as a pair or tracklet. Hence, the default value npt=3 means a valid linkage must consist of at least 3 *pairs*, which means at least 6 observations in all. The LSST specifications require npt=3. It is possible to set npt=2, but for orbital/geometric reasons, this tends to produce unreasonable numbers of false positives. Using npt>3 can greatly increase the purity of output linkages. It also reduced sensitivity and completeness relative to npt=3, but for densely sampled input data (e.g., with coverage of overlapping regions of the sky every night) the loss may not be severe.
+
+**Note well that the post-processing program `link_refine` also has a parameter `-maxrms`, which is analogous to the clustering radius and also defaults to 100,000 km.**
+
+**Minimum number of observing nights** `-minobsnights`: This is the minimum number of distinct nights on which detections must exist for a valid linkage. It is not redundant with `-npt` because some objects could have multiple pairs/tracklets on the same night -- hence, the default of minobsnights=3 imposes further constraints not already implied by npt=3.
+
+**Minimum time span for a valid linkage ** `-mintimespan`: This is the minimum total time spanned from the first to the last detection in a candidate linkage. It has units of days, and defaults to 1.0 -- a value small enough that it generally does not produce a separate constraint not already covered by the default minobsnights=3. In general, however, the two constraints are different: for example, you could set mintimespan=10 days with minobsnights=3, and then you would only get objects seen on at least three distinct nights for which the first night and the last night were separated by at least 10 days. Reasons why you might want to use the constraint include the fact that longer time spans result in more accurate orbits.
+
+**Minimum geocentric distance** `-mingeodist`: This is the central distance for the first of the overlapping bins in geocentric distance. It has units of AU, and defaults to 0.1 AU. Given the default distance-dependent clustering radius of 100,000 km at 1.0 AU, the actual clustering radius used for the first bin (with default parameters) will be only 10,000 km. If no linkages are found in a given geocentric bin, `heliolinc` skips to the next bin with no problems or error messages.
+
+**Maximum geocentric distance** `-maxgeodist` The central distance for the outermost of the geocentric distance bins is guaranteed to be equal to or greater than this value. The units are AU, and the default is 100 AU. Again, the existence of geocentric bins that may not contain any points is benign.
+
+**Logarithmic step size (and half-width) for geocentric bins** `-geologstep`: This unitless parameter defaults to 1.5. It means that the bin with central geocentric distance 'x' extends from x/1.5 to x*1.5, and that the next bin outward will be centered on x*1.5. Redundant linkages produced by the overlapping bins are harmless, and can be weeded out by post-processing with `link_refine`. The reason it's necessary for the bins to overlap is that otherwise an object whose real trajectory crossed a bin boundary would not be linked. If you are concerned this may be happening even with the overlapping bins (e.g., because you are searching for NEOs undergoing close approaches that might change distance by more than 1.5^2 during the time spanned by your data) you could try a larger logarithmic bin size -- e.g. geologstep=2.0 or even more.
+
+**Verbosity level** `-verbose`: The default of 0 writes a modest number of progress updates to stdout (i.e., to the terminal). For more detailed information, try `-verbose 1`. On the other hand, `-verbose -1` will cause the program to run in eerie silence.
+
+**Output detection file** `-out`: This file has a separate line for each detection that was included in a linkage.
+
+**Output summary file** `-outsum`: This file has just one line for each linkage, which gives a summary and some statistics for the linkage.
+
+### Command-line arguments for link_refine ###
+
+The program `link_refine` is much simpler in terms of its command line arguments than `make_tracklets` or `heliolinc`. The only argument not yet discussed for it is the optional argument `-maxrms`. This is the maximum 6-D RMS scatter for acceptable linkages. It defaults to 200,000 km.
+
+## Converting to MPC 80-column format ##
+
+The output detection file from heliolinc provides linkage membership, MJD, RA, Dec, magnitude, photometric band, and observatory code for all successfully linked detections. This enables easy conversion to the Minor Planet Centers dated but still useful 80-column format for representing asteroid observations. We have provided a program for doing so. It is not as mature as the heliolinc suite proper, but we hope it may be useful. Its command-line arguments, in order, are the paired detection file produced by `make_tracklets`, the output detection file from `heliolinc`, the output summary file from `heliolinc`, a prefix for temporary string identifiers in the 80-column format, and an output file. Somewhat confusingly, the `heliolinc` detection file is supplied with the command line keyword `-clust` and the summary file is supplied with the command line keyword `rms`. It can be run on files output directly by `heliolinc`, but since those usually have large numbers of overlapping linkages, we strongly recommend that **`cluster2mpc80a` should only be run on files post-processed by `link_refine`**. Hence the following example:
+
+```
+cluster2mpc80a -pairdet LSST_pairdets_01.csv -clust LSST_linkref_all01.csv -rms LSST_linkref_summary01.csv -prefix hl -outfile LSST_hl_01.mpc
+```
+
+The table below describes all of the arguments.
+
+| command line keyword | type      | Required? | Description                                            |
+| -------------------- | --------- | --------- | --------------------------------------------- |
+-pairdet               | file name | yes       | csv-formatted input file produced by `make_tracklets` and containing the paired detection catalog |
+-clust                 | file name | yes       | output file from `heliolinc` or (**strongly preferred**) `link_refine` giving all detections for each linkage |
+-rms                   | file name | yes       | output file from `heliolinc` or (**strongly preferred**) `link_refine` giving one-line summary statistics for each linkage |
+-prefix                | string    | yes       | short string prefix (only 2 characters recommended) for MPC 80-column formatted output file |
+-outfile               | file name | yes       | name of output file |
+
+
+If you get error messages, check very carefully that the input files are all of the correct format, are mutually compatible, and are introduced with the correct keywords. Note well that `cluster2mpc80a` is not recommended for use on output files directly from `heliolinc`, but only on the identically-formatted, refined and culled-down versions produced by `link_refine` and `link_refine_mulisite`.
+
+The output files produced by `cluster2mpc80a` should be suitable for orbit-fitting with any program that accepts MPC 80-column format as input. They can also be pasted into the Minor Planet Checker(`https://minorplanetcenter.net/cgi-bin/checkmp.cgi`) to check for matches to known objects (remember to click the 'or around these observations' button on the web form).
