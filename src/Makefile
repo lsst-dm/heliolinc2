@@ -2,11 +2,11 @@
 # Makefile for "HelioLinc Advanced"
 #
 # To build all programs (in parallel), run:      make -j4
-# To install to /usr/local/bin, run:             sudo make install
-# To install to prefix of your choosing, run:    PREFIX=/my/install/dir make install
+# To install to ../bin, run:                     sudo make install
+# To install to (say) /usr/local, run:           PREFIX=/usr/local make install
 #
 
-PREFIX ?= /usr/local
+PREFIX ?= ..
 CXXFLAGS ?= -O3
 
 ###
