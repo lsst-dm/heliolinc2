@@ -371,20 +371,20 @@ The 'mb' suffix indicates they probe mostly main-belt asteroids, while 'neo' ind
 
 For processing large input data files with many hypothesis, we recommend breaking the files into smaller pieces for embarrassingly parallel runs. For example, the file heliohypo_mb05 could be broken into 27 pieces with 2000 hypotheses each (except the last, which would have only 1590. **Don't forget that each individual hypothesis file needs its own one-line header**. Then heliolinc could be run with a series of commands like this:
 ```
-./heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 \
+heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 \
 -obspos Earth1day2020s_02a.txt -heliodist heliohypo_mb05_part01 -out big_all_part01.csv \
 -outsum big_summary_part01.csv &
 
-./heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 \
+heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 \
 -obspos Earth1day2020s_02a.txt -heliodist heliohypo_mb05_part02 -out big_all_part02.csv \
 -outsum big_summary_part02.csv &
 
-./heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 \
+heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 \
 -obspos Earth1day2020s_02a.txt -heliodist heliohypo_mb05_part03 -out big_all_part03.csv \
 -outsum big_summary_part03.csv &
 ...
 ...
-./heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 \
+heliolinc -dets big_paired_detection_file.csv -pairs big_pair_file -mjd 60608.63 \
 -obspos Earth1day2020s_02a.txt -heliodist heliohypo_mb05_part27 -out big_all_part27.csv \
 -outsum big_summary_part27.csv &
 ```
@@ -534,13 +534,13 @@ The table below describes all of the arguments
 
 The clustering radius is given in units of kilometers, with a default value of 100,000 km. Internally, `heliolinc` actually uses an adjusted clustering radius that scales linearly with the (inferred, hypothesis-dependent) distance from Earth. To enable this, it divides the state vectors under each heliocentric hypothesis into overlapping, logarithmically spaced and sized bins in terms of geocentric distance. Clustering using DBSCAN is performed independently in each bin, with a clustering radius equal to the specified values (default 100,000 km) times the bin-center geocentric distance in AU. Hence, a smaller clustering radius is used for objects close to the Earth. This distance-dependent clustering radius was added to resolve a problem encountered in testing where spurious clusters comprising unreasonable numbers (e.g. thousands) of tracklets were constructed at small geocentric distances. The linear scaling with distance was suggested by the fact that the original input data effectively correspond to angles on the sky as observed from Earth, and physical length at a given angular scale has the same linear dependence on distance.
 
-**Minimum number of cluster points ** `-npt`: Like the clustering radius, this value corresponds to a parameter of the DBSCAN clustering algorithm: in this case, the minimum number of points 'npt' in a cluster. Note that a 'point' here means a point in 6-D parameter space that originated as a pair or tracklet. Hence, the default value npt=3 means a valid linkage must consist of at least 3 *pairs*, which means at least 6 observations in all. The LSST specifications require npt=3. It is possible to set npt=2, but for orbital/geometric reasons, this tends to produce unreasonable numbers of false positives. Using npt>3 can greatly increase the purity of output linkages. It also reduced sensitivity and completeness relative to npt=3, but for densely sampled input data (e.g., with coverage of overlapping regions of the sky every night) the loss may not be severe.
+**Minimum number of cluster points** `-npt`: Like the clustering radius, this value corresponds to a parameter of the DBSCAN clustering algorithm: in this case, the minimum number of points 'npt' in a cluster. Note that a 'point' here means a point in 6-D parameter space that originated as a pair or tracklet. Hence, the default value npt=3 means a valid linkage must consist of at least 3 *pairs*, which means at least 6 observations in all. The LSST specifications require npt=3. It is possible to set npt=2, but for orbital/geometric reasons, this tends to produce unreasonable numbers of false positives. Using npt>3 can greatly increase the purity of output linkages. It also reduced sensitivity and completeness relative to npt=3, but for densely sampled input data (e.g., with coverage of overlapping regions of the sky every night) the loss may not be severe.
 
 **Note well that the post-processing program `link_refine` also has a parameter `-maxrms`, which is analogous to the clustering radius and also defaults to 100,000 km.**
 
 **Minimum number of observing nights** `-minobsnights`: This is the minimum number of distinct nights on which detections must exist for a valid linkage. It is not redundant with `-npt` because some objects could have multiple pairs/tracklets on the same night -- hence, the default of minobsnights=3 imposes further constraints not already implied by npt=3.
 
-**Minimum time span for a valid linkage ** `-mintimespan`: This is the minimum total time spanned from the first to the last detection in a candidate linkage. It has units of days, and defaults to 1.0 -- a value small enough that it generally does not produce a separate constraint not already covered by the default minobsnights=3. In general, however, the two constraints are different: for example, you could set mintimespan=10 days with minobsnights=3, and then you would only get objects seen on at least three distinct nights for which the first night and the last night were separated by at least 10 days. Reasons why you might want to use the constraint include the fact that longer time spans result in more accurate orbits.
+**Minimum time span for a valid linkage** `-mintimespan`: This is the minimum total time spanned from the first to the last detection in a candidate linkage. It has units of days, and defaults to 1.0 -- a value small enough that it generally does not produce a separate constraint not already covered by the default minobsnights=3. In general, however, the two constraints are different: for example, you could set mintimespan=10 days with minobsnights=3, and then you would only get objects seen on at least three distinct nights for which the first night and the last night were separated by at least 10 days. Reasons why you might want to use the constraint include the fact that longer time spans result in more accurate orbits.
 
 **Minimum geocentric distance** `-mingeodist`: This is the central distance for the first of the overlapping bins in geocentric distance. It has units of AU, and defaults to 0.1 AU. Given the default distance-dependent clustering radius of 100,000 km at 1.0 AU, the actual clustering radius used for the first bin (with default parameters) will be only 10,000 km. If no linkages are found in a given geocentric bin, `heliolinc` skips to the next bin with no problems or error messages.
 
