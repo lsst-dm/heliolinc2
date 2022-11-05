@@ -8953,4 +8953,260 @@ long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpo
   return(orbchi);
 }
 
+#define SIMP_EXPAND_NUM 200
+#define SIMP_EXPAND_FAC 20.0L
+
+// Hergetfit01: November 03, 2022:
+// Use Hergetchi01 to perform orbit fitting using the Method of Herget,
+// and a downhill simplex method applied to the 2-dimensional space of
+// geodist1 and geodist2.
+long double Hergetfit01(long double geodist1, long double geodist2, long double simplex_side, long double ftol, int point1, int point2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit)
+{
+  int Hergetpoint1, Hergetpoint2;
+  long double simprange;
+  long double simplex[3][2];
+  long double simpchi[3];
+  long double refdist[2],trialdist[2],bestdist[2];
+  long double chisq, bestchi, worstchi, newchi;
+  int i,j,worstpoint, bestpoint;
+  int unboundsimplex[3];
+  int simp_eval_ct=0;
+
+  // Input points are indexed from 1; apply offset
+  Hergetpoint1 = point1-1;
+  Hergetpoint2 = point2-1;
+
+  // SETUP FOR DOWNHILL SIMPLEX SEARCH
+  // Define initial simplex
+  simplex[0][0] = geodist1;
+  simplex[0][1] = geodist2;
+  simplex[1][0] = geodist1-simplex_side;
+  while(simplex[1][0]<=0.0) simplex[1][0] = 0.5L*(simplex[1][0] + geodist1);
+  simplex[1][1] = geodist2;
+  simplex[2][0] = geodist1;
+  simplex[2][1] = geodist2-simplex_side;
+  while(simplex[2][1]<=0.0) simplex[2][1] = 0.5L*(simplex[2][1] + geodist2);
+
+  // See if the simplex leads to hyperbolic orbits
+  for(i=0;i<3;i++) {
+    unboundsimplex[i] = Herget_unboundcheck01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec);
+    if(unboundsimplex[i]!=0 && unboundsimplex[i]!=1) {
+      // Input is fatally flawed, exit.
+      cerr << "ERROR: fatally flawed input to downhill simplex, dists " << simplex[i][0] << " " << simplex[i][1] << "\n";
+      cerr << "points " << Hergetpoint1 << " and " << Hergetpoint2 << " out of allowed range 0 to " << obsMJD.size() << "\n";
+      return(1);
+    }
+  }
+  while(unboundsimplex[0]==1 && unboundsimplex[1]==1 && unboundsimplex[2]==1) {
+    // All the points are bad, shrink all the distances.
+    cout << "All points are hyperbolic with simplex:\n";
+    for(i=0;i<3;i++) {
+      cout << simplex[i][0] << " " << simplex[i][1] << "\n";
+      simplex[i][0]*=HERGET_DOWNSCALE;
+      simplex[i][1]*=HERGET_DOWNSCALE;
+      unboundsimplex[i] = Herget_unboundcheck01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec);
+    }
+  }
+  // If we get here, there must be at least one good point.
+  bestpoint = worstpoint = -1;
+  for(i=2;i>=0;i--) {
+    if(unboundsimplex[i]==0) bestpoint=i;
+    if(unboundsimplex[i]==1) worstpoint=i;
+  }
+  if(bestpoint<0) {
+    cerr << "Logically impossible case involving hyperbolic simplex points\n";
+    return(1);
+  }
+  if(worstpoint>=0) {
+    cout << "Good simplex point " << bestpoint << ": " << simplex[bestpoint][0] << " " << simplex[bestpoint][1] << "\n";
+    // There is at least one bad point.
+    for(i=0;i<3;i++) {
+      while(unboundsimplex[i]==1 && sqrt(LDSQUARE(simplex[i][0]-simplex[bestpoint][0]) + LDSQUARE(simplex[i][1]-simplex[bestpoint][1])) > MINHERGETDIST) {
+	// Bring the bad point closer to a good point until it stops being bad.
+	cout << "Modifying bad simplex point " << i << ": " << simplex[i][0] << " " << simplex[i][1] << "\n";
+	simplex[i][0] = 0.5L*(simplex[i][0]+simplex[bestpoint][0]);
+	simplex[i][1] = 0.5L*(simplex[i][1]+simplex[bestpoint][1]);
+	unboundsimplex[i] = Herget_unboundcheck01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec);
+      }
+    }
+  }
+  if(unboundsimplex[0]!=0 || unboundsimplex[1]!=0 || unboundsimplex[2]!=0) {
+    // We tried everything and still couldn't come up with a good simplex.
+    cerr << "Attempt to get viable simplex failed:\n";
+    for(i=0;i<3;i++) {
+      cerr << simplex[i][0] << " " << simplex[i][1] << " unbound = " << unboundsimplex[i] << "\n";
+    }
+    cerr << "Aborting\n";
+    return(1);
+  } else {
+    cout << "Good input simplex:\n";
+    for(i=0;i<3;i++) {
+      cerr << simplex[i][0] << " " << simplex[i][1] << " unbound = " << unboundsimplex[i] << "\n";
+    }
+  }
+  
+  for(i=0;i<3;i++) simpchi[i]=LARGERR;
+  // Normally, the while loop immediately below should execute only once,
+  // but if the input distances don't lead to a bound orbit, it will
+  // reduce them and try again.
+  while((simpchi[0] == LARGERR || simpchi[1] == LARGERR || simpchi[2] == LARGERR) && simplex[0][0]>MINHERGETDIST) {
+    // Calculate chi-square values for each point in the initial simplex
+    // Note that the output vectors fitRA, fitDec, and resid are null-wiped
+    // internally, so it isn't necessary to wipe them here.
+    for(i=0;i<3;i++) {
+      cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << "\n";
+      simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+      simp_eval_ct++;
+    }
+    if(simpchi[0] == LARGERR || simpchi[1] == LARGERR || simpchi[2] == LARGERR) {
+      cout << "Hergetchi01 returned failure code with simplex:\n";
+      for(i=0;i<3;i++) {
+	cout << simplex[i][0] << " " << simplex[i][1] << "\n";
+	simplex[i][0]*=HERGET_DOWNSCALE;
+	simplex[i][1]*=HERGET_DOWNSCALE;
+      }
+    }
+  }
+  if(simplex[0][0]<=MINHERGETDIST) {
+    cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
+    cerr << "Method of Herget cannot proceed with these data\n";
+    return(0);
+  }
+  cout << "Chi-square value for input distances is " << simpchi[0] << "\n";
+  
+  // Find best and worst points
+  worstpoint=bestpoint=0;
+  bestchi = worstchi = simpchi[0];
+  for(i=1;i<3;i++) {
+    if(simpchi[i]<bestchi) {
+      bestchi = simpchi[i];
+      bestpoint=i;
+    }
+    if(simpchi[i]>worstchi) {
+      worstchi = simpchi[i];
+      worstpoint=i;
+    }
+  }
+  simprange = (worstchi-bestchi)/bestchi;
+
+  // LAUNCH DOWNHILL SIMPLEX SEARCH
+  while(simprange>ftol) {
+    cout << fixed << setprecision(6) << "Best chi-square value is " << bestchi << ", range is " << simprange << ", vector is " << simplex[bestpoint][0] << " "  << simplex[bestpoint][1] << "\n";
+      
+    // Try to reflect away from worst point
+    // Find mean over all the points except the worst one
+    refdist[0] = refdist[1] = 0.0L;
+    for(i=0;i<3;i++) {
+      if(i!=worstpoint) {
+	refdist[0] += simplex[i][0]/2.0L;
+	refdist[1] += simplex[i][1]/2.0L;
+      }
+    }
+    // Calculate new trial point
+    trialdist[0] = refdist[0] - (simplex[worstpoint][0] - refdist[0]);
+    trialdist[1] = refdist[1] - (simplex[worstpoint][1] - refdist[1]);
+    // Calculate chi-square value at this new point
+    chisq = Hergetchi01(trialdist[0], trialdist[1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+    simp_eval_ct++;
+    if(chisq<bestchi) {
+      // Very good result. Let this point replace worstpoint in the simplex
+      for(j=0;j<2;j++) simplex[worstpoint][j] = trialdist[j];
+      simpchi[worstpoint]=chisq;
+      // Extrapolate further in this direction: maybe we can do even better
+      trialdist[0] = refdist[0] - 2.0L*(simplex[worstpoint][0] - refdist[0]);
+      trialdist[1] = refdist[1] - 2.0L*(simplex[worstpoint][1] - refdist[1]);
+      newchi = Hergetchi01(trialdist[0], trialdist[1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+      simp_eval_ct++;
+      if(newchi<chisq) {
+	// Let this even better point replace worstpoint in the simplex
+	for(j=0;j<2;j++) simplex[worstpoint][j] = trialdist[j];
+	simpchi[worstpoint]=chisq;
+      }
+      // This closes the case where reflecting away from the
+      // worst point was a big success.
+    } else {
+      // Reflecting away from the worst point wasn't great, but
+      // we'll see what we can manage.
+      if(chisq<worstchi) { 
+	// The new point was at least better than the previous worst.
+	// Add it to the simplex in place of the worst point
+	for(j=0;j<2;j++) simplex[worstpoint][j] = trialdist[j];
+	simpchi[worstpoint]=chisq;
+      } else {
+	// The new point was really no good.
+	// This is the part of the story where we give up on
+	// reflecting away from the worst point, and we try
+	// something else.
+	// First, try contracting away from the bad point,
+	// instead of reflecting away from it.
+	trialdist[0] = 0.5L*(simplex[worstpoint][0] + refdist[0]);
+	trialdist[1] = 0.5L*(simplex[worstpoint][1] + refdist[1]);
+	// Calculate chi-square value at this new point
+	chisq = Hergetchi01(trialdist[0], trialdist[1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+	simp_eval_ct++;
+	if(chisq<worstchi) {
+	  // The new point is better than the previous worst point
+	  // Add it to the simplex in place of the worst point
+	  for(j=0;j<2;j++) simplex[worstpoint][j] = trialdist[j];
+	  simpchi[worstpoint]=chisq;
+	} else {
+	  // Even contracting away from the bad point didn't help.
+	  // Only one thing left to try: contract toward the best point.
+	  // This means each point will become an average of the best
+	  // point and its former self.
+	  for(i=0;i<3;i++) {
+	    if(i!=bestpoint) {
+	      simplex[i][0] = 0.5L*(simplex[i][0] + simplex[bestpoint][0]);
+	      simplex[i][1] = 0.5L*(simplex[i][1] + simplex[bestpoint][1]);
+	      simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+	      simp_eval_ct++;
+	    }
+	  }
+	  // Close case where nothing worked but contracting around the best point.
+	}
+	// Close case where reflecting away from the worst point did not work. 
+      }
+      // Close case where reflecting away from the worst point was not a big success.
+    }
+    // Expand the simplex if we've been running for a long time
+    if(simp_eval_ct>SIMP_EXPAND_NUM) {
+      // Zero the counter
+      simp_eval_ct=0;
+      // Find center of the simplex
+      refdist[0] = (simplex[0][0] + simplex[1][0] + simplex[2][0])/3.0L;
+      refdist[1] = (simplex[0][1] + simplex[1][1] + simplex[2][1])/3.0L;
+      // Expand the simplex
+      for(i=0;i<3;i++) {
+	simplex[i][0] = refdist[0] + (simplex[i][0]-refdist[0])*SIMP_EXPAND_FAC;
+	simplex[i][1] = refdist[1] + (simplex[i][1]-refdist[1])*SIMP_EXPAND_FAC;
+      }
+      // Re-evaluate the chi-square values
+      for(i=0;i<3;i++) {
+	simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+      }
+    }
+    // Identify best and worst points for next iteration.
+    worstpoint=bestpoint=0;
+    bestchi = worstchi = simpchi[0];
+    for(i=1;i<3;i++) {
+      if(simpchi[i]<bestchi) {
+	bestchi = simpchi[i];
+	bestpoint=i;
+      }
+      if(simpchi[i]>worstchi) {
+	worstchi = simpchi[i];
+	worstpoint=i;
+      }
+    }
+    simprange = (worstchi-bestchi)/bestchi;
+  }
+  cout << fixed << setprecision(6) << "Best chi-square value was " << bestchi << ", with geocentric distances " << simplex[bestpoint][0] << " and " << simplex[bestpoint][1] << "\n";
+  
+  // Perform fit with final best parameters
+  chisq = Hergetchi01(simplex[bestpoint][0], simplex[bestpoint][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+  return(chisq);
+}
+
 #undef DEBUG_2PTBVP
+#undef SIMP_EXPAND_NUM
+#undef SIMP_EXPAND_FAC
