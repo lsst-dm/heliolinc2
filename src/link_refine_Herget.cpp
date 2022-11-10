@@ -73,13 +73,12 @@
 #define ONE_POINT_PER_IMAGE 1
 #define DEBUG 1
 #define FTOL_HERGET_SIMPLEX 1e-5L
-#define SIMPLEX_SIDE_HERGET 0.1L
 #define ESCAPE_SCALE 0.99L // If the input velocity is above escape velocity, we
                            // scale it down by this amount.
 
 static void show_usage()
 {
-  cerr << "Usage: link_refine_Herget -pairdet pairdet_file -lflist link_file_list -mjd mjdref -maxrms maxrms -outfile outfile -outrms rmsfile\n";
+  cerr << "Usage: link_refine_Herget -pairdet pairdet_file -lflist link_file_list -mjd mjdref -simptype simplex_type -maxrms maxrms -outfile outfile -outrms rmsfile\n";
 }
     
 int main(int argc, char *argv[])
@@ -166,10 +165,11 @@ int main(int argc, char *argv[])
   vector <long double> obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit;
   long double geodist1,geodist2, v_escape, v_helio, astromrms;
   long double ftol = FTOL_HERGET_SIMPLEX;
-  long double simplex_side = SIMPLEX_SIDE_HERGET;
+  long double simplex_scale = SIMPLEX_SCALEFAC;
   int point1, point2;
-
-  if(argc!=11 && argc!=13) {
+  int simptype=0;
+  
+  if(argc!=11 && argc!=13 && argc!=15) {
     show_usage();
     return(1);
   }
@@ -220,7 +220,18 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-maxrms" || string(argv[i]) == "-mr" || string(argv[i]) == "-mrms" || string(argv[i]) == "-rms" || string(argv[i]) == "-maxr" || string(argv[i]) == "--maxrms" || string(argv[i]) == "--maximumrms") {
+    } else if(string(argv[i]) == "-simptype" || string(argv[i]) == "-stype" || string(argv[i]) == "-simpt" || string(argv[i]) == "-simplextype" || string(argv[i]) == "-simplex_type" || string(argv[i]) == "--simptype" || string(argv[i]) == "--simplex_type") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	simptype=stoi(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "Simplex type keyword supplied with no corresponding argument";
+	show_usage();
+	return(1);
+      }
+    }  else if(string(argv[i]) == "-maxrms" || string(argv[i]) == "-mr" || string(argv[i]) == "-mrms" || string(argv[i]) == "-rms" || string(argv[i]) == "-maxr" || string(argv[i]) == "--maxrms" || string(argv[i]) == "--maximumrms") {
       if(i+1 < argc) {
 	//There is still something to read;
 	maxrms=stod(argv[++i]);
@@ -635,11 +646,12 @@ int main(int argc, char *argv[])
 	    endpos.y -= observerpos[ptnum-1].y;
 	    endpos.z -= observerpos[ptnum-1].z;
 	    geodist2 = vecabs3LD(endpos)/AU_KM;
-	    simplex_side = 0.05L*(geodist1+geodist2);
-	    astromrms = Hergetfit01(geodist1, geodist2, simplex_side, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+	    simplex_scale = SIMPLEX_SCALEFAC;
+	    astromrms = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
 	    // Include this astrometric RMS value in the cluster metric and the RMS vector
 	    clustan.rmsvec.push_back(astromrms);
 	    clustan.clustermetric /= astromrms;
+	    clustan.rmsvec.push_back(float(orbit[9]));
 	    // Add cluster indices to detvec.
 	    for(ptct=0; ptct<ptnum; ptct++) {
 	      i1 = clustan.clustind[ptct];
@@ -711,7 +723,8 @@ int main(int argc, char *argv[])
       outstream2  << fixed << setprecision(3) << clustanvec[clusterct].heliopar[0] << "," << clustanvec[clusterct].heliopar[1] << ",";
       outstream2  << fixed << setprecision(6) << clustanvec[clusterct].heliopar[2] << ",";
       outstream2  << fixed << setprecision(3)  << clustanvec[clusterct].statevecs[0] << "," << clustanvec[clusterct].statevecs[1] << "," << clustanvec[clusterct].statevecs[2] << ",";
-      outstream2  << fixed << setprecision(6) << clustanvec[clusterct].statevecs[3] << ","   << clustanvec[clusterct].statevecs[4] << "," << clustanvec[clusterct].statevecs[5] << "\n";
+      outstream2  << fixed << setprecision(6) << clustanvec[clusterct].statevecs[3] << ","   << clustanvec[clusterct].statevecs[4] << "," << clustanvec[clusterct].statevecs[5] << ",";
+      outstream2 << fixed << setprecision(0) << clustanvec[clusterct].rmsvec[4] << "\n";
       for(i=0;i<clustanvec[clusterct].clustind.size();i++) {
 	// This point is in the chosen cluster, and cannot be in any other
 	detct = clustanvec[clusterct].clustind[i];

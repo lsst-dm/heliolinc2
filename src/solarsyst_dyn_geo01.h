@@ -98,6 +98,16 @@ using namespace std;
                               // shrink the distances by this factor to see if you can bring them in range.
 #define MINHERGETDIST 0.0001L // Make sure distances and distance separations in Herget
                               // orbit fitting don't get smaller than this value (in AU).
+#define SIMPLEX_SCALEFAC 0.2L // Initial scaling for Herget simplex. For input guess x, y points will be
+                              // x ( 1 + SIMPLEX_SCALEFAC - SIMPLEX_SCALEFACE^2),
+                              // y ( 1 + SIMPLEX_SCALEFAC + SIMPLEX_SCALEFACE^2) and
+                              // x ( 1 - SIMPLEX_SCALEFAC + SIMPLEX_SCALEFACE^2),
+                              // y ( 1 - SIMPLEX_SCALEFAC - SIMPLEX_SCALEFACE^2),
+                              // The point here is to create a guaranteed linearly independent
+                              // simplex where the distances nevertheless tend to vary together,
+                              // reducing the chance of hyperbolic orbits.
+#define SIMPLEX_SCALE_LIMIT ((sqrt(5.0L)-1.0L)/2.0L) // Can get negative distances if simplex_scale
+                                                     // exceeds this value.
 
 // String-handling stuff that has to be declared early because other things depend on it.
 void stringncopy01(char *dest, const string &source, int n);
@@ -909,12 +919,15 @@ int vaneproj01LD(point3LD unitbary, point3LD obsbary, long double ecliplon, long
 long double Twopoint_KepQ(long double theta);
 int Twopoint_Kepler_vel(const long double MGsun, const point3LD startpoint, const point3LD endpoint, const long double timediff, point3LD &startvel, int itmax);
 int Keplerint_multipoint01(const long double MGsun, const long double mjdstart, const vector <long double> &obsMJD, const point3LD &startpos, const point3LD &startvel, vector <point3LD> &obspos, vector <point3LD> &obsvel);
+int Keplerint_multipoint02(const long double MGsun, const long double mjdstart, const vector <long double> &obsMJD, const point3LD &startpos, const point3LD &startvel, vector <point3LD> &obspos, vector <point3LD> &obsvel, long double *semimajor_axis, long double *eccen, long double *angperi);
 long double orbitchi01(const point3LD &objectpos, const point3LD &objectvel, const long double mjdstart, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid);
+long double orbitchi02(const point3LD &objectpos, const point3LD &objectvel, const long double mjdstart, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, long double *semimajor_axis, long double *eccen, long double *angperi);
 long double TwopointF(long double a, long double k, long double lambda1, long double lambda2, long double deltat, long double Xsign, long double Ysign);
 long double TwopointFprime(long double a, long double k, long double lambda1, long double lambda2, long double deltat, long double Xsign, long double Ysign);
 int eccen_calc_fast(long double a, point3LD rvec1, point3LD rvec2, long double *e, long double *theta, long double Xsign, long double Ysign);
-point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, const point3LD endpos, const long double timediff, long double Y, long double *a, long double *e, int itmax);
+point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, const point3LD endpos, const long double timediff, long double Y, long double *a, int itmax);
 point3LD geodist_to_3Dpos01(long double RA, long double Dec, point3LD observerpos, long double geodist);
 int Herget_unboundcheck01(long double geodist1, long double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec);
 long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit);
-long double Hergetfit01(long double geodist1, long double geodist2, long double simplex_side, long double ftol, int point1, int point2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit);
+int Herget_simplex_int(long double geodist1, long double geodist2, long double simpscale, long double simplex[3][2], int simptype);
+long double Hergetfit01(long double geodist1, long double geodist2, long double simplex_scale, int simptype, long double ftol, int point1, int point2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit);

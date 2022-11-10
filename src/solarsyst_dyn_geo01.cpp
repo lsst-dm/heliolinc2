@@ -8489,6 +8489,204 @@ int Keplerint_multipoint01(const long double MGsun, const long double mjdstart, 
   return(0);
 }
 
+// Keplerint_multipoint02: November 08, 2022:
+// Like Keplerint_multipoint01, but relays several of its
+// internally-calculated orbital parameters to the calling function. 
+// These include the semimajor axis (in km), the eccentricity, 
+// and the initial angle-from-perihelion (in radians).
+//
+// Description of related program Keplerint_multipoint01:
+// Like Keplerint, but does the
+// calculation for a bunch of points simultaneously. Note that
+// we assume the observation times and mjdstart are in UT1, which
+// means that JPL Horizons state vectors cannot be used directly
+// for mjdstart: one would have to correct the nominal value of
+// mjdstart corresponding to the JPL Horizons state vectors.
+// Description of ancestor program Keplerint:
+// Integrate an orbit assuming we have a Keplerian 2-body problem
+// with all the mass in the Sun, and the input position and velocity
+// are relative to the Sun.
+int Keplerint_multipoint02(const long double MGsun, const long double mjdstart, const vector <long double> &obsMJD, const point3LD &startpos, const point3LD &startvel, vector <point3LD> &obspos, vector <point3LD> &obsvel, long double *semimajor_axis, long double *eccen, long double *angperi)
+{
+  long double e,E,a,lscalar,r0,v0,r1,v1;
+  point3LD lvec = point3LD(0L,0L,0L);
+  point3LD lunit = point3LD(0L,0L,0L);
+  point3LD r0unit = point3LD(0L,0L,0L);
+  point3LD r1unit = point3LD(0L,0L,0L);
+  point3LD v1unit = point3LD(0L,0L,0L);
+  point3LD targpos = point3LD(0L,0L,0L);
+  point3LD targvel = point3LD(0L,0L,0L);
+  e = E = a = lscalar = r0 = v0 = r1 = v1 = 0L;
+  long double costheta,theta0,theta1,radvel,cospsi,psi;
+  costheta = theta0 = theta1 = radvel = cospsi = psi = 0L;
+  long double omega, t0omega, t0, t1omega, t1;
+  omega = t0omega = t0 = t1omega = t1 = 0L;
+  long double lra,ldec,r0ra,r0dec,r1ra,r1dec,newra,newdec;
+  lra = ldec = r0ra = r0dec = r1ra = r1dec = newra = newdec = 0L;
+  int status = 0;
+  long double junkra,junkdec,sinev,thetav,v1ra,v1dec;
+  junkra = junkdec = sinev = thetav = v1ra = v1dec = 0L;
+  int obsct=0;
+  int obsnum = obsMJD.size();
+ 
+  // Calculate scalar input position
+  r0 = vecabs3LD(startpos);
+  v0 = vecabs3LD(startvel);
+  
+  // Calculate specific energy and angular momentum
+  E = 0.5L*v0*v0 - MGsun/r0;
+  lvec = crossprod3LD(startpos,startvel);
+  lscalar = sqrt(dotprod3LD(lvec,lvec));
+  if(E>=0L) {
+    //cerr << "ERROR: Keplerint finds positive total energy: " << E << "\n";
+    return(1);
+  }
+		 
+  // Calculate a and e: orbital semimajor axis and eccentricity.
+  cout.precision(17);
+  a = -MGsun*0.5L/E;
+  e = sqrt(1.0L + 2.0L*E*lscalar*lscalar/MGsun/MGsun);
+  if(e<0L || e>=1.0L) {
+    cerr << "ERROR: Keplerint finds eccentricity out of range: " << e << "\n";
+    return(1);
+  }
+
+  //cout << "semimajor axis = " << a/AU_KM << " and eccentricity = " << e << "\n";
+	       
+  // Calculate angle theta0 from perihelion using simple ellipse geometry.
+  if(e>0L) {
+    costheta = ((a-a*e*e)/r0 - 1.0L)/e;
+    if(costheta>=-1.0L && costheta<=1.0L) theta0 = acos(costheta);
+    else {
+      cerr << "ERROR: Keplerint finds costheta = " << costheta << "\n";
+      return(1);
+    }
+  }
+  radvel = dotprod3LD(startpos,startvel)/r0;
+  //cout << "Radial velocity = " << radvel << " km/sec\n";
+  
+  if(radvel>=0) {
+    // We are moving outward from perihelion: theta will be correct.
+    //cout << "Moving outward from perihelion.\n";
+    ;
+  } else {
+    // We are moving inward towards perihelion: theta needs adjustment.
+    theta0 = 2.0L*M_PI - theta0;
+    //cout << "Moving inward towards perihelion.\n";
+  }
+  //cout << "theta0 = " << theta0*DEGPRAD << "\n";
+  *semimajor_axis = a;
+  *eccen = e;
+  *angperi = theta0;
+  
+  // Calculate Goldstein's psi variable from theta.
+  cospsi = (costheta + e)/(1.0L + costheta*e);
+  if(cospsi>=-1.0L && cospsi<=1.0L) psi = acos(cospsi);
+  else {
+    cerr << "ERROR: Keplerint finds cospsi = " << cospsi << "\n";
+    return(1);
+  }
+  if(radvel<0) {
+    // We are moving inward towards perihelion: psi needs adjustment.
+    psi = 2.0L*M_PI - psi;
+  }
+  //cout << "psi = " << psi*DEGPRAD << "\n";
+ 
+  // Calculate time since perihelion using psi.
+  omega = sqrt(MGsun/(a*a*a));
+  //cout << "Period = " << 2.0L*M_PI/omega/SOLARDAY/365.25 << " years\n";
+  t0omega = psi - e*sin(psi);
+  //cout << "t0omega = " << t0omega;
+
+  // Loop on all times-of-observation, and calculate the target position at those times
+  obspos = obsvel = {};
+  for(obsct=0;obsct<obsnum;obsct++) {
+    // The new time t1 for which we want to re-evaluate psi is
+    // given by t0 + obsMJD[obsct]-mjdstart.
+    t1omega = t0omega + (obsMJD[obsct]-mjdstart)*SOLARDAY*omega;
+    while(t1omega > 2.0L*M_PI) t1omega -= 2.0L*M_PI;
+    while(t1omega < 0.0L) t1omega += 2.0L*M_PI;
+    // Solve Kepler's equation for psi(t1)
+    psi = kep_transcendental(t1omega,e,KEPTRANSTOL);
+    cospsi = cos(psi);
+    // Calculate theta(t1) from psi(t1)
+    if(1.0L - e*cospsi != 0.0L) {
+      costheta = (cospsi - e)/(1.0L - e*cospsi);
+      if(costheta >= -1.0L && costheta <= 1.0L) theta1 = acos(costheta);
+      else if(costheta < -1.0L) {
+	cout << "Warning: costheta = " << costheta << "\n";
+	theta1 = M_PI;
+      } else {
+	cout << "Warning: costheta = " << costheta << "\n";
+	theta1 = 0.0L;
+      }
+      if(psi>M_PI && theta1<=M_PI) theta1 = 2.0L*M_PI - theta1;
+    } else {
+      cerr << "Warning: e*cos(psi) = " << e*cospsi << " so 1 - e*cos(psi) = " << 1.0L - e*cospsi << "\n";
+      theta1 = 0.0L;
+    }
+    while(theta1<0.0L) theta1 += 2.0L*M_PI;
+    while(theta1>=2.0L*M_PI) theta1 -= 2.0L*M_PI;
+
+    // Calculate r(t1) from psi(t1)
+    r1 = a*(1.0L - e*cospsi);
+    // Calculate v1 from r1 and the known energy
+    v1 = sqrt((E +  MGsun/r1)*2.0L);
+  
+    // Use vector algebra to find the full vector r(t1).
+    // This vector is perpendicular to lvec, and is angled by theta1-theta0
+    // relative to startpos.
+    // Convert angular momentum vector to spherical coordinates
+    celedeproj01LD(lvec,&lra,&ldec); // Note that output is in degrees.
+    celedeproj01LD(startpos,&r0ra,&r0dec); // Note that output is in degrees.
+    // Transform the starting unit vector into a coordinate system with
+    // the angular momentum vector at the pole, and the old pole at RA=0
+    poleswitch01LD(r0ra/DEGPRAD,r0dec/DEGPRAD,lra/DEGPRAD,ldec/DEGPRAD,0.0L,newra,newdec); // Output is radians
+    // Rotate starting unit vector around the angular momentum axis by
+    // the calculated angle.
+    newra += theta1-theta0;
+    // The unit vector for the new position r1 is on the equator at this RA,
+    // in the coordinate system that has the angular momentum vector at the pole.
+    // Convert back to the original coordinate system.
+    poleswitch01LD(newra,0.0L,0.0L,ldec/DEGPRAD,lra/DEGPRAD,r1ra,r1dec); // Output is radians
+    // Now for the velocity. If the velocity is at right angle to the vector r1,
+    // the product v1*r1 is the angular momentum. Otherwise, l/(v1*r1) is the sine
+    // of the angle between v1 and r1.
+
+    sinev = lscalar/v1/r1;
+    if(sinev>=1.0L) thetav = 0.5L*M_PI;
+    else if(sinev<0.0L) {
+      cerr << "ERROR: negative angular momentum?\nv1,r1,v1*r1,lscalar,sinev = " << v1 << ", " << r1 << ", " << v1*r1 << ", " << lscalar << ", " << sinev << "\n";
+      thetav = 0.0L;
+    }
+    else thetav = asin(sinev);
+    if(theta1<=M_PI) {
+      // Outward bound from perihelion.
+      newra += thetav;
+    } else {
+      // Inward bound to perihelion
+      newra += (M_PI - thetav);
+    }
+    poleswitch01LD(newra,0.0L,0.0L,ldec/DEGPRAD,lra/DEGPRAD,v1ra,v1dec); // Output is radians
+
+    r1unit = celeproj01LD(r1ra*DEGPRAD,r1dec*DEGPRAD);
+    v1unit =celeproj01LD(v1ra*DEGPRAD,v1dec*DEGPRAD);
+  
+    targpos.x = r1unit.x*r1;
+    targpos.y = r1unit.y*r1;
+    targpos.z = r1unit.z*r1;
+    targvel.x = v1unit.x*v1;
+    targvel.y = v1unit.y*v1;
+    targvel.z = v1unit.z*v1;
+    obspos.push_back(targpos);
+    obsvel.push_back(targvel);
+  }
+    
+  return(0);
+}
+
+
+
 // orbitchi01: November 02, 2022:
 // Get chi-square value based on input state vectors,
 // using 2-body Keplerian integration, rather than n-body.
@@ -8519,6 +8717,89 @@ long double orbitchi01(const point3LD &objectpos, const point3LD &objectvel, con
   status = Keplerint_multipoint01(GMSUN_KM3_SEC2,mjdstart,obsMJD,objectpos,objectvel,obspos,obsvel);
   if(status!=0) {
     // Keplerint_multipoint01 failed, likely because input state vectors lead
+    // to an unbound orbit.
+    return(LARGERR);
+  }
+  if(DEBUG_2PTBVP>1) cout << "Recovered start pos: " << obspos[0].x << " "  << obspos[0].y << " "  << obspos[0].z << "\n";
+
+
+  for(obsct=0;obsct<obsnum;obsct++) {
+    // Initial approximation of the coordinates relative to the observer
+    outpos.x = obspos[obsct].x - observerpos[obsct].x;
+    outpos.y = obspos[obsct].y - observerpos[obsct].y;
+    outpos.z = obspos[obsct].z - observerpos[obsct].z;
+    // Initial approximation of the observer-target distance
+    ldval = sqrt(outpos.x*outpos.x + outpos.y*outpos.y + outpos.z*outpos.z);
+    // Convert to meters and divide by the speed of light to get the light travel time.
+    light_travel_time = ldval*1000.0/CLIGHT;
+    // Light-travel-time corrected version of coordinates relative to the observer
+    outpos.x = obspos[obsct].x - light_travel_time*obsvel[obsct].x - observerpos[obsct].x;
+    outpos.y = obspos[obsct].y - light_travel_time*obsvel[obsct].y - observerpos[obsct].y;
+    outpos.z = obspos[obsct].z - light_travel_time*obsvel[obsct].z - observerpos[obsct].z;
+    // Output diagnostic stuff
+    if(DEBUG_2PTBVP>1) {
+      if(obsct == 0) cout << "Calculated start pos:\n" << obspos[obsct].x  - light_travel_time*obsvel[obsct].x << " " << obspos[obsct].y  - light_travel_time*obsvel[obsct].y << " " << obspos[obsct].z  - light_travel_time*obsvel[obsct].z << "\n";
+      if(obsct == obsnum-1)  cout << "Calculated end pos:\n" << obspos[obsct].x  - light_travel_time*obsvel[obsct].x << " " << obspos[obsct].y  - light_travel_time*obsvel[obsct].y << " " << obspos[obsct].z  - light_travel_time*obsvel[obsct].z << "\n";
+    }
+    // Light-travel-time corrected observer-target distance
+    ldval = sqrt(outpos.x*outpos.x + outpos.y*outpos.y + outpos.z*outpos.z);
+    // Calculate unit vector
+    outpos.x /= ldval;
+    outpos.y /= ldval;
+    outpos.z /= ldval;
+    // Project onto the celestial sphere.
+    stateunitLD_to_celestial(outpos, outRA, outDec);
+    dval = distradec01(obsRA[obsct],obsDec[obsct],outRA,outDec);
+    dval *= 3600.0L; // Convert to arcsec
+    fitRA.push_back(outRA);
+    fitDec.push_back(outDec);
+    resid.push_back(dval);
+  }
+  chisq=0.0L;
+  for(obsct=0;obsct<obsnum;obsct++) {
+    chisq += LDSQUARE(resid[obsct]/sigastrom[obsct]);
+  }
+  return(chisq);
+}
+
+// orbitchi02: November 08, 2022:
+// Like orbitchi01, but uses Keplerint_multipoint02
+// rather than  Keplerint_multipoint01, in order to relay
+// more of the internally calculated orbital parameters to
+// the calling function. These include the orbital semimajor
+// axis a (km), the eccentricity e, and the initial angle from
+// perihelion (radians).
+//
+// Description of ancestor program orbitchi01:
+// Get chi-square value based on input state vectors,
+// using 2-body Keplerian integration, rather than n-body.
+// Input state vectors are expected to be in km and km/sec.
+// Note that the output vectors fitRA, fitDec, and resid are
+// null-wiped inside orbitchi01, so it isn't necessary for the
+// calling function to wipe them.
+long double orbitchi02(const point3LD &objectpos, const point3LD &objectvel, const long double mjdstart, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, long double *semimajor_axis, long double *eccen, long double *angperi)
+{
+  vector <point3LD> obspos;
+  vector <point3LD> obsvel;
+  int obsct;
+  int obsnum = obsMJD.size();
+  long double light_travel_time;
+  point3LD outpos = point3LD(0,0,0);
+  long double outRA=0L;
+  long double outDec=0L;
+  long double ldval=0L;
+  long double chisq=0L;
+  double dval;
+  resid = fitRA = fitDec = {};
+  int status=0;
+
+  if(DEBUG_2PTBVP>1) cout << "Input start pos: " << objectpos.x << " "  << objectpos.y << " "  << objectpos.z << "\n";
+  
+  // Integrate orbit.
+  status=0;
+  status = Keplerint_multipoint02(GMSUN_KM3_SEC2,mjdstart,obsMJD,objectpos,objectvel,obspos,obsvel,semimajor_axis,eccen,angperi);
+  if(status!=0) {
+    // Keplerint_multipoint02 failed, likely because input state vectors lead
     // to an unbound orbit.
     return(LARGERR);
   }
@@ -8688,7 +8969,11 @@ int eccen_calc_fast(long double a, point3LD rvec1, point3LD rvec2, long double *
 // timediff is in units of days.
 // This code closely follows the derivation in Section 6.11 of
 // J. M. A. Danby's Foundations of Celestial Mechanics.
-point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, const point3LD endpos, const long double timediff, const long double Ysign, long double *a, long double *e, int itmax)
+//
+// November 8: commented out calculation of eccentricity, which
+// previously had been included in the argument list as
+// long double *e, to increase speed.
+point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, const point3LD endpos, const long double timediff, const long double Ysign, long double *a, int itmax)
 {
   // General quantities, and those having to do with solving for the semimajor axis.
   long double r1 = vecabs3LD(startpos);
@@ -8723,7 +9008,7 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
   long double fprime;
   long double f2;
   long double fprime2;
-  long double eccen,thetaperi;
+  //long double eccen,thetaperi;
   
   if(timediff*SOLARDAY>dtc) X=-1.0L;
 
@@ -8767,8 +9052,8 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
     // Calculate the eccentricity
     // eccen_calc_precise(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
     // cout << "iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = " << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
-    eccen_calc_fast(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
-    if(DEBUG_2PTBVP>1) cout << "iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = " << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
+    //eccen_calc_fast(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
+    //if(DEBUG_2PTBVP>1) cout << "iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = " << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
     itnum++;
   }
   if(fabs(f) > KEPTRANSTOL || fabs(delta_aorb > KEPTRANSTOL*AU_KM)) {
@@ -8801,13 +9086,13 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
     // Calculate the eccentricity
     // eccen_calc_precise(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
     // cout << "2nd try, iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = " << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
-    eccen_calc_fast(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
-    if(DEBUG_2PTBVP>1) cout << "2nd try, iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = " << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
+    //eccen_calc_fast(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
+    //if(DEBUG_2PTBVP>1) cout << "2nd try, iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = " << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
     itnum++;
     }
   }
   *a = aorb;
-  *e = eccen;
+  //*e = eccen;
 
   // Quantities having to do with solving for the velocity
   long double alpha,beta,gamma,ffunc,gfunc;
@@ -8922,8 +9207,8 @@ long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpo
   // the object experiences less time than the observer beween the two observations, because
   // the observer is looking further back in time at the second observation.
   long double deltat = obsMJD[Hergetpoint2] - obsMJD[Hergetpoint1] - (geodist2-geodist1)/CLIGHT_AUDAY;
-  long double a,e;
-  point3LD startvel = Twopoint_Kepler_v1(GMSUN_KM3_SEC2, startpos, endpos, deltat, 1.0L, &a, &e, 100);
+  long double a,e,angperi;
+  point3LD startvel = Twopoint_Kepler_v1(GMSUN_KM3_SEC2, startpos, endpos, deltat, 1.0L, &a, 100);
   if(startvel.x == 0.0L && startvel.y == 0.0L && startvel.z == 0.0L) {
     // This is a failure code for Twopoint_Kepler_v1, which is returned if, e.g.,
     // the implied orbit is hyperbolic. Nothing to be done here, but pass
@@ -8933,6 +9218,11 @@ long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpo
     return(LARGERR);
   }
     
+  long double orbchi;
+  // Note that the output vectors fitRA, fitDec, and resid are null-wiped
+  // internally in orbitchi01, so it isn't necessary to wipe them here.
+  orbchi = orbitchi02(startpos, startvel, obsMJD[Hergetpoint1]-geodist1/CLIGHT_AUDAY, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, &a, &e, &angperi);
+
   orbit={};
   orbit.push_back(a);
   orbit.push_back(e);
@@ -8943,16 +9233,103 @@ long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpo
   orbit.push_back(startvel.x);
   orbit.push_back(startvel.y);
   orbit.push_back(startvel.z);
-  long double orbchi;
-  // Note that the output vectors fitRA, fitDec, and resid are null-wiped
-  // internally in orbitchi01, so it isn't necessary to wipe them here.
-  orbchi = orbitchi01(startpos, startvel, obsMJD[Hergetpoint1]-geodist1/CLIGHT_AUDAY, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid);
+  
   if(DEBUG_2PTBVP>1) cout << "Target startpos:\n" << startpos.x << " " << startpos.y << " " << startpos.z << "\n";
   if(DEBUG_2PTBVP>1) cout << "Target endpos:\n" << endpos.x << " " << endpos.y << " " << endpos.z << "\n";
   
   return(orbchi);
 }
 
+// Herget_simplex_init: November 09, 2022:
+// Initialize a 2-D simplex suitable for downhill simplex orbit
+// fitting using the Method of Herget. The parameter space has
+// two dimensions: geodist1 and geodist2 -- that is, the distance
+// from the Earth at the instant of the first and last observations
+// of the object. The initialization uses three types, each based
+// on a parameter simpscale which is expected to be strictly
+// positive but less than (sqrt(5)-1)/2. The calling function is
+// responsble to ensure an acceptable value for the inputs, though
+// Herget_simplex_int will fix some types of bad input. simptype=0 uses multiplicative
+// scaling to create an approximately equilateral triangle:
+// (geodist1,geodist2), (geodist1*(1-simpscale),geodist2), (geodist1,geodist2*(1-simpscale)).
+// simptype=1 creates a simplex elongated along the direction defined
+// by geodist1=geodist2:
+// (geodist1,geodist2),
+// (geodist1*(1 + simpscale - simpscale^2),geodist2*(1 + simpscale + simpscale^2)),
+// (geodist1*(1 - simpscale - simpscale^2),geodist2*(1 - simpscale + simpscale^2)).
+// simptype=2 uses subtraction to create a precisely equilateral triangle:
+// (geodist1,geodist2), (geodist1-simpscale,geodist2), (geodist2-simpscale,geodist1).
+// simptype=3 creates an elongated simplex like simptype=1, but with
+// sign-switching that apparently makes it work badly: this option exists
+// only to probe details of the resulting bad behavior.
+int Herget_simplex_int(long double geodist1, long double geodist2, long double simpscale, long double simplex[3][2], int simptype)
+{
+  if(simptype==0) {
+    // Define initial simplex
+    simplex[0][0] = geodist1;
+    simplex[0][1] = geodist2;
+    simplex[1][0] = geodist1*(1.0L - simpscale);
+    // Make sure we don't have a negative distance.
+    while(simplex[1][0]<=0.0) simplex[1][0] = 0.5L*(simplex[1][0] + geodist1);
+    simplex[1][1] = geodist2;
+    simplex[2][0] = geodist1;
+    simplex[2][1] = geodist2*(1.0L - simpscale);
+    // Make sure we don't have a negative distance.
+    while(simplex[2][1]<=0.0) simplex[2][1] = 0.5L*(simplex[2][1] + geodist2);
+  } else if(simptype==1) {
+    simplex[0][0] = geodist1;
+    simplex[0][1] = geodist2;
+    simplex[1][0] = geodist1*(1.0L + simpscale - LDSQUARE(simpscale));
+    simplex[1][1] = geodist2*(1.0L + simpscale + LDSQUARE(simpscale));
+    // Make sure we don't have negative distances.
+    while(simplex[1][0]<=0.0) simplex[1][0] = 0.5L*(simplex[1][0] + geodist1);
+    while(simplex[1][1]<=0.0) simplex[1][1] = 0.5L*(simplex[1][1] + geodist2);
+    simplex[2][0] = geodist1*(1.0L - simpscale - LDSQUARE(simpscale));
+    simplex[2][1] = geodist2*(1.0L - simpscale + LDSQUARE(simpscale));
+    // Make sure we don't have negative distances.
+    while(simplex[2][0]<=0.0) simplex[2][0] = 0.5L*(simplex[2][0] + geodist1);
+    while(simplex[2][1]<=0.0) simplex[2][1] = 0.5L*(simplex[2][1] + geodist2);
+  } else if(simptype==2) {
+    simplex[0][0] = geodist1;
+    simplex[0][1] = geodist2;
+    simplex[1][0] = geodist1 - simpscale;
+    // Make sure we don't have a negative distance.
+    while(simplex[1][0]<=0.0) simplex[1][0] = 0.5L*(simplex[1][0] + geodist1);
+    simplex[1][1] = geodist2;
+    simplex[2][0] = geodist1;
+    simplex[2][1] = geodist2- simpscale;
+    // Make sure we don't have a negative distance.
+    while(simplex[2][1]<=0.0) simplex[2][1] = 0.5L*(simplex[2][1] + geodist2);
+  } else if(simptype==3) {
+    simplex[0][0] = geodist1;
+    simplex[0][1] = geodist2;
+    simplex[1][0] = geodist1*(1.0L + simpscale + LDSQUARE(simpscale));
+    simplex[1][1] = geodist2*(1.0L + simpscale - LDSQUARE(simpscale));
+    // Make sure we don't have negative distances.
+    while(simplex[1][0]<=0.0) simplex[1][0] = 0.5L*(simplex[1][0] + geodist1);
+    while(simplex[1][1]<=0.0) simplex[1][1] = 0.5L*(simplex[1][1] + geodist2);
+    simplex[2][0] = geodist1*(1.0L - simpscale - LDSQUARE(simpscale));
+    simplex[2][1] = geodist2*(1.0L - simpscale + LDSQUARE(simpscale));
+    // Make sure we don't have negative distances.
+    while(simplex[2][0]<=0.0) simplex[2][0] = 0.5L*(simplex[2][0] + geodist1);
+    while(simplex[2][1]<=0.0) simplex[2][1] = 0.5L*(simplex[2][1] + geodist2);
+  } else {
+    // default to case 0, multiplicative approximately equilateral:
+    // Define initial simplex
+    simplex[0][0] = geodist1;
+    simplex[0][1] = geodist2;
+    simplex[1][0] = geodist1*(1.0L - simpscale);
+    // Make sure we don't have a negative distance.
+    while(simplex[1][0]<=0.0) simplex[1][0] = 0.5L*(simplex[1][0] + geodist1);
+    simplex[1][1] = geodist2;
+    simplex[2][0] = geodist1;
+    simplex[2][1] = geodist2*(1.0L - simpscale);
+    // Make sure we don't have a negative distance.
+    while(simplex[2][1]<=0.0) simplex[2][1] = 0.5L*(simplex[2][1] + geodist2);
+  }
+  return(0);
+}
+  
 #define SIMP_EXPAND_NUM 200
 #define SIMP_EXPAND_FAC 20.0L
 
@@ -8960,7 +9337,7 @@ long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpo
 // Use Hergetchi01 to perform orbit fitting using the Method of Herget,
 // and a downhill simplex method applied to the 2-dimensional space of
 // geodist1 and geodist2.
-long double Hergetfit01(long double geodist1, long double geodist2, long double simplex_side, long double ftol, int point1, int point2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit)
+long double Hergetfit01(long double geodist1, long double geodist2, long double simplex_scale, int simptype, long double ftol, int point1, int point2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit)
 {
   int Hergetpoint1, Hergetpoint2;
   long double simprange;
@@ -8971,22 +9348,21 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
   int i,j,worstpoint, bestpoint;
   int unboundsimplex[3];
   int simp_eval_ct=0;
+  int simp_total_ct=0;
+  if(simplex_scale<=0.0L || simplex_scale>=SIMPLEX_SCALE_LIMIT) {
+    cerr << "WARNING: simplex scale must be between 0 and " << SIMPLEX_SCALE_LIMIT << "\n";
+    cerr << "Input out-of-range value " << simplex_scale << " will be reseset to ";
+    simplex_scale = SIMPLEX_SCALEFAC;
+    cerr << simplex_scale << "\n";
+  }
 
   // Input points are indexed from 1; apply offset
   Hergetpoint1 = point1-1;
   Hergetpoint2 = point2-1;
 
   // SETUP FOR DOWNHILL SIMPLEX SEARCH
-  // Define initial simplex
-  simplex[0][0] = geodist1;
-  simplex[0][1] = geodist2;
-  simplex[1][0] = geodist1-simplex_side;
-  while(simplex[1][0]<=0.0) simplex[1][0] = 0.5L*(simplex[1][0] + geodist1);
-  simplex[1][1] = geodist2;
-  simplex[2][0] = geodist1;
-  simplex[2][1] = geodist2-simplex_side;
-  while(simplex[2][1]<=0.0) simplex[2][1] = 0.5L*(simplex[2][1] + geodist2);
-
+  Herget_simplex_int(geodist1, geodist2, simplex_scale, simplex, simptype);
+  
   // See if the simplex leads to hyperbolic orbits
   for(i=0;i<3;i++) {
     unboundsimplex[i] = Herget_unboundcheck01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec);
@@ -9057,6 +9433,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
       cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << "\n";
       simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
       simp_eval_ct++;
+      simp_total_ct++;
     }
     if(simpchi[0] == LARGERR || simpchi[1] == LARGERR || simpchi[2] == LARGERR) {
       cout << "Hergetchi01 returned failure code with simplex:\n";
@@ -9091,7 +9468,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 
   // LAUNCH DOWNHILL SIMPLEX SEARCH
   while(simprange>ftol) {
-    cout << fixed << setprecision(6) << "Best chi-square value is " << bestchi << ", range is " << simprange << ", vector is " << simplex[bestpoint][0] << " "  << simplex[bestpoint][1] << "\n";
+    cout << fixed << setprecision(6) << "Eval " << simp_total_ct << ": Best chi-square value is " << bestchi << ", range is " << simprange << ", vector is " << simplex[bestpoint][0] << " "  << simplex[bestpoint][1] << "\n";
       
     // Try to reflect away from worst point
     // Find mean over all the points except the worst one
@@ -9108,6 +9485,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
     // Calculate chi-square value at this new point
     chisq = Hergetchi01(trialdist[0], trialdist[1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
     simp_eval_ct++;
+    simp_total_ct++;
     if(chisq<bestchi) {
       // Very good result. Let this point replace worstpoint in the simplex
       for(j=0;j<2;j++) simplex[worstpoint][j] = trialdist[j];
@@ -9117,6 +9495,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
       trialdist[1] = refdist[1] - 2.0L*(simplex[worstpoint][1] - refdist[1]);
       newchi = Hergetchi01(trialdist[0], trialdist[1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
       simp_eval_ct++;
+      simp_total_ct++;
       if(newchi<chisq) {
 	// Let this even better point replace worstpoint in the simplex
 	for(j=0;j<2;j++) simplex[worstpoint][j] = trialdist[j];
@@ -9144,6 +9523,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 	// Calculate chi-square value at this new point
 	chisq = Hergetchi01(trialdist[0], trialdist[1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
 	simp_eval_ct++;
+	simp_total_ct++;
 	if(chisq<worstchi) {
 	  // The new point is better than the previous worst point
 	  // Add it to the simplex in place of the worst point
@@ -9160,6 +9540,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 	      simplex[i][1] = 0.5L*(simplex[i][1] + simplex[bestpoint][1]);
 	      simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
 	      simp_eval_ct++;
+	      simp_total_ct++;
 	    }
 	  }
 	  // Close case where nothing worked but contracting around the best point.
@@ -9198,12 +9579,60 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 	worstpoint=i;
       }
     }
-    simprange = (worstchi-bestchi)/bestchi;
+    if(bestchi<LARGERR) simprange = (worstchi-bestchi)/bestchi;
+    else {
+      cout << "WARNING: probing a simplex with no valid points!\n";
+      // We have problems: expanding the simplex resulted in no
+      // acceptable points at all.
+      simprange = LARGERR;
+      // Try to find something reasonable.
+      while((simpchi[0] == LARGERR || simpchi[1] == LARGERR || simpchi[2] == LARGERR) && simplex[0][0]>MINHERGETDIST) {
+	// Calculate chi-square values for each point in the initial simplex
+	// Note that the output vectors fitRA, fitDec, and resid are null-wiped
+	// internally, so it isn't necessary to wipe them here.
+	for(i=0;i<3;i++) {
+	  cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << "\n";
+	  simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+	  simp_eval_ct++;
+	  simp_total_ct++;
+	}
+	if(simpchi[0] == LARGERR || simpchi[1] == LARGERR || simpchi[2] == LARGERR) {
+	  cout << "Hergetchi01 returned failure code with simplex:\n";
+	  for(i=0;i<3;i++) {
+	    cout << simplex[i][0] << " " << simplex[i][1] << "\n";
+	    simplex[i][0]*=HERGET_DOWNSCALE;
+	    simplex[i][1]*=HERGET_DOWNSCALE;
+	  }
+	}
+      }
+      if(simplex[0][0]<=MINHERGETDIST) {
+	cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
+	cerr << "Method of Herget cannot proceed with these data\n";
+	return(0);
+      }
+    }
+  
+  // Find best and worst points
+  worstpoint=bestpoint=0;
+  bestchi = worstchi = simpchi[0];
+  for(i=1;i<3;i++) {
+    if(simpchi[i]<bestchi) {
+      bestchi = simpchi[i];
+      bestpoint=i;
+    }
+    if(simpchi[i]>worstchi) {
+      worstchi = simpchi[i];
+      worstpoint=i;
+    }
+  }
+  simprange = (worstchi-bestchi)/bestchi;
+
   }
   cout << fixed << setprecision(6) << "Best chi-square value was " << bestchi << ", with geocentric distances " << simplex[bestpoint][0] << " and " << simplex[bestpoint][1] << "\n";
   
   // Perform fit with final best parameters
   chisq = Hergetchi01(simplex[bestpoint][0], simplex[bestpoint][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+  orbit.push_back((long double)simp_total_ct);
   return(chisq);
 }
 
