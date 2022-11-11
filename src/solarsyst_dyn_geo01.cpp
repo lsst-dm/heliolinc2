@@ -9440,8 +9440,9 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
     // Note that the output vectors fitRA, fitDec, and resid are null-wiped
     // internally, so it isn't necessary to wipe them here.
     for(i=0;i<3;i++) {
-      cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << "\n";
+      cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << " : ";
       simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+      cout << "chi-square value is " << simpchi[i] << "\n";
       simp_eval_ct++;
       simp_total_ct++;
     }
