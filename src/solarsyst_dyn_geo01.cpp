@@ -9362,7 +9362,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
   }
   if(DEBUG_2PTBVP>0) {
     for(i=0;i<obsMJD.size();i++) {
-      cout << "Input obs point " << i << ": " << obsMJD[i] << " " << obsRA[i] << " " << obsDec[i] " " << sigastrom[i] << "\n";
+      cout << "Input obs point " << i << ": " << obsMJD[i] << " " << obsRA[i] << " " << obsDec[i] << " " << sigastrom[i] << "\n";
     }
   }
   
