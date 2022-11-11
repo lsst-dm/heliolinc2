@@ -9332,6 +9332,8 @@ int Herget_simplex_int(long double geodist1, long double geodist2, long double s
   
 #define SIMP_EXPAND_NUM 200
 #define SIMP_EXPAND_FAC 20.0L
+#define SIMP_MAXCT_EXPAND 2000
+#define SIMP_MAXCT_TOTAL 10000
 
 // Hergetfit01: November 03, 2022:
 // Use Hergetchi01 to perform orbit fitting using the Method of Herget,
@@ -9345,6 +9347,9 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
   long double simpchi[3];
   long double refdist[2],trialdist[2],bestdist[2];
   long double chisq, bestchi, worstchi, newchi;
+  long double global_bestchi = LARGERR;
+  long double global_bestd1 = geodist1;
+  long double global_bestd2 = geodist2;
   int i,j,worstpoint, bestpoint;
   int unboundsimplex[3];
   int simp_eval_ct=0;
@@ -9467,7 +9472,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
   simprange = (worstchi-bestchi)/bestchi;
 
   // LAUNCH DOWNHILL SIMPLEX SEARCH
-  while(simprange>ftol) {
+  while(simprange>ftol && simp_total_ct <= SIMP_MAXCT_TOTAL) {
     cout << fixed << setprecision(6) << "Eval " << simp_total_ct << ": Best chi-square value is " << bestchi << ", range is " << simprange << ", vector is " << simplex[bestpoint][0] << " "  << simplex[bestpoint][1] << "\n";
       
     // Try to reflect away from worst point
@@ -9490,7 +9495,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
       // Very good result. Let this point replace worstpoint in the simplex
       for(j=0;j<2;j++) simplex[worstpoint][j] = trialdist[j];
       simpchi[worstpoint]=chisq;
-      // Extrapolate further in this direction: maybe we can do even better
+     // Extrapolate further in this direction: maybe we can do even better
       trialdist[0] = refdist[0] - 2.0L*(simplex[worstpoint][0] - refdist[0]);
       trialdist[1] = refdist[1] - 2.0L*(simplex[worstpoint][1] - refdist[1]);
       newchi = Hergetchi01(trialdist[0], trialdist[1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
@@ -9499,7 +9504,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
       if(newchi<chisq) {
 	// Let this even better point replace worstpoint in the simplex
 	for(j=0;j<2;j++) simplex[worstpoint][j] = trialdist[j];
-	simpchi[worstpoint]=chisq;
+	simpchi[worstpoint]=newchi;
       }
       // This closes the case where reflecting away from the
       // worst point was a big success.
@@ -9550,7 +9555,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
       // Close case where reflecting away from the worst point was not a big success.
     }
     // Expand the simplex if we've been running for a long time
-    if(simp_eval_ct>SIMP_EXPAND_NUM) {
+    if(simp_eval_ct>SIMP_EXPAND_NUM && simp_total_ct <= SIMP_MAXCT_EXPAND) {
       // Zero the counter
       simp_eval_ct=0;
       // Find center of the simplex
@@ -9566,6 +9571,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 	simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
       }
     }
+
     // Identify best and worst points for next iteration.
     worstpoint=bestpoint=0;
     bestchi = worstchi = simpchi[0];
@@ -9573,12 +9579,18 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
       if(simpchi[i]<bestchi) {
 	bestchi = simpchi[i];
 	bestpoint=i;
-      }
+	} 
       if(simpchi[i]>worstchi) {
 	worstchi = simpchi[i];
 	worstpoint=i;
       }
     }
+    if(bestchi<global_bestchi) {
+      global_bestchi = bestchi;
+      global_bestd1 = simplex[bestpoint][0];
+      global_bestd2 = simplex[bestpoint][1];
+    }
+
     if(bestchi<LARGERR) simprange = (worstchi-bestchi)/bestchi;
     else {
       cout << "WARNING: probing a simplex with no valid points!\n";
@@ -9609,29 +9621,38 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 	cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
 	cerr << "Method of Herget cannot proceed with these data\n";
 	return(0);
+      } else {
+	// We did eventually find an acceptable simplex
+	// Find best and worst points
+	worstpoint=bestpoint=0;
+	bestchi = worstchi = simpchi[0];
+	for(i=1;i<3;i++) {
+	  if(simpchi[i]<bestchi) {
+	    bestchi = simpchi[i];
+	    bestpoint=i;
+	  }
+	  if(simpchi[i]>worstchi) {
+	    worstchi = simpchi[i];
+	    worstpoint=i;
+	  }
+	}
+	simprange = (worstchi-bestchi)/bestchi;
+	if(bestchi<global_bestchi) {
+	  global_bestchi = bestchi;
+	  global_bestd1 = simplex[bestpoint][0];
+	  global_bestd2 = simplex[bestpoint][1];
+	}
+	// Close case where we eventually found a viable simplex
       }
+      // Close case where we had an unviable simplex and had to try to fix it.
     }
+    // Close main optimization loop.
+  }
   
-  // Find best and worst points
-  worstpoint=bestpoint=0;
-  bestchi = worstchi = simpchi[0];
-  for(i=1;i<3;i++) {
-    if(simpchi[i]<bestchi) {
-      bestchi = simpchi[i];
-      bestpoint=i;
-    }
-    if(simpchi[i]>worstchi) {
-      worstchi = simpchi[i];
-      worstpoint=i;
-    }
-  }
-  simprange = (worstchi-bestchi)/bestchi;
-
-  }
-  cout << fixed << setprecision(6) << "Best chi-square value was " << bestchi << ", with geocentric distances " << simplex[bestpoint][0] << " and " << simplex[bestpoint][1] << "\n";
+  cout << fixed << setprecision(6) << "Best chi-square value was " << global_bestchi << ", with geocentric distances " << global_bestd1 << " and " << global_bestd2 << "\n";
   
   // Perform fit with final best parameters
-  chisq = Hergetchi01(simplex[bestpoint][0], simplex[bestpoint][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+  chisq = Hergetchi01(global_bestd1, global_bestd2, Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
   orbit.push_back((long double)simp_total_ct);
   return(chisq);
 }
@@ -9639,3 +9660,5 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 #undef DEBUG_2PTBVP
 #undef SIMP_EXPAND_NUM
 #undef SIMP_EXPAND_FAC
+#undef SIMP_MAXCT_EXPAND
+#undef SIMP_MAXCT_TOTAL
