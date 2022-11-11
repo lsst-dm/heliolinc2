@@ -9360,7 +9360,12 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
     simplex_scale = SIMPLEX_SCALEFAC;
     cerr << simplex_scale << "\n";
   }
-
+  if(DEBUG_2PTBVP>0) {
+    for(i=0;i<obsMJD.size();i++) {
+      cout << "Input obs point " << i << ": " << obsMJD[i] << " " << obsRA[i] << " " << obsDec[i] " " << sigastrom[i] << "\n";
+    }
+  }
+  
   // Input points are indexed from 1; apply offset
   Hergetpoint1 = point1-1;
   Hergetpoint2 = point2-1;
