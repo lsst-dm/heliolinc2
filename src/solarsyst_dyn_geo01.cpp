@@ -9444,7 +9444,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
     for(i=0;i<3;i++) {
       cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << " : ";
       simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
-      cout << "chi-square value is " << simpchi[i] << "\n";
+      cout << "reduced chi-square value is " << simpchi[i]/obsMJD.size() << "\n";
       simp_eval_ct++;
       simp_total_ct++;
     }
@@ -9462,7 +9462,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
     cerr << "Method of Herget cannot proceed with these data\n";
     return(0);
   }
-  cout << "Chi-square value for input distances is " << simpchi[0] << "\n";
+  cout << "Reduced chi-square value for input distances is " << simpchi[0]/obsMJD.size() << "\n";
   
   // Find best and worst points
   worstpoint=bestpoint=0;
@@ -9481,7 +9481,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 
   // LAUNCH DOWNHILL SIMPLEX SEARCH
   while(simprange>ftol && simp_total_ct <= SIMP_MAXCT_TOTAL) {
-    cout << fixed << setprecision(6) << "Eval " << simp_total_ct << ": Best chi-square value is " << bestchi << ", range is " << simprange << ", vector is " << simplex[bestpoint][0] << " "  << simplex[bestpoint][1] << "\n";
+    cout << fixed << setprecision(6) << "Eval " << simp_total_ct << ": Best reduced chi-square value is " << bestchi/obsMJD.size() << ", range is " << simprange << ", vector is " << simplex[bestpoint][0] << " "  << simplex[bestpoint][1] << "\n";
       
     // Try to reflect away from worst point
     // Find mean over all the points except the worst one
@@ -9657,7 +9657,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
     // Close main optimization loop.
   }
   
-  cout << fixed << setprecision(6) << "Best chi-square value was " << global_bestchi << ", with geocentric distances " << global_bestd1 << " and " << global_bestd2 << "\n";
+  cout << fixed << setprecision(6) << "Best reduced chi-square value was " << global_bestchi/obsMJD.size() << ", with geocentric distances " << global_bestd1 << " and " << global_bestd2 << "\n";
   
   // Perform fit with final best parameters
   chisq = Hergetchi01(global_bestd1, global_bestd2, Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);

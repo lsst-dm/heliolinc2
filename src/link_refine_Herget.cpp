@@ -78,7 +78,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: link_refine_Herget -pairdet pairdet_file -lflist link_file_list -mjd mjdref -simptype simplex_type -maxrms maxrms -outfile outfile -outrms rmsfile\n";
+  cerr << "Usage: link_refine_Herget -pairdet pairdet_file -lflist link_file_list -mjd mjdref -simptype simplex_type -usetime usetime -maxrms maxrms -outfile outfile -outrms rmsfile\n";
 }
     
 int main(int argc, char *argv[])
@@ -163,11 +163,12 @@ int main(int argc, char *argv[])
   point3LD endpos = point3LD(0.0L,0.0L,0.0L);
   point3LD endvel = point3LD(0.0L,0.0L,0.0L);
   vector <long double> obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit;
-  long double geodist1,geodist2, v_escape, v_helio, astromrms;
+  long double geodist1,geodist2, v_escape, v_helio, astromrms, chisq;
   long double ftol = FTOL_HERGET_SIMPLEX;
   long double simplex_scale = SIMPLEX_SCALEFAC;
   int point1, point2;
   int simptype=0;
+  int usetime=0; // Sets whether we include timespan in the cluster quality metric.
   
   if(argc!=11 && argc!=13 && argc!=15) {
     show_usage();
@@ -231,7 +232,18 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    }  else if(string(argv[i]) == "-maxrms" || string(argv[i]) == "-mr" || string(argv[i]) == "-mrms" || string(argv[i]) == "-rms" || string(argv[i]) == "-maxr" || string(argv[i]) == "--maxrms" || string(argv[i]) == "--maximumrms") {
+    } else if(string(argv[i]) == "-usetime" || string(argv[i]) == "-ut" || string(argv[i]) == "-timeuse" || string(argv[i]) == "-use_time" || string(argv[i]) == "-time_use" || string(argv[i]) == "--use_time" || string(argv[i]) == "--include_time") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	usetime=stoi(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "keyword for whether time is included in cluster metric supplied with no corresponding argument";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-maxrms" || string(argv[i]) == "-mr" || string(argv[i]) == "-mrms" || string(argv[i]) == "-rms" || string(argv[i]) == "-maxr" || string(argv[i]) == "--maxrms" || string(argv[i]) == "--maximumrms") {
       if(i+1 < argc) {
 	//There is still something to read;
 	maxrms=stod(argv[++i]);
@@ -371,7 +383,7 @@ int main(int argc, char *argv[])
   outstream1.open(outfile,ios_base::out);
   outstream2.open(outrmsfile,ios_base::out);
   outstream1 << "#ptct,MJD,RA,Dec,idstring,mag,band,obscode,index1,index2,clusternum\n";
-  outstream2 << "#clusternum,posRMS,velRMS,totRMS,pairnum,timespan,uniquepoints,obsnights,metric,rating,heliodist,heliovel,helioacc,posX,posY,posZ,velX,velY,velZ\n";
+  outstream2 << "#clusternum,posRMS,astromRMS,totRMS,pairnum,timespan,uniquepoints,obsnights,metric,rating,heliodist,heliovel,helioacc,posX,posY,posZ,velX,velY,velZ\n";
 
   // Read cluster files, loading clusters.
   for(clusterfilect=0; clusterfilect<clusterfilenum; clusterfilect++) {
@@ -441,7 +453,14 @@ int main(int argc, char *argv[])
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	
 	// Recalculate the float clustermetric
-	clustmetric = double(ptnum)*double(obsnights)*timespan/totrms;
+	if(usetime==0) {
+	  clustmetric = double(ptnum)*double(obsnights);
+	} else {
+	  clustmetric = double(ptnum)*double(obsnights)*timespan;
+	}	  
+	// Note that the value of clustermetric just calculated
+	// will later be divided by the reduced chi-square value of the
+	// astrometric fit, before it is ultimately used as a selection criterion.
 	
 	// read the string rating
 	startpoint = endpoint+1;
@@ -647,10 +666,15 @@ int main(int argc, char *argv[])
 	    endpos.z -= observerpos[ptnum-1].z;
 	    geodist2 = vecabs3LD(endpos)/AU_KM;
 	    simplex_scale = SIMPLEX_SCALEFAC;
-	    astromrms = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+	    chisq = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+	    chisq /= (long double)ptnum; // Now it's the reduced chi square value
+	    astromrms = sqrt(chisq); // This gives the actual astrometric RMS in arcseconds if all the
+	                             // entries in sigastrom are 1.0. Otherwise it's a measure of the
+	                             // RMS in units of the typical uncertainty.
 	    // Include this astrometric RMS value in the cluster metric and the RMS vector
 	    clustan.rmsvec.push_back(astromrms);
-	    clustan.clustermetric /= astromrms;
+	    clustan.clustermetric /= chisq; // We use reduced chi-square rather than RMS for the clustermetric,
+	                                    // in order to prioritize low astrometric error even more.
 	    clustan.rmsvec.push_back(float(orbit[9]));
 	    // Add cluster indices to detvec.
 	    for(ptct=0; ptct<ptnum; ptct++) {

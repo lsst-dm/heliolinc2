@@ -893,14 +893,14 @@ int main(int argc, char *argv[])
   observer_heliopos={};
   for(imct=0;imct<img_log.size();imct++)
     {
-      //if(imct==0 || (imct>0 && stringnmatch01(img_log[imct].obscode,img_log[imct-1].obscode,3)==0)) {
-      // Observatory has changed: get observatory coordinates for this image.
+      // Look up observatory coordinates for this image.
       status = obscode_lookup(observatory_list,img_log[imct].obscode,obslon,plxcos,plxsin);
       if(status>0) {
 	cerr << "ERROR: obscode_lookup failed for observatory code " << img_log[imct].obscode << "\n";
 	return(3);
       }
-      //}
+      // Calculate observer's exact heliolcentric position,
+      // and push it back onto the vector observer_heliopos.
       observer_barycoords01LD(img_log[imct].MJD, 5, obslon, plxcos, plxsin, EarthMJD, Earthpos, outpos);
       observer_heliopos.push_back(outpos);
     }
