@@ -9382,7 +9382,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
       // Input is fatally flawed, exit.
       cerr << "ERROR: fatally flawed input to downhill simplex, dists " << simplex[i][0] << " " << simplex[i][1] << "\n";
       cerr << "points " << Hergetpoint1 << " and " << Hergetpoint2 << " out of allowed range 0 to " << obsMJD.size() << "\n";
-      return(1);
+      return(LARGERR);
     }
   }
   while(unboundsimplex[0]==1 && unboundsimplex[1]==1 && unboundsimplex[2]==1) {
@@ -9403,7 +9403,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
   }
   if(bestpoint<0) {
     cerr << "Logically impossible case involving hyperbolic simplex points\n";
-    return(1);
+    return(LARGERR);
   }
   if(worstpoint>=0) {
     cout << "Good simplex point " << bestpoint << ": " << simplex[bestpoint][0] << " " << simplex[bestpoint][1] << "\n";
@@ -9425,7 +9425,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
       cerr << simplex[i][0] << " " << simplex[i][1] << " unbound = " << unboundsimplex[i] << "\n";
     }
     cerr << "Aborting\n";
-    return(1);
+    return(LARGERR);
   } else {
     cout << "Good input simplex:\n";
     for(i=0;i<3;i++) {
@@ -9460,7 +9460,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
   if(simplex[0][0]<=MINHERGETDIST) {
     cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
     cerr << "Method of Herget cannot proceed with these data\n";
-    return(0);
+    return(LARGERR);
   }
   cout << "Reduced chi-square value for input distances is " << simpchi[0]/obsMJD.size() << "\n";
   
@@ -9628,7 +9628,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
       if(simplex[0][0]<=MINHERGETDIST) {
 	cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
 	cerr << "Method of Herget cannot proceed with these data\n";
-	return(0);
+	return(LARGERR);
       } else {
 	// We did eventually find an acceptable simplex
 	// Find best and worst points
