@@ -13,7 +13,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: test_Herget04 -cfg configfile -observations obsfile -fitpoints point1 point2 -geodist dist1 dist2 -maxrchi max_reduced_chisq -simpscale simplex_scale -simptype simplex_type -ftol ftol -outfile outfile\n";
+  cerr << "Usage: test_Herget04 -cfg configfile -observations obsfile -fitpoints point1 point2 -geodist dist1 dist2 -maxrchi max_reduced_chisq -simpscale simplex_scale -simptype simplex_type -ftol ftol -outfile outfile -verbose verbosity\n";
   cerr << "\n\nor, at minimum,\n";
   cerr << "test_Herget03 -cfg configfile -observations obsfile -outfile outfile\n";
 }
@@ -50,7 +50,8 @@ int main(int argc, char *argv[])
   vector <observatory> observatory_list = {};
   vector <long double> orbit;
   int simptype = 0;
-  
+  int verbose=0;
+
   i = j = status = polyorder = configread = fieldnum = badread = reachedeof = 0;
   MJDcol = RAcol = Deccol = magcol = obscodecol = sigastromcol = sigmagcol = 0;
   point1 = point2 = -1;
@@ -331,6 +332,17 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
+    }  else if(string(argv[i]) == "-verbose" || string(argv[i]) == "-verb" || string(argv[i]) == "-VERBOSE" || string(argv[i]) == "-VERB" || string(argv[i]) == "--VERB" || string(argv[i]) == "--VERBOSE" || string(argv[i]) == "--verbose") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	verbose=stoi(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "keyword for verbosity supplied with no corresponding argument";
+	show_usage();
+	return(1);
+      }
     } else {
       cerr << "Warning: unrecognized keyword or argument " << argv[i] << "\n";
       i++;
@@ -480,7 +492,7 @@ int main(int argc, char *argv[])
   }
 
   maxchisq = maxrchi*(long double)obsnum;
-  chisq = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, point1, point2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+  chisq = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, point1, point2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
   distpow=0;
   while(chisq>maxchisq && distpow<DISTPOWMAX) {
     // Try making the distances smaller, seeing if we can find a fit
@@ -489,7 +501,7 @@ int main(int argc, char *argv[])
     geodist2/=DISTPOWSCALE;
     simplex_scale/=DISTPOWSCALE;
     cout << "RE-TRYING FIT WITH SMALLER DISTANCES, TRY " << distpow << ": dist = " << geodist1 << " " << geodist2 << "\n";
-    chisq = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, point1, point2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+    chisq = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, point1, point2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
   }
   if(chisq>maxchisq) {
     // Re-set the distance parameters
@@ -505,7 +517,7 @@ int main(int argc, char *argv[])
     geodist2*=DISTPOWSCALE;
     simplex_scale*=DISTPOWSCALE;
     cout << "RE-TRYING FIT WITH SMALLER DISTANCES, TRY " << distpow << ": dist = " << geodist1 << " " << geodist2 << "\n";
-    chisq = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, point1, point2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+    chisq = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, point1, point2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
   }
  
   cout << fixed << setprecision(8) << "Orbit a, e, MJD, pos, vel: " << orbit[0]/AU_KM << " " << orbit[1] << " " << orbit[2]  << " " << orbit[3]/AU_KM  << " " << orbit[4]/AU_KM  << " " << orbit[5]/AU_KM  << " " << orbit[6]  << " " << orbit[7]  << " " << orbit[8] << "\n";

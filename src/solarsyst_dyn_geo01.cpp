@@ -8234,7 +8234,7 @@ long double Twopoint_KepQ(long double x)
   //return(0.75L*(theta - sin(theta))/intpowLD(sin(0.5L*theta),3));
 }
 
-#define DEBUG_2PTBVP 1
+#define DEBUG_2PTBVP 0
 
 // 2pt_Kepler_vel: October 21, 2022:
 // Given two points in an object's orbit (as 3-D Cartesian
@@ -8973,7 +8973,7 @@ int eccen_calc_fast(long double a, point3LD rvec1, point3LD rvec2, long double *
 // November 8: commented out calculation of eccentricity, which
 // previously had been included in the argument list as
 // long double *e, to increase speed.
-point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, const point3LD endpos, const long double timediff, const long double Ysign, long double *a, int itmax)
+point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, const point3LD endpos, const long double timediff, const long double Ysign, long double *a, int itmax, int verbose)
 {
   // General quantities, and those having to do with solving for the semimajor axis.
   long double r1 = vecabs3LD(startpos);
@@ -8989,8 +8989,8 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
   long double dtp = (intpowLD(lambda1,3) - Ysign*intpowLD(lambda2,3))/6.0L/k;
   if(DEBUG_2PTBVP > 1) cout << "Checking for hyperbolic case: " << timediff << " <= " << dtp/SOLARDAY << "\n";
   if(timediff*SOLARDAY <= dtp) {
-    cerr << "ERROR: Twopoint_Kepler_v1 has hyperbolic case\n";
-    cerr << "Returning with velocity set to zero\n";
+    if(verbose>=1) cerr << "ERROR: Twopoint_Kepler_v1 has hyperbolic case\n";
+    if(verbose>=1) cerr << "Returning with velocity set to zero\n";
     return(v1);
   }
   
@@ -9008,7 +9008,7 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
   long double fprime;
   long double f2;
   long double fprime2;
-  long double eccen,thetaperi;
+  //long double eccen,thetaperi;
   
   if(timediff*SOLARDAY>dtc) X=-1.0L;
 
@@ -9097,8 +9097,8 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
     itnum++;
     }
     if(fabs(f) > KEP2PBVPTOL || fabs(delta_aorb) > KEP2PBVPTOL*aorb) {
-      cerr << "ERROR: Twopoint_Kepler_v1 failed to converge\n";
-      cerr << "Returning with velocity set to zero\n";
+      if(verbose>=1) cerr << "ERROR: Twopoint_Kepler_v1 failed to converge\n";
+      if(verbose>=1) cerr << "Returning with velocity set to zero\n";
       *a=-1.0L;
       return(v1);
     }
@@ -9196,7 +9196,7 @@ int Herget_unboundcheck01(long double geodist1, long double geodist2, int Herget
 // null-wiped inside Hergetchi01, so it isn't necessary for the
 // calling function to wipe them.
 // The vector orbit holds a, e, mjd, and the state vectors, for now.
-long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit)
+long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit, int verbose)
 {
   int numobs = obsMJD.size();
   if(obsRA.size() != numobs || obsDec.size() != numobs || sigastrom.size() != numobs || observerpos.size() != numobs) {
@@ -9219,13 +9219,13 @@ long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpo
   // the observer is looking further back in time at the second observation.
   long double deltat = obsMJD[Hergetpoint2] - obsMJD[Hergetpoint1] - (geodist2-geodist1)/CLIGHT_AUDAY;
   long double a,e,angperi;
-  point3LD startvel = Twopoint_Kepler_v1(GMSUN_KM3_SEC2, startpos, endpos, deltat, 1.0L, &a, 100);
+  point3LD startvel = Twopoint_Kepler_v1(GMSUN_KM3_SEC2, startpos, endpos, deltat, 1.0L, &a, 100, verbose);
   if(startvel.x == 0.0L && startvel.y == 0.0L && startvel.z == 0.0L) {
     // This is a failure code for Twopoint_Kepler_v1, which is returned if, e.g.,
     // the implied orbit is hyperbolic. Nothing to be done here, but pass
     // the failure code up the call chain.
-    cerr << "ERROR: Hergetchi01 received failure code from Twopoint_Kepler_v1\n";
-    cerr << "On input distances " << geodist1 << " and " << geodist2 << "\n";
+    if(verbose>=1) cerr << "ERROR: Hergetchi01 received failure code from Twopoint_Kepler_v1\n";
+    if(verbose>=1) cerr << "On input distances " << geodist1 << " and " << geodist2 << "\n";
     return(LARGERR);
   }
     
@@ -9350,7 +9350,7 @@ int Herget_simplex_int(long double geodist1, long double geodist2, long double s
 // Use Hergetchi01 to perform orbit fitting using the Method of Herget,
 // and a downhill simplex method applied to the 2-dimensional space of
 // geodist1 and geodist2.
-long double Hergetfit01(long double geodist1, long double geodist2, long double simplex_scale, int simptype, long double ftol, int point1, int point2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit)
+long double Hergetfit01(long double geodist1, long double geodist2, long double simplex_scale, int simptype, long double ftol, int point1, int point2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit, int verbose)
 {
   int Hergetpoint1, Hergetpoint2;
   long double simprange;
@@ -9398,9 +9398,9 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
   }
   while(unboundsimplex[0]==1 && unboundsimplex[1]==1 && unboundsimplex[2]==1) {
     // All the points are bad, shrink all the distances.
-    cout << "All points are hyperbolic with simplex:\n";
+    if(verbose>=1) cout << "All points are hyperbolic with simplex:\n";
     for(i=0;i<3;i++) {
-      cout << simplex[i][0] << " " << simplex[i][1] << "\n";
+      if(verbose>=1) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
       simplex[i][0]*=HERGET_DOWNSCALE;
       simplex[i][1]*=HERGET_DOWNSCALE;
       unboundsimplex[i] = Herget_unboundcheck01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec);
@@ -9417,12 +9417,12 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
     return(LARGERR);
   }
   if(worstpoint>=0) {
-    cout << "Good simplex point " << bestpoint << ": " << simplex[bestpoint][0] << " " << simplex[bestpoint][1] << "\n";
+    if(verbose>=1) cout << "Good simplex point " << bestpoint << ": " << simplex[bestpoint][0] << " " << simplex[bestpoint][1] << "\n";
     // There is at least one bad point.
     for(i=0;i<3;i++) {
       while(unboundsimplex[i]==1 && sqrt(LDSQUARE(simplex[i][0]-simplex[bestpoint][0]) + LDSQUARE(simplex[i][1]-simplex[bestpoint][1])) > MINHERGETDIST) {
 	// Bring the bad point closer to a good point until it stops being bad.
-	cout << "Modifying bad simplex point " << i << ": " << simplex[i][0] << " " << simplex[i][1] << "\n";
+	if(verbose>=1) cout << "Modifying bad simplex point " << i << ": " << simplex[i][0] << " " << simplex[i][1] << "\n";
 	simplex[i][0] = 0.5L*(simplex[i][0]+simplex[bestpoint][0]);
 	simplex[i][1] = 0.5L*(simplex[i][1]+simplex[bestpoint][1]);
 	unboundsimplex[i] = Herget_unboundcheck01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec);
@@ -9438,9 +9438,9 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
     cerr << "Aborting\n";
     return(LARGERR);
   } else {
-    cout << "Good input simplex:\n";
+    if(verbose>=1) cout << "Good input simplex:\n";
     for(i=0;i<3;i++) {
-      cerr << simplex[i][0] << " " << simplex[i][1] << " unbound = " << unboundsimplex[i] << "\n";
+      if(verbose>=1) cout << simplex[i][0] << " " << simplex[i][1] << " unbound = " << unboundsimplex[i] << "\n";
     }
   }
   
@@ -9453,27 +9453,27 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
     // Note that the output vectors fitRA, fitDec, and resid are null-wiped
     // internally, so it isn't necessary to wipe them here.
     for(i=0;i<3;i++) {
-      cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << " : ";
-      simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
-      cout << "reduced chi-square value is " << simpchi[i]/obsMJD.size() << "\n";
+      if(verbose>=1) cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << " : ";
+      simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
+      if(verbose>=1) cout << "reduced chi-square value is " << simpchi[i]/obsMJD.size() << "\n";
       simp_eval_ct++;
       simp_total_ct++;
     }
     if(simpchi[0] == LARGERR || simpchi[1] == LARGERR || simpchi[2] == LARGERR) {
-      cout << "Hergetchi01 returned failure code with simplex:\n";
+      if(verbose>=1) cout << "Hergetchi01 returned failure code with simplex:\n";
       for(i=0;i<3;i++) {
-	cout << simplex[i][0] << " " << simplex[i][1] << "\n";
+	if(verbose>=1) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
 	simplex[i][0]*=HERGET_DOWNSCALE;
 	simplex[i][1]*=HERGET_DOWNSCALE;
       }
     }
   }
   if(simplex[0][0]<=MINHERGETDIST) {
-    cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
-    cerr << "Method of Herget cannot proceed with these data\n";
+    if(verbose>=1) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
+    if(verbose>=1) cerr << "Method of Herget cannot proceed with these data\n";
     return(LARGERR);
   }
-  cout << "Reduced chi-square value for input distances is " << simpchi[0]/obsMJD.size() << "\n";
+  if(verbose>=1) cout << "Reduced chi-square value for input distances is " << simpchi[0]/obsMJD.size() << "\n";
   
   // Find best and worst points
   worstpoint=bestpoint=0;
@@ -9492,7 +9492,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 
   // LAUNCH DOWNHILL SIMPLEX SEARCH
   while(simprange>ftol && simp_total_ct <= SIMP_MAXCT_TOTAL) {
-    cout << fixed << setprecision(6) << "Eval " << simp_total_ct << ": Best reduced chi-square value is " << bestchi/obsMJD.size() << ", range is " << simprange << ", vector is " << simplex[bestpoint][0] << " "  << simplex[bestpoint][1] << "\n";
+    if(verbose>=1) cout << fixed << setprecision(6) << "Eval " << simp_total_ct << ": Best reduced chi-square value is " << bestchi/obsMJD.size() << ", range is " << simprange << ", vector is " << simplex[bestpoint][0] << " "  << simplex[bestpoint][1] << "\n";
     
     // Try to reflect away from worst point
     // Find mean over all the points except the worst one
@@ -9507,7 +9507,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
     trialdist[0] = refdist[0] - (simplex[worstpoint][0] - refdist[0]);
     trialdist[1] = refdist[1] - (simplex[worstpoint][1] - refdist[1]);
     // Calculate chi-square value at this new point
-    chisq = Hergetchi01(trialdist[0], trialdist[1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+    chisq = Hergetchi01(trialdist[0], trialdist[1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
     simp_eval_ct++;
     simp_total_ct++;
     if(chisq<bestchi) {
@@ -9517,7 +9517,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
      // Extrapolate further in this direction: maybe we can do even better
       trialdist[0] = refdist[0] - 2.0L*(simplex[worstpoint][0] - refdist[0]);
       trialdist[1] = refdist[1] - 2.0L*(simplex[worstpoint][1] - refdist[1]);
-      newchi = Hergetchi01(trialdist[0], trialdist[1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+      newchi = Hergetchi01(trialdist[0], trialdist[1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
       simp_eval_ct++;
       simp_total_ct++;
       if(newchi<chisq) {
@@ -9545,7 +9545,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 	trialdist[0] = 0.5L*(simplex[worstpoint][0] + refdist[0]);
 	trialdist[1] = 0.5L*(simplex[worstpoint][1] + refdist[1]);
 	// Calculate chi-square value at this new point
-	chisq = Hergetchi01(trialdist[0], trialdist[1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+	chisq = Hergetchi01(trialdist[0], trialdist[1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
 	simp_eval_ct++;
 	simp_total_ct++;
 	if(chisq<worstchi) {
@@ -9562,7 +9562,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 	    if(i!=bestpoint) {
 	      simplex[i][0] = 0.5L*(simplex[i][0] + simplex[bestpoint][0]);
 	      simplex[i][1] = 0.5L*(simplex[i][1] + simplex[bestpoint][1]);
-	      simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+	      simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
 	      simp_eval_ct++;
 	      simp_total_ct++;
 	    }
@@ -9587,7 +9587,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
       }
       // Re-evaluate the chi-square values
       for(i=0;i<3;i++) {
-	simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+	simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
       }
     }
 
@@ -9612,7 +9612,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 
     if(bestchi<LARGERR) simprange = (worstchi-bestchi)/bestchi;
     else {
-      cout << "WARNING: probing a simplex with no valid points!\n";
+      if(verbose>=1) cout << "WARNING: probing a simplex with no valid points!\n";
       // We have problems: expanding the simplex resulted in no
       // acceptable points at all.
       simprange = LARGERR;
@@ -9622,23 +9622,23 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 	// Note that the output vectors fitRA, fitDec, and resid are null-wiped
 	// internally, so it isn't necessary to wipe them here.
 	for(i=0;i<3;i++) {
-	  cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << "\n";
-	  simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+	  if(verbose>=1) cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << "\n";
+	  simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
 	  simp_eval_ct++;
 	  simp_total_ct++;
 	}
 	if(simpchi[0] == LARGERR || simpchi[1] == LARGERR || simpchi[2] == LARGERR) {
-	  cout << "Hergetchi01 returned failure code with simplex:\n";
+	  if(verbose>=1) cout << "Hergetchi01 returned failure code with simplex:\n";
 	  for(i=0;i<3;i++) {
-	    cout << simplex[i][0] << " " << simplex[i][1] << "\n";
+	    if(verbose>=1) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
 	    simplex[i][0]*=HERGET_DOWNSCALE;
 	    simplex[i][1]*=HERGET_DOWNSCALE;
 	  }
 	}
       }
       if(simplex[0][0]<=MINHERGETDIST) {
-	cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
-	cerr << "Method of Herget cannot proceed with these data\n";
+	if(verbose>=1) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
+	if(verbose>=1) cerr << "Method of Herget cannot proceed with these data\n";
 	return(LARGERR);
       } else {
 	// We did eventually find an acceptable simplex
@@ -9671,7 +9671,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
   cout << fixed << setprecision(6) << "Best reduced chi-square value was " << global_bestchi/obsMJD.size() << ", with geocentric distances " << global_bestd1 << " and " << global_bestd2 << "\n";
   
   // Perform fit with final best parameters
-  chisq = Hergetchi01(global_bestd1, global_bestd2, Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+  chisq = Hergetchi01(global_bestd1, global_bestd2, Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
   orbit.push_back((long double)simp_total_ct);
   return(chisq);
 }

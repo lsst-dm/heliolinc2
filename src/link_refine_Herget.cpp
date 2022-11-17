@@ -78,7 +78,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: link_refine_Herget -pairdet pairdet_file -lflist link_file_list -mjd mjdref -simptype simplex_type -usetime usetime -maxrms maxrms -outfile outfile -outrms rmsfile\n";
+  cerr << "Usage: link_refine_Herget -pairdet pairdet_file -lflist link_file_list -mjd mjdref -simptype simplex_type -usetime usetime -maxrms maxrms -outfile outfile -outrms rmsfile -verbose verbosity\n";
 }
     
 int main(int argc, char *argv[])
@@ -169,6 +169,7 @@ int main(int argc, char *argv[])
   int point1, point2;
   int simptype=0;
   int usetime=0; // Sets whether we include timespan in the cluster quality metric.
+  int verbose=0;
   
   if(argc!=11 && argc!=13 && argc!=15) {
     show_usage();
@@ -262,6 +263,17 @@ int main(int argc, char *argv[])
       }
       else {
 	cerr << "Output RMS file keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-verbose" || string(argv[i]) == "-verb" || string(argv[i]) == "-VERBOSE" || string(argv[i]) == "-VERB" || string(argv[i]) == "--VERB" || string(argv[i]) == "--VERBOSE" || string(argv[i]) == "--verbose") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	verbose=stoi(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "keyword for verbosity supplied with no corresponding argument";
 	show_usage();
 	return(1);
       }
@@ -666,7 +678,7 @@ int main(int argc, char *argv[])
 	    endpos.z -= observerpos[ptnum-1].z;
 	    geodist2 = vecabs3LD(endpos)/AU_KM;
 	    simplex_scale = SIMPLEX_SCALEFAC;
-	    chisq = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+	    chisq = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
 	    chisq /= (long double)ptnum; // Now it's the reduced chi square value
 	    astromrms = sqrt(chisq); // This gives the actual astrometric RMS in arcseconds if all the
 	                             // entries in sigastrom are 1.0. Otherwise it's a measure of the
