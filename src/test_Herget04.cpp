@@ -13,7 +13,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: test_Herget04 -cfg configfile -observations obsfile -fitpoints point1 point2 -geodist dist1 dist2 -maxrchi max_reduced_chisq -simpstep simplex_step -ftol ftol -outfile outfile\n";
+  cerr << "Usage: test_Herget04 -cfg configfile -observations obsfile -fitpoints point1 point2 -geodist dist1 dist2 -maxrchi max_reduced_chisq -simpscale simplex_scale -simptype simplex_type -ftol ftol -outfile outfile\n";
   cerr << "\n\nor, at minimum,\n";
   cerr << "test_Herget03 -cfg configfile -observations obsfile -outfile outfile\n";
 }
@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
   vector <point3LD> Earthvel;
   vector <point3LD> observerpos;
   vector <long double> earthmjd;
-  long double geodist1, geodist2, simplex_side, ldval, chisq;
+  long double geodist1, geodist2, simplex_scale, ldval, chisq;
   long double maxchisq, maxrchi = 1.0L;
   
   int point1, point2, distpow;
@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
   observatory obs1 = observatory("I11",0l,0l,0l);
   vector <observatory> observatory_list = {};
   vector <long double> orbit;
+  int simptype = 0;
   
   i = j = status = polyorder = configread = fieldnum = badread = reachedeof = 0;
   MJDcol = RAcol = Deccol = magcol = obscodecol = sigastromcol = sigmagcol = 0;
@@ -136,16 +137,16 @@ int main(int argc, char *argv[])
 	  return(1);
 	} else cout << "Default geocentric distance at point 2 read as " << geodist2 << " AU\n";
 	// Read initial side length for the simplex
-	status=readconfigLD(instream1,&simplex_side);
+	status=readconfigLD(instream1,&simplex_scale);
 	while(status==1) {
 	  // The line we have just read is a pure comment line,
 	  // so we just want to skip to the next one.
-	  status=readconfigLD(instream1,&simplex_side);
+	  status=readconfigLD(instream1,&simplex_scale);
 	}
 	if(status<0) {
 	  cerr << "Error reading config file\n";
 	  return(1);
-	} else cout << "Initial side length for simplex read as " << simplex_side << "\n";
+	} else cout << "Initial side length for simplex read as " << simplex_scale << "\n";
 	// Read observation file column holding the MJD;
 	status=readconfigint(instream1,&MJDcol);
 	while(status==1) {
@@ -286,10 +287,10 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    } else if(i<argc && (string(argv[i]) == "-simpstep" || string(argv[i]) == "-ss" || string(argv[i]) == "-simplexstep" || string(argv[i]) == "-simpside" || string(argv[i]) == "-simplexside" || string(argv[i]) == "--initialsimplexstep" || string(argv[i]) == "--startingsimplexside")) {
+    } else if(i<argc && (string(argv[i]) == "-simpscale" || string(argv[i]) == "-ss" || string(argv[i]) == "-simplexstep" || string(argv[i]) == "-simpside" || string(argv[i]) == "-simplexside" || string(argv[i]) == "--initialsimplexstep" || string(argv[i]) == "--startingsimplexside")) {
       if(i+1 < argc) {
 	//There is still something to read;
-	simplex_side=stold(argv[++i]);
+	simplex_scale=stold(argv[++i]);
 	i++;
       }
       else {
@@ -297,7 +298,18 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    }else if(i<argc && (string(argv[i]) == "-ftol")) {
+    } else if(string(argv[i]) == "-simptype" || string(argv[i]) == "-stype" || string(argv[i]) == "-simpt" || string(argv[i]) == "-simplextype" || string(argv[i]) == "-simplex_type" || string(argv[i]) == "--simptype" || string(argv[i]) == "--simplex_type") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	simptype=stoi(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "Simplex type keyword supplied with no corresponding argument";
+	show_usage();
+	return(1);
+      }
+    } else if(i<argc && (string(argv[i]) == "-ftol")) {
       if(i+1 < argc) {
 	//There is still something to read;
 	ftol=stold(argv[++i]);
@@ -422,7 +434,7 @@ int main(int argc, char *argv[])
   cout << "input observation file " << obsfile << "\n";
   cout << "Method of Herget will be used between points " << point1 << " and " << point2 << "\n";
   cout << "Initial-guess geocentric distances are " << geodist1 << " and " << geodist2 << " AU\n";
-  cout << "side length for initial simplex " << simplex_side << " AU\n";
+  cout << "side length for initial simplex " << simplex_scale << " AU\n";
   cout << "MJD, RA, and Dec are in columns " << MJDcol << ", " << RAcol << ", " << Deccol << ", respectively\n";
   cout << "magnitude and astrometric uncertainty (arcsec) are in columns " << magcol << " and " << sigastromcol << "\n";
   cout << "magnitude uncertainty and observatory code are in columns " << sigmagcol << " and " << obscodecol << "\n";
@@ -468,22 +480,22 @@ int main(int argc, char *argv[])
   }
 
   maxchisq = maxrchi*(long double)obsnum;
-  chisq = Hergetfit01(geodist1, geodist2, simplex_side, ftol, point1, point2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+  chisq = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, point1, point2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
   distpow=0;
   while(chisq>maxchisq && distpow<DISTPOWMAX) {
     // Try making the distances smaller, seeing if we can find a fit
     distpow++;
     geodist1/=DISTPOWSCALE;
     geodist2/=DISTPOWSCALE;
-    simplex_side/=DISTPOWSCALE;
+    simplex_scale/=DISTPOWSCALE;
     cout << "RE-TRYING FIT WITH SMALLER DISTANCES, TRY " << distpow << ": dist = " << geodist1 << " " << geodist2 << "\n";
-    chisq = Hergetfit01(geodist1, geodist2, simplex_side, ftol, point1, point2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+    chisq = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, point1, point2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
   }
   if(chisq>maxchisq) {
     // Re-set the distance parameters
     geodist1*=intpowLD(DISTPOWSCALE,DISTPOWMAX);
     geodist2*=intpowLD(DISTPOWSCALE,DISTPOWMAX);
-    simplex_side*=intpowLD(DISTPOWSCALE,DISTPOWMAX);
+    simplex_scale*=intpowLD(DISTPOWSCALE,DISTPOWMAX);
     distpow=0;
   }
   while(chisq>maxchisq && distpow<DISTPOWMAX) {
@@ -491,9 +503,9 @@ int main(int argc, char *argv[])
     distpow++;
     geodist1*=DISTPOWSCALE;
     geodist2*=DISTPOWSCALE;
-    simplex_side*=DISTPOWSCALE;
+    simplex_scale*=DISTPOWSCALE;
     cout << "RE-TRYING FIT WITH SMALLER DISTANCES, TRY " << distpow << ": dist = " << geodist1 << " " << geodist2 << "\n";
-    chisq = Hergetfit01(geodist1, geodist2, simplex_side, ftol, point1, point2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
+    chisq = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, point1, point2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit);
   }
  
   cout << fixed << setprecision(8) << "Orbit a, e, MJD, pos, vel: " << orbit[0]/AU_KM << " " << orbit[1] << " " << orbit[2]  << " " << orbit[3]/AU_KM  << " " << orbit[4]/AU_KM  << " " << orbit[5]/AU_KM  << " " << orbit[6]  << " " << orbit[7]  << " " << orbit[8] << "\n";

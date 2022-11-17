@@ -74,6 +74,8 @@ using namespace std;
                          // method solution of the trancendental Kepler Equation.
 #define KEPTRANSTOL 1e-15L // Maximum error for an acceptable solution of the
                            // trancendental Kepler Equation.
+#define KEP2PBVPTOL 1e-12L // Maximum error for an acceptable solution of the
+                           // Kepler two-point boundary value problem.
 #define LARGERR 1e30L // Large number supposed to be a safe initialization
                       // for most minimum-finding problems.
 #define GMSUN_KM3_SEC2 132712440041.279419L // GM for the Sun: that is, the Universal

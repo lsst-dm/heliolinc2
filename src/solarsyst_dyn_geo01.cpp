@@ -9008,7 +9008,7 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
   long double fprime;
   long double f2;
   long double fprime2;
-  //long double eccen,thetaperi;
+  long double eccen,thetaperi;
   
   if(timediff*SOLARDAY>dtc) X=-1.0L;
 
@@ -9037,7 +9037,7 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
   if(DEBUG_2PTBVP>1) cout << "0th iteration:\n";
   if(DEBUG_2PTBVP>1) cout << "a = " << aorb << " = " << aorb/AU_KM << " AU, f = " << f << ", fprime = " << fprime << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
   
-  while((fabs(f) > KEPTRANSTOL || fabs(delta_aorb) > KEPTRANSTOL*AU_KM) && aorb<1000000.0L*AU_KM && itnum<itmax) {
+  while((fabs(f) > KEP2PBVPTOL || fabs(delta_aorb) > KEP2PBVPTOL*aorb) && aorb<1000000.0L*AU_KM && itnum<itmax) {
     aorb += delta_aorb;
     f = TwopointF(aorb, k, lambda1, lambda2, timediff, X, Y);
     //    f2 = TwopointF(aorb+1000.0L, k, lambda1, lambda2, timediff);
@@ -9053,10 +9053,13 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
     // eccen_calc_precise(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
     // cout << "iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = " << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
     //eccen_calc_fast(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
-    //if(DEBUG_2PTBVP>1) cout << "iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = " << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
+    //if(DEBUG_2PTBVP==1) {
+    //  cout << "iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = ";
+    //  cout << scientific << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
+    // }
     itnum++;
   }
-  if(fabs(f) > KEPTRANSTOL || fabs(delta_aorb > KEPTRANSTOL*AU_KM)) {
+  if(fabs(f) > KEP2PBVPTOL || fabs(delta_aorb) > KEP2PBVPTOL*aorb) {
     // We never found a solution. Re-start near the minimum allowable:
     aorb = lambda1*lambda1/3.99L;
     f = TwopointF(aorb, k, lambda1, lambda2, timediff, X, Y);
@@ -9071,7 +9074,7 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
  
     if(DEBUG_2PTBVP>1) cout << "2nd try, 0th iteration, :\n";
     if(DEBUG_2PTBVP>1) cout << "a = " << aorb << " = " << aorb/AU_KM << " AU, f = " << f << ", fprime = " << fprime << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
-    while((fabs(f) > KEPTRANSTOL || fabs(delta_aorb) > KEPTRANSTOL*AU_KM)  && aorb<1000000.0L*AU_KM && itnum<itmax) {
+    while((fabs(f) > KEP2PBVPTOL || fabs(delta_aorb) > KEP2PBVPTOL*aorb)  && aorb<1000000.0L*AU_KM && itnum<itmax) {
     aorb += delta_aorb;
     f = TwopointF(aorb, k, lambda1, lambda2, timediff, X, Y);
     //    f2 = TwopointF(aorb+1000.0L, k, lambda1, lambda2, timediff);
@@ -9087,8 +9090,17 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
     // eccen_calc_precise(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
     // cout << "2nd try, iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = " << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
     //eccen_calc_fast(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
-    //if(DEBUG_2PTBVP>1) cout << "2nd try, iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = " << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
+    //if(DEBUG_2PTBVP==1) {
+    //  cout << "2nd try, iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = ";
+    //  cout << scientific << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
+    //}
     itnum++;
+    }
+    if(fabs(f) > KEP2PBVPTOL || fabs(delta_aorb) > KEP2PBVPTOL*aorb) {
+      cerr << "ERROR: Twopoint_Kepler_v1 failed to converge\n";
+      cerr << "Returning with velocity set to zero\n";
+      *a=-1.0L;
+      return(v1);
     }
   }
   *a = aorb;
@@ -9107,7 +9119,6 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
   v1.x = (1.0L/gfunc)*(endpos.x - ffunc*startpos.x);
   v1.y = (1.0L/gfunc)*(endpos.y - ffunc*startpos.y);
   v1.z = (1.0L/gfunc)*(endpos.z - ffunc*startpos.z);
-  
   return(v1);
 }
 
@@ -9482,7 +9493,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
   // LAUNCH DOWNHILL SIMPLEX SEARCH
   while(simprange>ftol && simp_total_ct <= SIMP_MAXCT_TOTAL) {
     cout << fixed << setprecision(6) << "Eval " << simp_total_ct << ": Best reduced chi-square value is " << bestchi/obsMJD.size() << ", range is " << simprange << ", vector is " << simplex[bestpoint][0] << " "  << simplex[bestpoint][1] << "\n";
-      
+    
     // Try to reflect away from worst point
     // Find mean over all the points except the worst one
     refdist[0] = refdist[1] = 0.0L;
