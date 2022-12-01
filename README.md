@@ -161,7 +161,7 @@ This should finish in about five minutes.
 
 We have not provided comparison files for checking the heliolinc output, because the output files are a bit large to post on GitHub. However, you can check the validity of the output by seeing if the word-counts match:
 
-```wc  LSST_hl_all01.csv`
+`wc  LSST_hl_all01.csv`
 > 48482740   48482740 3875752557 LSST_hl_all01.csv
 
 
@@ -241,7 +241,7 @@ For now, if all the tests have been successful, you probably want to run the hel
 
 To input new astronomical data into the heliolinc suite, you just need to create a single file: the input data file for `make_tracklets`. The format required is a csv file with a one-line header followed by one line for each detection, with columns containing at least the following quantities:
 
-* A string identifier for each detection.
+* A string identifier for each detection (max length 20 characters).
 * The time the detection was made (e.g. mid-exposure) in Modified Julian Days (MJD)
 * The right ascension (RA) of the detection, in decimal degrees.
 * The declination (Dec) of the detection, in decimal degrees.
@@ -260,6 +260,8 @@ BANDCOL 26
 OBSCODECOL 38
 ```
 That's all there is to it. To run `make_tracklets` on your own data, create a csv file with any columns you want (as long as it includes the required seven) and then create a column format file that tells `make_tracklets` where to find the seven things it needs. Note that it starts counting columns from 1, not from 0.
+
+**Running with missing columns:** in principle, `heliolinc` can run with only three inputs per observation: MJD, RA, and Dec. There are many reasons **not** to do this, but there may be some cases where it's helpful. In order to make it possible, `make_tracklets` has a `-forcerun` keyword that will cause it to tolerate input files missing the columns it has been told contain the string ID (which then defaults to "null"), the magnitude (defaults to 99.999), the photometric band (defaults to V), and/or the observatory code (defaults to 500 -- i.e., the geocenter). Including `-forcerun` (or `-f`) as an argument to `make_tracklets` will cause it to run (but print warnings) if any or all of these are missing. Importantly, the four optional quantities are not created equal. The magnitude, photometric band, and string ID are not explicitly used in calculations by programs in the `heliolinc` suite, so omitting them has no bad effects other than making them unavailable for downstream analysis. By contrast, the observatory code **is** used in calculation. In particular, `make_tracklets` uses it to generate Cartesian coordinates for the observer, which are passed on to `heliolinc` itself. Bad observer positions result not only in bad inferred positions for the objects (which may be close enough to work OK), but also in bad inferred velocities that are probably **not** close enough to work OK. These bad velocities can keep `heliolinc` from identifying perfectly valid linkages of real asteroids. Hence, running `make_tracklets` without an observatory code column in **generally inadvisable**.
 
 ### Input Image File ###
 

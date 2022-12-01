@@ -111,7 +111,7 @@ static void show_usage()
   cerr << "-imrad image radius(deg) -maxtime max inter-image time interval (hr)/ \n";
   cerr << "-mintime min inter-image time interval (hr) -maxGCR maximum GRC -mintrkpts min. num. of tracklet points/\n";
   cerr << "-minvel minimum angular velocity (deg/day) -maxvel maximum angular velocity (deg/day) \n";
-  cerr << "-minarc minimum total angular arc (arcsec) -earth earthfile -obscode obscodefile\n";
+  cerr << "-minarc minimum total angular arc (arcsec) -earth earthfile -obscode obscodefile -forcerun\n";
   cerr << "\nor, at minimum\n\n";
   cerr << "make_tracklets -dets detfile -earth earthfile -obscode obscodefile\n";
   cerr << "Note well that the minimum invocation will leave a bunch of things\n";
@@ -146,6 +146,7 @@ int main(int argc, char *argv[])
   char obscode[MINSTRINGLEN];
   string lnfromfile;
   int status = 0;
+  int forcerun = 0; // Pushes through all but the immediately fatal errors.
   int i = 0;
   int j = 0;
   int k = 0;
@@ -220,6 +221,8 @@ int main(int argc, char *argv[])
   int magcol = MAGCOL;
   int bandcol = BANDCOL;
   int obscodecol = OBSCODECOL;
+  int idread,mjdread,raread,decread,magread,bandread,obscoderead;
+  idread = mjdread = raread = decread = magread = bandread = obscoderead = 0;
   int colreadct=0;
   ifstream instream1;
   ofstream outstream1;
@@ -442,7 +445,7 @@ int main(int argc, char *argv[])
 	i++;
       }
       else {
-	cerr << "Earth file keyword supplied with no corresponding argument\n";
+	cerr << "Min. tracklet points keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
@@ -469,6 +472,9 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
+    } else if(string(argv[i]) == "-forcerun" || string(argv[i]) == "-force"  || string(argv[i]) == "-fr" || string(argv[i]) == "-f" || string(argv[i]) == "--force" || string(argv[i]) == "--forcerun") {
+      forcerun=1;
+      i++;
     } else {
       cerr << "Warning: unrecognized keyword " << argv[i] <<"\n";
       i++;
@@ -646,6 +652,7 @@ int main(int argc, char *argv[])
     i=0;
     j = 0;
     c='0';
+    idread = mjdread = raread = decread = magread = bandread = obscoderead = 0;
     while(i<lnfromfile.size() && lnfromfile.size()>=30 && reachedeof == 0) {
       // Note check on line length: it is completely impossible for a
       // line containing all the required quantities at minimum plausible
@@ -659,17 +666,83 @@ int main(int argc, char *argv[])
       }
       // We just finished reading something
       j++;
-      if(j==idcol) stringncopy01(idstring,stest,SHORTSTRINGLEN);
-      if(j==mjdcol) MJD=stold(stest);
-      else if(j==racol) RA=stold(stest);
-      else if(j==deccol) Dec=stold(stest);
-      else if(j==magcol) mag=stod(stest);
-      else if(j==bandcol) stringncopy01(band,stest,MINSTRINGLEN);
-      else if(j==obscodecol) stringncopy01(obscode,stest,MINSTRINGLEN);
+      if(j==idcol) {
+	stringncopy01(idstring,stest,SHORTSTRINGLEN);
+	idread=1;
+      } else if(j==mjdcol) {
+	MJD=stold(stest);
+	mjdread=1;
+      } else if(j==racol) {
+	RA=stold(stest);
+	raread=1;
+      } else if(j==deccol) {
+	Dec=stold(stest);
+	decread=1;
+      } else if(j==magcol) {
+	mag=stod(stest);
+	magread=1;
+      } else if(j==bandcol) {
+	stringncopy01(band,stest,MINSTRINGLEN);
+	bandread=1;
+      } else if(j==obscodecol) {
+	stringncopy01(obscode,stest,MINSTRINGLEN);
+	obscoderead=1;
+      }
       // cout<<"Column "<< j << " read as " << stest << ".\n";
     }
     if(reachedeof == 0 && lnfromfile.size()>=30) {
-      // cout<<"MJD, RA, Dec: " << MJD-floor(MJD) << " " << RA << " " << Dec << "\n";
+      if(!mjdread) {
+	cerr << "ERROR: MJD not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	return(2);
+      }
+      if(!raread) {
+	cerr << "ERROR: RA not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	return(2);
+      }
+      if(!decread) {
+	cerr << "ERROR: Dec not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	return(2);
+      }
+      if(!idread) {
+	if(forcerun) {
+	  stringncopy01(idstring,"null",SHORTSTRINGLEN);
+	  cout << "WARNING: ID not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	  cout << "String ID will be set to null.\n";
+	} else {
+	  cerr << "ERROR: String ID not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	  return(2);
+	}
+      }
+      if(!magread) {
+	if(forcerun) {
+	  mag = 99.999;
+	  cout << "WARNING: magnitude not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	  cout << "magnitude will be set to 99.999\n";
+	} else {
+	  cerr << "ERROR: magnitude not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	  return(2);
+	}
+      }
+      if(!bandread) {
+	if(forcerun) {
+	  stringncopy01(band,"V",MINSTRINGLEN);
+	  cout << "WARNING: photometric band not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	  cout << "band will be set to V\n";
+	} else {
+	  cerr << "ERROR: photometric band not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	  return(2);
+	}
+      }
+      if(!obscoderead) {
+	if(forcerun) {
+	  stringncopy01(obscode,"500",MINSTRINGLEN);
+	  cout << "WARNING: observatory code not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	  cout << "observatory code will be set to 500 (Geocentric)\n";
+	} else {
+	  cerr << "ERROR: observatory code not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	  return(2);
+	}
+      }
       o1=det_obsmag_indvec(MJD,RA,Dec,0L,0L,0L,idstring,mag,band,obscode,-lct,{});
       detvec.push_back(o1);
     }
@@ -682,12 +755,8 @@ int main(int argc, char *argv[])
   else if(reachedeof==-2) cout << "Warning: file possibly corrupted\n";
   else cout << "Warning: unknown file read problem\n";
 
-  // cout << "Last two obscodes: " << detvec[detvec.size()-2].obscode << " and " << detvec[detvec.size()-1].obscode << "\n"; 
-  
   // time-sort the detection vector
   sort(detvec.begin(), detvec.end(), early_det_obsmag_indvec());
-  
-  // cout << "Last two obscodes: " << detvec[detvec.size()-2].obscode << " and " << detvec[detvec.size()-1].obscode << "\n"; 
   
   // Get image information.
   if(inimfile.size()>0) {
@@ -1361,7 +1430,7 @@ int main(int argc, char *argv[])
 	    // aligned tracklet was found and written to the output file.
 	  } else {
 	    istracklet=0;
-	    cout << "A tracklet was rejected: arc = " << dist << " < " << minarc << " or angvel = " << angvel << " < " << minvel << "\n";
+	    cout << "A tracklet was rejected: arc = " << setprecision(3) << fixed << dist << " < " << minarc << " or angvel = " << setprecision(5) << fixed << angvel << " not in range " << setprecision(3) << fixed << minvel << "-" << maxvel << "\n";
 	  }
 	} else istracklet=0;
 	// Close else-statement confirming there was a candidate for
@@ -1381,7 +1450,7 @@ int main(int argc, char *argv[])
 	if(pairdets[k].indvec.size()>0 && k>pdct && angvel>=minvel && dist>=minarc && angvel<=maxvel) {
 	  outstream1 << "P " <<  pdct << " " <<  k << "\n";
 	} else if(angvel<minvel || dist<minarc) {
-	  cout << "A pair was rejected: arc = " << dist << " < " << minarc << " or angvel = " << angvel << " < " << minvel << "\n";
+	  cout << "A pair was rejected: arc = " << setprecision(3) << fixed << dist << " < " << minarc << " or angvel = " << setprecision(5) << fixed << angvel << " not in range " << setprecision(3) << fixed << minvel << "-" << maxvel << "\n";
 	}
       }
     }
