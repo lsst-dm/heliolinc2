@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
   int usetime=0; // Sets whether we include timespan in the cluster quality metric.
   int verbose=0;
   
-  if(argc!=11 && argc!=13 && argc!=15) {
+  if(argc!=11 && argc!=13 && argc!=15 && argc!=17) {
     show_usage();
     return(1);
   }
