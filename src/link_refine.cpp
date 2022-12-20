@@ -128,8 +128,8 @@ int main(int argc, char *argv[])
   vector <float> heliopar;
   float heliodist,heliovel,helioacc;
   heliodist = heliovel = helioacc = 0l;
-  vector <float> statevecs;
-  float x,y,z,vx,vy,vz;
+  vector <double> statevecs;
+  double x,y,z,vx,vy,vz;
   x=y=z=vx=vy=vz=0.0;
   vector <int> clustind;
   int startpoint=0;

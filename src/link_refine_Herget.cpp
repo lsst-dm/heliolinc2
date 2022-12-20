@@ -137,8 +137,8 @@ int main(int argc, char *argv[])
   vector <float> heliopar;
   float heliodist,heliovel,helioacc;
   heliodist = heliovel = helioacc = 0l;
-  vector <float> statevecs;
-  float x,y,z,vx,vy,vz;
+  vector <double> statevecs;
+  double x,y,z,vx,vy,vz;
   x=y=z=vx=vy=vz=0.0;
   vector <int> clustind;
   int startpoint=0;
@@ -395,7 +395,7 @@ int main(int argc, char *argv[])
   outstream1.open(outfile,ios_base::out);
   outstream2.open(outrmsfile,ios_base::out);
   outstream1 << "#ptct,MJD,RA,Dec,idstring,mag,band,obscode,index1,index2,clusternum\n";
-  outstream2 << "#clusternum,posRMS,astromRMS,totRMS,pairnum,timespan,uniquepoints,obsnights,metric,rating,heliodist,heliovel,helioacc,posX,posY,posZ,velX,velY,velZ\n";
+  outstream2 << "#clusternum,posRMS,astromRMS,totRMS,pairnum,timespan,uniquepoints,obsnights,metric,rating,heliodist,heliovel,helioacc,posX,posY,posZ,velX,velY,velZ,orbit_a,orbit_e,orbit_MJD,orbitX,orbitY,orbitZ,orbitVX,orbitVY,orbitVZ,orbit_eval_count\n";
 
   // Read cluster files, loading clusters.
   for(clusterfilect=0; clusterfilect<clusterfilenum; clusterfilect++) {
@@ -531,7 +531,8 @@ int main(int argc, char *argv[])
 	rmsvec = {};
 	rmsvec.push_back(posrms);
 	rmsvec.push_back(velrms);
-	rmsvec.push_back(totrms);
+	rmsvec.push_back(totrms); // rmsvec contents: [0] position RMS scatter,
+	                          // [1] velocity RMS scatter, [2] total RMS scatter.
 	heliopar = {};
 	heliopar.push_back(heliodist);
 	heliopar.push_back(heliovel);
@@ -679,15 +680,23 @@ int main(int argc, char *argv[])
 	    geodist2 = vecabs3LD(endpos)/AU_KM;
 	    simplex_scale = SIMPLEX_SCALEFAC;
 	    chisq = Hergetfit01(geodist1, geodist2, simplex_scale, simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
+	    // orbit vector contains: semimajor axis [0], eccentricity [1],
+	    // mjd at epoch [2], the state vectors [3-8], and the number of
+	    // orbit evaluations (~iterations) required to reach convergence [9].
+
 	    chisq /= (long double)ptnum; // Now it's the reduced chi square value
 	    astromrms = sqrt(chisq); // This gives the actual astrometric RMS in arcseconds if all the
 	                             // entries in sigastrom are 1.0. Otherwise it's a measure of the
 	                             // RMS in units of the typical uncertainty.
 	    // Include this astrometric RMS value in the cluster metric and the RMS vector
-	    clustan.rmsvec.push_back(astromrms);
+	    clustan.rmsvec.push_back(astromrms); // rmsvec[3]: astrometric rms in arcsec.
 	    clustan.clustermetric /= chisq; // We use reduced chi-square rather than RMS for the clustermetric,
 	                                    // in order to prioritize low astrometric error even more.
-	    clustan.rmsvec.push_back(float(orbit[9]));
+	    for(i=0;i<10;i++) clustan.statevecs.push_back(orbit[i]);
+	    // statevecs now contains original heliolinc state vecs [0-5],
+	    // Herget fit semimajor axis [6], eccentricity [7], MJD at epoch [8],
+	    // state vectors [9-14], and number of orbit evaluations (~iterations)
+	    // required for fit [15].
 	    // Add cluster indices to detvec.
 	    for(ptct=0; ptct<ptnum; ptct++) {
 	      i1 = clustan.clustind[ptct];
@@ -758,9 +767,24 @@ int main(int argc, char *argv[])
       outstream2  << fixed << setprecision(6) << clustanvec[clusterct].timespan << "," << clustanvec[clusterct].clustind.size() << "," << clustanvec[clusterct].obsnights  << "," << clustanvec[clusterct].clustermetric << "," << clustanvec[clusterct].rating << ",";
       outstream2  << fixed << setprecision(3) << clustanvec[clusterct].heliopar[0] << "," << clustanvec[clusterct].heliopar[1] << ",";
       outstream2  << fixed << setprecision(6) << clustanvec[clusterct].heliopar[2] << ",";
+      // Original heliolinc position state vector
       outstream2  << fixed << setprecision(3)  << clustanvec[clusterct].statevecs[0] << "," << clustanvec[clusterct].statevecs[1] << "," << clustanvec[clusterct].statevecs[2] << ",";
+      // Original heliolinc velocity state vector
       outstream2  << fixed << setprecision(6) << clustanvec[clusterct].statevecs[3] << ","   << clustanvec[clusterct].statevecs[4] << "," << clustanvec[clusterct].statevecs[5] << ",";
-      outstream2 << fixed << setprecision(0) << clustanvec[clusterct].rmsvec[4] << "\n";
+      // Orbit fit semimajor axis
+      outstream2  << fixed << setprecision(6)  << clustanvec[clusterct].statevecs[6]/AU_KM << ",";
+      // Orbit fit eccentricity
+      outstream2 << fixed << setprecision(6) << clustanvec[clusterct].statevecs[7] << ",";
+      // Orbit fit MJD at epoch
+      outstream2 << fixed << setprecision(9) << clustanvec[clusterct].statevecs[8] << ",";
+      // Orbit fit position state vector
+      outstream2 << fixed << setprecision(3) << clustanvec[clusterct].statevecs[9] << "," << clustanvec[clusterct].statevecs[10] << "," << clustanvec[clusterct].statevecs[11] << ",";
+      // Orbit fit velocity state vector
+      outstream2 << fixed << setprecision(6) << clustanvec[clusterct].statevecs[12] << "," << clustanvec[clusterct].statevecs[13] << "," << clustanvec[clusterct].statevecs[14] << ",";
+      // Total number of orbit evaluations (~iterations) used in orbit fit
+      outstream2 << fixed << setprecision(0) << clustanvec[clusterct].statevecs[15] << "\n";
+      // FINISHED WRITING SUMMARY LINE TO RMS/SUMMARY FILE
+      
       for(i=0;i<clustanvec[clusterct].clustind.size();i++) {
 	// This point is in the chosen cluster, and cannot be in any other
 	detct = clustanvec[clusterct].clustind[i];

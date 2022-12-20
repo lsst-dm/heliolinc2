@@ -9350,6 +9350,10 @@ int Herget_simplex_int(long double geodist1, long double geodist2, long double s
 // Use Hergetchi01 to perform orbit fitting using the Method of Herget,
 // and a downhill simplex method applied to the 2-dimensional space of
 // geodist1 and geodist2.
+// The vector orbit holds a [0], e [1], mjd [2], and the state vectors [3-8] on
+// return of Hergerchi01(). Hergetfit01 pushes back one additional
+// datum: the number of orbit evaluations (~iterations) required
+// to reach convergence [9].
 long double Hergetfit01(long double geodist1, long double geodist2, long double simplex_scale, int simptype, long double ftol, int point1, int point2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit, int verbose)
 {
   int Hergetpoint1, Hergetpoint2;
