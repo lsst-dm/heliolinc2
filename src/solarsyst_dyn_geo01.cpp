@@ -43,11 +43,17 @@ int stringnmatch01(const char *string1, const char *string2, int n)
   return(0);
 }
 
+// January 20, 2023: changed all the vector and matrix
+// allocations to use <nx, <ny rather than <=nx, <=ny.
+// The old way made them safe against using 1-indexed
+// rather than zero-indexed loops, but it caused unexpected
+// blank values that caused trouble in sorting. From now
+// on, they can only be used in zero-indexed loops.
 void make_ivec(int nx, vector <int> &ivec)
 {
   int i=0;
   ivec={};
-  for(i=0;i<=nx;i++) ivec.push_back(0);
+  for(i=0;i<nx;i++) ivec.push_back(0);
 }
 
 void make_imat(int nx, int ny, vector <vector <int>> &imat)
@@ -57,9 +63,9 @@ void make_imat(int nx, int ny, vector <vector <int>> &imat)
   vector <int> tvec;
   imat = {};
   
-  for(i=0;i<=nx;i++) {
+  for(i=0;i<nx;i++) {
     tvec={};
-    for(j=0;j<=ny;j++) tvec.push_back(0);
+    for(j=0;j<ny;j++) tvec.push_back(0);
     imat.push_back(tvec);
   }
 }
@@ -68,7 +74,7 @@ void make_lvec(int nx, vector <long> &lvec)
 {
   int i=0;
   lvec={};
-  for(i=0;i<=nx;i++) lvec.push_back(0);
+  for(i=0;i<nx;i++) lvec.push_back(0);
 }
 
 void make_lmat(int nx, int ny, vector <vector <long>> &lmat)
@@ -78,9 +84,9 @@ void make_lmat(int nx, int ny, vector <vector <long>> &lmat)
   vector <long> tvec;
   lmat = {};
   
-  for(i=0;i<=nx;i++) {
+  for(i=0;i<nx;i++) {
     tvec={};
-    for(j=0;j<=ny;j++) tvec.push_back(0);
+    for(j=0;j<ny;j++) tvec.push_back(0);
     lmat.push_back(tvec);
   }
 }
@@ -89,7 +95,7 @@ void make_cvec(int nx, vector <char> &cvec)
 {
   int i=0;
   cvec={};
-  for(i=0;i<=nx;i++) cvec.push_back('\0');
+  for(i=0;i<nx;i++) cvec.push_back('\0');
 }
 
 void make_cmat(int nx, int ny, vector <vector <char>> &cmat)
@@ -99,9 +105,9 @@ void make_cmat(int nx, int ny, vector <vector <char>> &cmat)
   vector <char> tvec;
   cmat = {};
   
-  for(i=0;i<=nx;i++) {
+  for(i=0;i<nx;i++) {
     tvec={};
-    for(j=0;j<=ny;j++) tvec.push_back('\0');
+    for(j=0;j<ny;j++) tvec.push_back('\0');
     cmat.push_back(tvec);
   }
 }
@@ -110,7 +116,7 @@ void make_dvec(int nx, vector <double> &dvec)
 {
   int i=0;
   dvec={};
-  for(i=0;i<=nx;i++) dvec.push_back(0.0);
+  for(i=0;i<nx;i++) dvec.push_back(0.0);
 }
 
 void make_dmat(int nx, int ny, vector <vector <double>> &dmat)
@@ -120,9 +126,9 @@ void make_dmat(int nx, int ny, vector <vector <double>> &dmat)
   vector <double> tvec;
   dmat = {};
   
-  for(i=0;i<=nx;i++) {
+  for(i=0;i<nx;i++) {
     tvec={};
-    for(j=0;j<=ny;j++) tvec.push_back(0.0);
+    for(j=0;j<ny;j++) tvec.push_back(0.0);
     dmat.push_back(tvec);
   }
 }
@@ -131,7 +137,7 @@ void make_LDvec(int nx, vector <long double> &ldvec)
 {
   int i=0;
   ldvec={};
-  for(i=0;i<=nx;i++) ldvec.push_back(0.0);
+  for(i=0;i<nx;i++) ldvec.push_back(0.0);
 }
 
 void make_LDmat(int nx, int ny, vector <vector <long double>> &ldmat)
@@ -141,9 +147,9 @@ void make_LDmat(int nx, int ny, vector <vector <long double>> &ldmat)
   vector <long double> tvec;
   ldmat = {};
   
-  for(i=0;i<=nx;i++) {
+  for(i=0;i<nx;i++) {
     tvec={};
-    for(j=0;j<=ny;j++) tvec.push_back(0.0);
+    for(j=0;j<ny;j++) tvec.push_back(0.0);
     ldmat.push_back(tvec);
   }
 }
@@ -239,6 +245,69 @@ double factorialD(int p)
   for(i=1;i<=p;i++) y*=(double)i;
   return(y);
 }
+
+// dmean01: January 16, 2023
+// Calculate and return the mean of a double-precision vector
+double dmean01(const vector <double> &invec)
+{
+  int pnum=invec.size();
+  if(pnum<=0) return(0.0l);
+  double mean=0.0l;
+  for(int pct=0; pct<pnum; pct++) {
+    mean+=invec[pct];
+  }
+  return(mean/double(pnum));
+}
+
+// drms01: January 16, 2023
+// Calculate and return the RMS deviation of a
+// double-precision vector from its mean
+double drms01(const vector <double> &invec)
+{
+  int pnum=invec.size();
+  int pct=0;
+  double mean,rms;
+  if(pnum<=1) return(-1.0l);
+
+  mean=rms=0.0l;
+  // Calculate the mean
+  for(pct=0; pct<pnum; pct++) {
+    mean+=invec[pct];
+  }
+  mean/=double(pnum);
+  // Calculate the RMS
+  for(pct=0; pct<pnum; pct++) {
+    rms += DSQUARE(invec[pct]-mean);
+  }
+  rms /= double(pnum-1);
+  return(sqrt(rms));
+}
+
+// dmeanrms01: January 16, 2023
+// Calculate and return the mean and RMS of
+// a double-precision vector.
+int dmeanrms01(const vector <double> &invec, double *mean, double *rms)
+{
+  int pnum=invec.size();
+  int pct=0;
+  
+  if(pnum<=0) return(2);
+  *mean = *rms = 0.0l;
+  // Calculate the mean
+  for(pct=0; pct<pnum; pct++) {
+    *mean+=invec[pct];
+  }
+  *mean /= double(pnum);
+  if(pnum==1) return(1);
+  
+  // Calculate the RMS
+  for(pct=0; pct<pnum; pct++) {
+    (*rms) += DSQUARE(invec[pct] - *mean);
+  }
+  *rms = sqrt((*rms)/double(pnum-1));
+  return(0);
+}
+
 
 // celeproj01: November 05, 2021
 // Given double precision RA, Dec in DEGREES, project
@@ -3011,13 +3080,13 @@ int precess01aLD(long double ra1,long double dec1,long double mjd,long double *r
 }
 
 
-/*solvematrix01: November 23, 2021
-Given a matrix with dimensions eqnum,eqnum+1, interpret
-it as a system of eqnum linear equations in eqnum unknowns,
-with the first term in each equation being the constant term
-and the others being the coefficients of x1,x2,x3,etc;
-solve for the vector of x values or report the matrix to
-be singular.*/
+// solvematrix01: November 23, 2021
+// Given a matrix with dimensions eqnum,eqnum+1, interpret
+// it as a system of eqnum linear equations in eqnum unknowns,
+// with the first term in each equation being the constant term
+// and the others being the coefficients of x1,x2,x3,etc;
+// solve for the vector of x values or report the matrix to
+// be singular.
 int solvematrix01(const vector <vector <double>> &inmat, int eqnum, vector <double> &outvec, int verbose)
 {
   int eqhi,termhi,eqct,termct,i,j;
@@ -5859,6 +5928,161 @@ int linfituw01(const vector <double> &x, const vector <double> &y, double &slope
   return(0);
 }
 
+// linfit01: January 03, 2023
+// Simple utility program, does an weighted
+// linear fit of the form y = mx * b, for m = slope, b = intercept
+int linfit01(const vector <double> &x, const vector <double> &y, const vector <double> &yerr, double &slope, double &intercept)
+{
+  int i;
+  int pointnum = x.size();
+  double delta,xal,yal,xty,xsq,nsum,rms,err,errmax;
+  double siga,sigb;
+
+  if(pointnum<=1) {
+    cerr << "ERROR: linfit01 CALLED WITH ONLY ONE POINT\n";
+    return(1);
+  }
+
+  xal = yal = xty = xsq = nsum = 0.0;
+  for(i=0;i<pointnum;i++) {
+    xal += x[i]/DSQUARE(yerr[i]);
+    yal += y[i]/DSQUARE(yerr[i]);
+    xsq += x[i]*x[i]/DSQUARE(yerr[i]);
+    xty += x[i]*y[i]/DSQUARE(yerr[i]);
+    nsum += 1.0l/DSQUARE(yerr[i]);
+  }
+  delta = nsum*xsq - xal*xal;
+  if(delta==0.0) {
+    cerr << "ERROR: linfituw01 has non-finite slope\n";
+    return(1);
+  }
+  intercept = (xsq*yal - xal*xty)/delta;
+  slope = (nsum*xty - xal*yal)/delta;
+
+  return(0);
+}
+
+// multilinfit01: October 15, 2019, translated from C on Jan 03, 2023
+// Finds the unweighted least-squares fit modeling the input vector
+// yvec (length pnum) as a linear combination of fitnum other
+// vectors supplied in the matrix xmat (size fitnum x pnum). The
+// vector of best-fit coefficients for xmat is given in avec.*/
+int multilinfit01(const vector <double> &yvec, const vector <vector <double>> &xmat, int pnum, int fitnum, vector <double> &avec, int verbose)
+{
+  double fitpar=0l;
+  vector <double> fitvec;
+  vector <vector <double>> fitmat;
+  int pct,fitct,k;
+  
+  // Load fitmat for input into solvematrix01
+  for(fitct=0;fitct<fitnum;fitct++)
+    {
+      // First the constant term -- that is, the term that does not
+      //  multiply any of the fitting coefficients -- which is also
+      // the only term that involves yvec
+      fitpar=0l;
+      fitvec={};
+      for(pct=0;pct<pnum;pct++) fitpar -= yvec[pct]*xmat[fitct][pct];
+      fitvec.push_back(fitpar);
+      /*Now the actual coefficients*/
+      for(k=0;k<fitnum;k++) { 
+	fitpar = 0.0;
+	for(pct=0;pct<pnum;pct++) fitpar += xmat[fitct][pct]*xmat[k][pct];
+	fitvec.push_back(fitpar);
+      }
+      fitmat.push_back(fitvec);
+    }
+  solvematrix01(fitmat,fitnum,avec,verbose);
+  return(0);
+}
+
+// multilinfit02: June 10, 2022, translated from C on Jan 03, 2023
+// Finds the WEIGHTED least-squares fit modeling the input vector
+// yvec (length pnum) as a linear combination of fitnum other
+// vectors supplied in the matrix xmat (size fitnum x pnum). The
+// vector of best-fit coefficients for xmat is given in avec.*/
+int multilinfit02(const vector <double> &yvec, const vector <double> &sigvec, const vector <vector <double>> &xmat, int pnum, int fitnum, vector <double> &avec, int verbose)
+{
+  double fitpar;
+  vector <double> fitvec;
+  vector <vector <double>> fitmat;
+  int pct,fitct,k;
+  
+  /*Load fitmat for input into solvematrix01*/
+  for(fitct=0;fitct<fitnum;fitct++)
+    {
+      /*First the constant term -- that is, the term that does not
+        multiply any of the fitting coefficients -- which is also
+        the only term that involves yvec*/
+      fitpar = 0l;
+      fitvec={};
+      for(pct=0;pct<pnum;pct++) {
+	if(isnormal(sigvec[pct])) fitpar -= yvec[pct]*xmat[fitct][pct]/DSQUARE(sigvec[pct]);
+      }
+      fitvec.push_back(fitpar);
+      /*Now the actual coefficients*/
+      for(k=0;k<fitnum;k++) {
+	fitpar = 0l;
+	for(pct=0;pct<pnum;pct++) {
+	  if(isnormal(sigvec[pct])) fitpar += xmat[fitct][pct]*xmat[k][pct]/DSQUARE(sigvec[pct]);
+	}
+	fitvec.push_back(fitpar);
+      }
+      fitmat.push_back(fitvec);
+    }
+  solvematrix01(fitmat,fitnum,avec,verbose);
+
+  return(0);
+}
+
+// multilinfit02b: January 20, 2023, supposed to be a faster version
+// of multilinfit02, because it does not re-calculate redundant
+// terms in the matrix, and because it takes an input variance
+// vector so as not to have to do any internal squaring.
+// Also for speed, does not call isnormal(). Hence, the calling function
+// is responsible for not inputting NANs or points with zero error.
+// Finds the WEIGHTED least-squares fit modeling the input vector
+// yvec (length pnum) as a linear combination of fitnum other
+// vectors supplied in the matrix xmat (size fitnum x pnum). The
+// vector of best-fit coefficients for xmat is given in avec.*/
+int multilinfit02b(const vector <double> &yvec, const vector <double> &varvec, const vector <vector <double>> &xmat, int pnum, int fitnum, vector <double> &avec, int verbose)
+{
+  double fitpar;
+  vector <vector <double>> fitmat;
+  int pct,fitct,k;
+  
+  make_dmat(fitnum,fitnum+1,fitmat);
+  
+  /*Load fitmat for input into solvematrix01*/
+  for(fitct=0;fitct<fitnum;fitct++)
+    {
+      /*First the constant term -- that is, the term that does not
+        multiply any of the fitting coefficients -- which is also
+        the only term that involves yvec*/
+      fitpar = 0l;
+       for(pct=0;pct<pnum;pct++) {
+	 fitpar -= yvec[pct]*xmat[fitct][pct]/varvec[pct];
+      }
+       fitmat[fitct][0] = fitpar;
+      /*Now the actual coefficients*/
+      for(k=fitct;k<fitnum;k++) {
+	fitpar = 0l;
+	for(pct=0;pct<pnum;pct++) {
+	  fitpar += xmat[fitct][pct]*xmat[k][pct]/varvec[pct];
+	}
+	fitmat[fitct][k+1] = fitpar;
+      }
+    }
+  // Fill in the lower diagonal
+  for(fitct=0;fitct<fitnum;fitct++) {
+    for(k=0;k<fitct;k++) {
+      fitmat[fitct][k+1] = fitmat[k][fitct+1];
+    }
+  }
+   
+  solvematrix01(fitmat,fitnum,avec,verbose);
+  return(0);
+}
 
   
 // arc2cel01: September 09, 2020
@@ -9685,3 +9909,802 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 #undef SIMP_EXPAND_FAC
 #undef SIMP_MAXCT_EXPAND
 #undef SIMP_MAXCT_TOTAL
+
+// medind_3d_index: January 31, 2023: Calculate the median of
+// a vector of points of type point3d_index in x (dim=1), y (dim=2), or z (dim=3)
+long medind_3d_index(const vector <point3d_index> &pointvec, int dim)
+{
+  vector <point3d_index> pvec = pointvec; //Mutable copy of immutable input vector
+  for(long i=0; i<pvec.size(); i++) pvec[i].index=i; //Redefine indices
+  long medpt = pvec.size()/2; // Central point of vector (it will be off by one half
+                              // for a vector with even length, but we don't care).
+  if(dim%3 == 1) sort(pvec.begin(), pvec.end(), lower_point3d_index_x()); // Sort vector by x
+  else if(dim%3 == 2) sort(pvec.begin(), pvec.end(), lower_point3d_index_y()); // Sort vector by y
+  else if(dim%3 == 0) sort(pvec.begin(), pvec.end(), lower_point3d_index_z()); // Sort vector by z
+  else {
+    cerr << "ERROR: medind_3d_index recieved invalid dimension " << dim << "\n";
+    return(-1);
+  }
+  return(pvec[medpt].index); // Output the index of the median point in
+                             // the original, unsorted input vector.
+}
+
+// split3d_index: January 31, 2023:
+// Given a vector of type point3d_index, split it into two halves,
+// a left half with all the points lower than or equal to a specified
+// split point along the chosen dimension (use dim = 1, 2, or 3 to
+// split along x, y, z, respectively).
+int split3d_index(const vector <point3d_index> &pointvec, int dim, long splitpoint, vector <point3d_index> &left, vector <point3d_index> &right)
+{
+  long i=0;
+  long double splitval = 0.0L;
+
+  if(dim%3==1) {
+    // split on x
+    splitval = pointvec[splitpoint].x;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].x<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%3==2) {
+    // split on y
+    splitval = pointvec[splitpoint].y;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].y<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%3==0) {
+    // split on z
+    splitval = pointvec[splitpoint].z;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].z<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else {
+      cerr << "ERROR: split3d_index asked to split on undefined dimension " << dim << "\n";
+      return(1);
+  } 
+  return(0);
+}
+
+// kdtree_3d_index: January 31, 2023
+// Given an input root point, presumed to have null
+// right and left branches, load the branches and then
+// call kdtree_3d_index on them recursively.
+int kdtree_3d_index(const vector <point3d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point3d_index> &kdvec)
+{
+  int status=0;
+  int lmed=0;
+  int rmed=0;
+  int kdct = kdvec.size()-1;
+  int i=0;
+  long leftrootkd=-1;
+  long rightrootkd=-1;
+  point3d_index point0 = point3d_index(0.0l,0.0l,0.0l,0);
+  KD_point3d_index root = kdvec[kdct];
+  KD_point3d_index lp = KD_point3d_index(point0,-1,-1,0,0);
+  KD_point3d_index rp = KD_point3d_index(point0,-1,-1,0,0);
+  vector <point3d_index> leftvec = {};
+  vector <point3d_index> rightvec = {};
+
+  // Basic outline: split the input vector into a left and a right
+  // half, where the left half is below (or level with) splitpoint
+  // in the dimension specified by dim, and the right half is above
+  // splitpoint. Find the median of the left and right vectors,
+  // and make the left and right branches from kdroot point to
+  // these medians. Then call kdtree_6D01 itself recursively on
+  // each of these median points, to peform a new split along a
+  // different dimension.
+  status = split3d_index(invec,dim,splitpoint,leftvec,rightvec);
+
+  dim+=1;
+  while(dim>3) dim-=3;
+
+  if(leftvec.size()==1) {
+    // Left branch is just a single leaf
+    lp = KD_point3d_index(leftvec[0],-1,-1,dim,0); // Define new point as a leaf: branches point nowhere
+    kdvec.push_back(lp); // Add this new point to the KD tree.
+    kdct++; // Keep track of how many point are in the tree
+    kdvec[kdroot].left = kdct; // Stick the new point on the left branch of the input root.
+  } else if(leftvec.size()<=0) {
+    // There is no left branch
+    kdvec[kdroot].left = -1;
+  }
+  if(rightvec.size()==1) {
+    // Right branch is just a single leaf
+    rp = KD_point3d_index(rightvec[0],-1,-1,dim,0);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[kdroot].right = kdct;
+  } else if(rightvec.size()<=0) {
+    // There is no right branch
+    kdvec[kdroot].right = -1;
+  }
+   
+ if(leftvec.size()>1) {
+    lmed = medind_3d_index(leftvec,dim);
+    lp = KD_point3d_index(leftvec[lmed],-1,-1,dim,0);
+    kdvec.push_back(lp);
+    kdct++;
+    kdvec[kdroot].left = kdct;
+    leftrootkd = kdct;
+ }
+ 
+  if(rightvec.size()>1) {
+    rmed = medind_3d_index(rightvec,dim);
+    rp = KD_point3d_index(rightvec[rmed],-1,-1,dim,0);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[kdroot].right = kdct;
+    rightrootkd = kdct;
+  }
+  // I moved these down out of the above loops, because I thought
+  // that otherwise, a bunch of stuff might get pushed down by the
+  // left loop that the right loop didn't know about.
+  if(leftvec.size()>1 && leftrootkd>=0) kdtree_3d_index(leftvec,dim,lmed,leftrootkd,kdvec);
+  else if(leftvec.size()>1 && leftrootkd<0)
+    {
+      cerr << "Error, kdtree_3d_index finds leftroot less than zero with leftvec.size() = " << leftvec.size() << "\n";
+    }
+  if(rightvec.size()>1 && rightrootkd>=0) kdtree_3d_index(rightvec,dim,rmed,rightrootkd,kdvec);
+  else if(rightvec.size()>1 && rightrootkd<0)
+    {
+      cerr << "Error, kdtree_3d_index finds rightroot less than zero with rightvec.size() = " << rightvec.size() << "\n";
+    }
+
+  return(0);
+}
+
+// point3d_index_dist2: January 31, 2023:
+// Calculate the squared distance in 3-dimensional parameter space
+// between two points of class point3d_index.
+double point3d_index_dist2(const point3d_index &p1, const point3d_index &p2)
+{
+  return(DSQUARE(p1.x - p2.x) + DSQUARE(p1.y - p2.y) + DSQUARE(p1.z - p2.z));
+}	 
+
+// kdrange_3d_index: January 31, 2023:
+// Given a k-d tree vector kdvec created by kdtree_3d_index,
+// perform a range-query about the specified point. Returns
+// a vector indexing all of the points in the input k-d tree
+// that lie within the specified range of the input coordinates.
+// Assumes that kdvec[0] is the root of the k-d tree.
+int kdrange_3d_index(const vector <KD_point3d_index> &kdvec, const point3d_index &querypoint, double range, vector <long> &indexvec)
+{
+  int branchct=0;
+  double rng2 = range*range;
+  int notdone=1;
+  int kdveclen = kdvec.size();
+  int dim=1;
+  int currentpoint=0;
+  int leftpoint=0;
+  int rightpoint=0;
+  int goleft=0;
+  int goright=0;
+  double pointdiff = 0.0l;
+  double pdist2 = 0.0l;
+  vector <long> checkit={};
+  int i=0;
+  int checknum=0;
+
+  while(notdone>0) {
+    // Climb to the top of the k-d tree, keeping track
+    // of potentially interesting unexplored branches
+    // in the vector checkit.
+    while(leftpoint>=0 || rightpoint>=0) {
+      // Previous step did not end on a leaf.
+      leftpoint = kdvec[currentpoint].left;
+      rightpoint = kdvec[currentpoint].right;
+      dim = kdvec[currentpoint].dim;
+      if(dim%3==1) pointdiff = kdvec[currentpoint].point.x - querypoint.x;
+      else if(dim%3==2) pointdiff = kdvec[currentpoint].point.y - querypoint.y;
+      else if(dim%3==0) pointdiff = kdvec[currentpoint].point.z - querypoint.z;
+
+      goright = (pointdiff <= range); // possible hits lie to the left;
+      goleft = (pointdiff >= -range); // possible hits lie to the right;
+      if(goleft && goright) {
+	// Current point might be within range.
+	pdist2 = point3d_index_dist2(querypoint,kdvec[currentpoint].point);
+	if(pdist2 <= rng2) {
+	  // Current point is within range. Add it to the output vector
+	  indexvec.push_back(currentpoint);
+	}
+	if(leftpoint>=0) {
+	  //Explore leftward first.
+	  currentpoint = leftpoint;
+	  if(rightpoint>=0) {
+	    // Rightward branch will also be explored later
+	    checknum++;
+	    if(checknum>checkit.size()) {
+	      checkit.push_back(rightpoint);
+	    }
+	    else {
+	      checkit[checknum-1] = rightpoint;
+	    }
+	  }
+	}
+	else if(rightpoint>=0) {
+	  // Leftward branch is a dead end: explore rightward branch
+	  currentpoint = rightpoint;
+	}
+      }
+      else if(goleft) {
+	// Current point cannot be in range, but points that
+	// are in range may lie along the left branch.
+	if(leftpoint>=0) {
+	  currentpoint = leftpoint;
+	} else rightpoint=-1; // Dead end, make sure while-loop exits.
+      } else if(goright) {
+	// Current point cannot be in range, but points that
+	// are in range may lie along the right branch.
+	if(rightpoint>=0) {
+	  currentpoint = rightpoint;
+	} else leftpoint=-1;  // Dead end, make sure while-loop exits.
+      } else {
+	// Program concluded it should go neither left nor right.
+	// The likely cause is that it encountered a NAN. Give up on this point.
+	leftpoint=rightpoint=-1;
+	cerr << "WARNING: ENCOUNTERED NAN CASE!\n";
+	cerr << "Query point:\n";
+	cerr << querypoint.x << ", " << querypoint.y << ", " << querypoint.z << "\n";
+	cerr << "Target point:\n";
+ 	cerr << kdvec[currentpoint].point.x << ", " << kdvec[currentpoint].point.y << ", " << kdvec[currentpoint].point.z << "\n";
+     }
+      // Close while-loop checking if we've hit a leaf.
+    }
+    // We have climbed up the tree to a leaf. Go backwards through
+    // the checkit vector and see if there is anything to check.
+    checknum=checkit.size();
+    while(checknum>=1 && checkit[checknum-1]<0) checknum--;
+    if(checknum<=0) {
+      //There were no valid entries to check: we're done.
+      notdone=0;
+    } else {
+      //Set currentpoint to the last valid entry in checkit
+      currentpoint = checkit[checknum-1];
+      //Mark this point as used.
+      checkit[checknum-1]=-1;
+      leftpoint=rightpoint=0;
+    }
+  }
+  return(0);
+}
+
+
+// medind_4d_index: January 31, 2023: Calculate the median of
+// a vector of points of type point4d_index in t (dim=1), x (dim=2), y (dim=3), or z (dim=3)
+long medind_4d_index(const vector <point4d_index> &pointvec, int dim)
+{
+  vector <point4d_index> pvec = pointvec; //Mutable copy of immutable input vector
+  for(long i=0; i<pvec.size(); i++) pvec[i].index=i; //Redefine indices
+  long medpt = pvec.size()/2; // Central point of vector (it will be off by one half
+                              // for a vector with even length, but we don't care).
+  if(dim%4 == 1) sort(pvec.begin(), pvec.end(), lower_point4d_index_t()); // Sort vector by t
+  else if(dim%4 == 2) sort(pvec.begin(), pvec.end(), lower_point4d_index_x()); // Sort vector by x
+  else if(dim%4 == 3) sort(pvec.begin(), pvec.end(), lower_point4d_index_y()); // Sort vector by y
+  else if(dim%4 == 0) sort(pvec.begin(), pvec.end(), lower_point4d_index_z()); // Sort vector by z
+  else {
+    cerr << "ERROR: medind_4d_index recieved invalid dimension " << dim << "\n";
+    return(-1);
+  }
+  return(pvec[medpt].index); // Output the index of the median point in
+                             // the original, unsorted input vector.
+}
+
+// split4d_index: January 31, 2023:
+// Given a vector of type point4d_index, split it into two halves,
+// a left half with all the points lower than or equal to a specified
+// split point along the chosen dimension (use dim = 1, 2, 3, or 4 to
+// split along t, x, y, or z, respectively).
+int split4d_index(const vector <point4d_index> &pointvec, int dim, long splitpoint, vector <point4d_index> &left, vector <point4d_index> &right)
+{
+  long i=0;
+  long double splitval = 0.0L;
+
+  if(dim%4==1) {
+    // split on t
+    splitval = pointvec[splitpoint].t;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].t<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%4==2) {
+    // split on x
+    splitval = pointvec[splitpoint].x;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].x<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%4==3) {
+    // split on y
+    splitval = pointvec[splitpoint].y;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].y<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%4==0) {
+    // split on z
+    splitval = pointvec[splitpoint].z;
+    for(i=0 ; i<pointvec.size(); i++) {
+      if(i!=splitpoint && pointvec[i].z<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else {
+      cerr << "ERROR: split4d_index asked to split on undefined dimension " << dim << "\n";
+      return(1);
+  } 
+  return(0);
+}
+
+// kdtree_4d_index: January 31, 2023
+// Given an input root point, presumed to have null
+// right and left branches, load the branches and then
+// call kdtree_4d_index on them recursively.
+int kdtree_4d_index(const vector <point4d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point4d_index> &kdvec)
+{
+  int status=0;
+  int lmed=0;
+  int rmed=0;
+  int kdct = kdvec.size()-1;
+  int i=0;
+  long leftrootkd=-1;
+  long rightrootkd=-1;
+  point4d_index point0 = point4d_index(0.0l,0.0l,0.0l,0.0l,0);
+  KD_point4d_index root = kdvec[kdct];
+  KD_point4d_index lp = KD_point4d_index(point0,-1,-1,0,0);
+  KD_point4d_index rp = KD_point4d_index(point0,-1,-1,0,0);
+  vector <point4d_index> leftvec = {};
+  vector <point4d_index> rightvec = {};
+
+  // Basic outline: split the input vector into a left and a right
+  // half, where the left half is below (or level with) splitpoint
+  // in the dimension specified by dim, and the right half is above
+  // splitpoint. Find the median of the left and right vectors,
+  // and make the left and right branches from kdroot point to
+  // these medians. Then call kdtree_6D01 itself recursively on
+  // each of these median points, to peform a new split along a
+  // different dimension.
+  status = split4d_index(invec,dim,splitpoint,leftvec,rightvec);
+
+  dim+=1;
+  while(dim>4) dim-=4;
+
+  if(leftvec.size()==1) {
+    // Left branch is just a single leaf
+    lp = KD_point4d_index(leftvec[0],-1,-1,dim,0); // Define new point as a leaf: branches point nowhere
+    kdvec.push_back(lp); // Add this new point to the KD tree.
+    kdct++; // Keep track of how many point are in the tree
+    kdvec[kdroot].left = kdct; // Stick the new point on the left branch of the input root.
+  } else if(leftvec.size()<=0) {
+    // There is no left branch
+    kdvec[kdroot].left = -1;
+  }
+  if(rightvec.size()==1) {
+    // Right branch is just a single leaf
+    rp = KD_point4d_index(rightvec[0],-1,-1,dim,0);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[kdroot].right = kdct;
+  } else if(rightvec.size()<=0) {
+    // There is no right branch
+    kdvec[kdroot].right = -1;
+  }
+   
+ if(leftvec.size()>1) {
+    lmed = medind_4d_index(leftvec,dim);
+    lp = KD_point4d_index(leftvec[lmed],-1,-1,dim,0);
+    kdvec.push_back(lp);
+    kdct++;
+    kdvec[kdroot].left = kdct;
+    leftrootkd = kdct;
+ }
+ 
+  if(rightvec.size()>1) {
+    rmed = medind_4d_index(rightvec,dim);
+    rp = KD_point4d_index(rightvec[rmed],-1,-1,dim,0);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[kdroot].right = kdct;
+    rightrootkd = kdct;
+  }
+  // I moved these down out of the above loops, because I thought
+  // that otherwise, a bunch of stuff might get pushed down by the
+  // left loop that the right loop didn't know about.
+  if(leftvec.size()>1 && leftrootkd>=0) kdtree_4d_index(leftvec,dim,lmed,leftrootkd,kdvec);
+  else if(leftvec.size()>1 && leftrootkd<0)
+    {
+      cerr << "Error, kdtree_4d_index finds leftroot less than zero with leftvec.size() = " << leftvec.size() << "\n";
+    }
+  if(rightvec.size()>1 && rightrootkd>=0) kdtree_4d_index(rightvec,dim,rmed,rightrootkd,kdvec);
+  else if(rightvec.size()>1 && rightrootkd<0)
+    {
+      cerr << "Error, kdtree_4d_index finds rightroot less than zero with rightvec.size() = " << rightvec.size() << "\n";
+    }
+
+  return(0);
+}
+
+// point4d_index_dist2: January 31, 2023:
+// Calculate the squared distance in 4-dimensional parameter space
+// between two points of class point4d_index.
+double point4d_index_dist2(const point4d_index &p1, const point4d_index &p2)
+{
+  return(DSQUARE(p1.t - p2.t) + DSQUARE(p1.x - p2.x) + DSQUARE(p1.y - p2.y) + DSQUARE(p1.z - p2.z));
+}	 
+
+// kdrange_4d_index: January 31, 2023:
+// Given a k-d tree vector kdvec created by kdtree_4d_index,
+// perform a range-query about the specified point. Returns
+// a vector indexing all of the points in the input k-d tree
+// that lie within the specified range of the input coordinates.
+// Assumes that kdvec[0] is the root of the k-d tree.
+int kdrange_4d_index(const vector <KD_point4d_index> &kdvec, const point4d_index &querypoint, double range, vector <long> &indexvec)
+{
+  int branchct=0;
+  long double rng2 = range*range;
+  int notdone=1;
+  int kdveclen = kdvec.size();
+  int dim=1;
+  int currentpoint=0;
+  int leftpoint=0;
+  int rightpoint=0;
+  int goleft=0;
+  int goright=0;
+  long double pointdiff = 0.0L;
+  long double pdist2 = 0.0L;
+  vector <long> checkit={};
+  int i=0;
+  int checknum=0;
+
+  while(notdone>0) {
+    // Climb to the top of the k-d tree, keeping track
+    // of potentially interesting unexplored branches
+    // in the vector checkit.
+    while(leftpoint>=0 || rightpoint>=0) {
+      // Previous step did not end on a leaf.
+      leftpoint = kdvec[currentpoint].left;
+      rightpoint = kdvec[currentpoint].right;
+      dim = kdvec[currentpoint].dim;
+      if(dim%4==1) pointdiff = kdvec[currentpoint].point.t - querypoint.t;
+      else if(dim%4==2) pointdiff = kdvec[currentpoint].point.x - querypoint.x;
+      else if(dim%4==3) pointdiff = kdvec[currentpoint].point.y - querypoint.y;
+      else if(dim%4==0) pointdiff = kdvec[currentpoint].point.z - querypoint.z;
+
+      goright = (pointdiff <= range); // possible hits lie to the left;
+      goleft = (pointdiff >= -range); // possible hits lie to the right;
+      if(goleft && goright) {
+	// Current point might be within range.
+	pdist2 = point4d_index_dist2(querypoint,kdvec[currentpoint].point);
+	if(pdist2 <= rng2) {
+	  // Current point is within range. Add it to the output vector
+	  indexvec.push_back(currentpoint);
+	}
+	if(leftpoint>=0) {
+	  //Explore leftward first.
+	  currentpoint = leftpoint;
+	  if(rightpoint>=0) {
+	    // Rightward branch will also be explored later
+	    checknum++;
+	    if(checknum>checkit.size()) {
+	      checkit.push_back(rightpoint);
+	    }
+	    else {
+	      checkit[checknum-1] = rightpoint;
+	    }
+	  }
+	}
+	else if(rightpoint>=0) {
+	  // Leftward branch is a dead end: explore rightward branch
+	  currentpoint = rightpoint;
+	}
+      }
+      else if(goleft) {
+	// Current point cannot be in range, but points that
+	// are in range may lie along the left branch.
+	if(leftpoint>=0) {
+	  currentpoint = leftpoint;
+	} else rightpoint=-1; // Dead end, make sure while-loop exits.
+      } else if(goright) {
+	// Current point cannot be in range, but points that
+	// are in range may lie along the right branch.
+	if(rightpoint>=0) {
+	  currentpoint = rightpoint;
+	} else leftpoint=-1;  // Dead end, make sure while-loop exits.
+      } else {
+	// Program concluded it should go neither left nor right.
+	// The likely cause is that it encountered a NAN. Give up on this point.
+	leftpoint=rightpoint=-1;
+	cerr << "WARNING: ENCOUNTERED NAN CASE!\n";
+	cerr << "Query point:\n";
+	cerr << querypoint.t << ", " << querypoint.x << ", " << querypoint.y << ", " << querypoint.z << "\n";
+	cerr << "Target point:\n";
+ 	cerr << kdvec[currentpoint].point.t << ", " << kdvec[currentpoint].point.x << ", " << kdvec[currentpoint].point.y << ", " << kdvec[currentpoint].point.z << "\n";
+     }
+      // Close while-loop checking if we've hit a leaf.
+    }
+    // We have climbed up the tree to a leaf. Go backwards through
+    // the checkit vector and see if there is anything to check.
+    checknum=checkit.size();
+    while(checknum>=1 && checkit[checknum-1]<0) checknum--;
+    if(checknum<=0) {
+      //There were no valid entries to check: we're done.
+      notdone=0;
+    } else {
+      //Set currentpoint to the last valid entry in checkit
+      currentpoint = checkit[checknum-1];
+      //Mark this point as used.
+      checkit[checknum-1]=-1;
+      leftpoint=rightpoint=0;
+    }
+  }
+  return(0);
+}
+
+// MPCcal2MJD: Febuary 01, 2022
+// Given a calendar date in the MPC format with integer year,
+// integer month, and decimal day, calculate the Modified Julian Day
+// (MJD). Works on any date after Jan 01, 1900.
+double MPCcal2MJD(int year, int month, double day)
+{
+  int daystojan;
+  int leaps;
+  float data1,data2;
+  double totaldays = 15020.0l; // MJD on UT 1900 January 1.0
+  int i=1900;
+  int isleap=0;
+  vector <int> days_per_month;
+  
+  if(year<1900 || month<1 || month>12 || day<1.0 || day>32.0) {
+    cerr << "ERROR: MPCcal2MJD has bad date: " << year << " " << month << " " << day << "\n";
+    return(-1.0l);
+  }
+
+  // Load days_per_month
+  days_per_month={};
+  days_per_month.push_back(0); // Null, to get 1-index
+  days_per_month.push_back(31); // January
+  days_per_month.push_back(28); // February
+  days_per_month.push_back(31); // March
+  days_per_month.push_back(30); // April
+  days_per_month.push_back(31); // May
+  days_per_month.push_back(30); // June
+  days_per_month.push_back(31); // July
+  days_per_month.push_back(31); // August
+  days_per_month.push_back(30); // September
+  days_per_month.push_back(31); // October
+  days_per_month.push_back(30); // November
+  days_per_month.push_back(31); // December
+  
+  // Calculate the number of days up to 00:00 UT,
+  // Jan 1, of the given year.
+  daystojan=0;
+  for(i=1900;i<year;i++) {
+    if((i%4 == 0 && i%100 != 0) || i%400 == 0) {
+      isleap=1;
+    } else isleap=0;
+    daystojan += 365 + isleap;
+  }
+  
+  // Find out if the current year is a leapyear
+  i=year;
+  if((i%4 == 0 && i%100 != 0) || i%400 == 0) {
+    isleap=1;
+  } else isleap=0;
+  
+  totaldays += double(daystojan);
+  for(i=1; i<month; i++) { // Remember, days_per_month vector is 1-indexed!
+    totaldays += double(days_per_month[i]);
+  }
+  if(month>2 && isleap==1) totaldays += 1.0l; // Add leap day of current year.
+
+  totaldays += day-1.0l; // Subtract 1 because there is no 0th day of the month.
+  return(totaldays);
+}
+
+// mpc80_parseline: February 01, 2023:
+// Read one line from an MPC 80-column formatted file,
+// and load the date (MJD), RA (decimal degrees), Dec (decimal degrees),
+// and magnitude as double-precision variables, and the object ID,
+// band, and observatory codes as strings.
+int mpc80_parseline(const string &lnfromfile, string &object, double *MJD, double *RA, double *Dec, double *mag, string &band, string &obscode)
+{
+  int i;
+  int year=1900;
+  int month=1;
+  double day=1.0l;
+  double hour,min,sec,deg;
+  string sdat;
+  char c='0';
+  char decsign='+';
+  double raread;
+  double decread;
+  
+  // Read object name
+  object = {};
+  for(i=0;i<12;i++) {
+    c = lnfromfile[i];
+    if(c!=' ' && c!='*') object.push_back(c);
+  }
+  // Read the year
+  sdat = {};
+  for(i=15;i<19;i++) {
+    sdat.push_back(lnfromfile[i]);
+  }
+  year = stoi(sdat);
+  // Read the month
+  sdat = {};
+  for(i=20;i<22;i++) {
+    sdat.push_back(lnfromfile[i]);
+  }
+  month = stoi(sdat);
+  // Read the day
+  sdat = {};
+  for(i=23;i<32;i++) {
+    c=lnfromfile[i];
+    if(c!=' ') sdat.push_back(c);
+  }
+  day = stod(sdat);
+  if(year<1900 || month<1 || month>12 || day < 1.0l || day > 32.0l) {
+    cerr << "mpc80_readline cannot read a valid date from the line:\n";
+    cerr << lnfromfile;
+    return(1);
+  }
+  // Successfully read the date: convert it to MJD.
+  *MJD = MPCcal2MJD(year,month,day);
+  // Read the Right Ascension
+  // hours
+  sdat = {};
+  for(i=32;i<34;i++) {
+    sdat.push_back(lnfromfile[i]);
+  }
+  hour = stod(sdat);
+  // minutes
+  sdat = {};
+  for(i=35;i<37;i++) {
+    sdat.push_back(lnfromfile[i]);
+  }
+  if(sdat.size()>0) min = stod(sdat);
+  else min = 0.0l;
+  // seconds
+  sdat = {};
+  for(i=38;i<44;i++) {
+    c = lnfromfile[i];
+    if(c != ' ') sdat.push_back(c);
+  }
+  if(sdat.size()>0) sec = stod(sdat);
+  else sec = 0.0l;
+  // Convert the Right Ascension to decimal degrees
+  raread = 15.0l*hour + min/4.0l + sec/240.0l;
+  if(raread<0.0l || raread>360.0l) {
+    cerr << "ERROR: mpc80_readline cannot read a valid Right Ascension. Line:\n";
+    cerr << lnfromfile;
+    return(1);
+  }
+  *RA = raread;
+
+  // Read the Declination
+  // sign
+  decsign = lnfromfile[44];
+  if(decsign != '+' && decsign != '-') {
+    cerr << "ERROR: mpc80_readline cannot read a valid sign for the Declination. Line:\n";
+    cerr << lnfromfile;
+    return(1);
+  }
+  // degrees
+  sdat = {};
+  for(i=45;i<47;i++) {
+    sdat.push_back(lnfromfile[i]);
+  }
+  deg = stod(sdat);
+  // minutes
+  sdat = {};
+  for(i=48;i<50;i++) {
+    sdat.push_back(lnfromfile[i]);
+  }
+  if(sdat.size()>0) min = stod(sdat);
+  else min = 0.0l;
+  // seconds
+  sdat = {};
+  for(i=51;i<56;i++) {
+    c = lnfromfile[i];
+    if(c != ' ') sdat.push_back(c);
+  }
+  if(sdat.size()>0) sec = stod(sdat);
+  else sec = 0.0l;
+  // Convert the Declination to decimal degrees
+  decread = deg + min/60.0l + sec/3600.0l;
+  if(decsign == '-') decread *= -1.0l;
+  if(decread<-90.0l || decread>90.0l) {
+    cerr << "ERROR: mpc80_readline cannot read a valid Declination. Line:\n";
+    cerr << lnfromfile;
+    return(1);
+  }
+  *Dec = decread;
+  // Read the magnitude
+  sdat = {};
+  for(i=65;i<70;i++) {
+    c = lnfromfile[i];
+    if(c != ' ') sdat.push_back(c);
+  }
+  if(sdat.size()>0) *mag = stod(sdat);
+  else *mag = 0.0l;
+
+  // Read the band
+  band = {};
+  band.push_back(lnfromfile[70]);
+
+  // Read the obscode
+  obscode={};
+  for(i=77;i<80;i++) {
+    obscode.push_back(lnfromfile[i]);
+  }
+  return(0);
+}
+  
+// mpc80_mjd: February 01, 2023:
+// Extract the date alone from a line from an MPC 80-column formatted file,
+// convert it to MJD, and return it at double precision.
+double mpc80_mjd(const string &lnfromfile)
+{
+  int i;
+  int year=1900;
+  int month=1;
+  double day=1.0l;
+  double MJD=0.0l;
+  string sdat;
+  char c='0';
+  
+  // Read the year
+  sdat = {};
+  for(i=15;i<19;i++) {
+    sdat.push_back(lnfromfile[i]);
+  }
+  year = stoi(sdat);
+  // Read the month
+  sdat = {};
+  for(i=20;i<22;i++) {
+    sdat.push_back(lnfromfile[i]);
+  }
+  month = stoi(sdat);
+  // Read the day
+  sdat = {};
+  for(i=23;i<32;i++) {
+    c=lnfromfile[i];
+    if(c!=' ') sdat.push_back(c);
+  }
+  day = stod(sdat);
+  if(year<1900 || month<1 || month>12 || day < 1.0l || day > 32.0l) {
+    cerr << "mpc80_mjd cannot read a valid date from the line:\n";
+    cerr << lnfromfile;
+    return(-1.0l);
+  }
+  // Successfully read the date: convert it to MJD.
+  MJD = MPCcal2MJD(year,month,day);
+  return(MJD);
+}
+
+  
+ 
+  
+  

@@ -110,6 +110,8 @@ using namespace std;
                               // reducing the chance of hyperbolic orbits.
 #define SIMPLEX_SCALE_LIMIT ((sqrt(5.0L)-1.0L)/2.0L) // Can get negative distances if simplex_scale
                                                      // exceeds this value.
+#define LOG10_e 0.434294481903252L
+#define LN10 2.30258509299405L
 
 // String-handling stuff that has to be declared early because other things depend on it.
 void stringncopy01(char *dest, const string &source, int n);
@@ -385,6 +387,58 @@ public:
   }
 };
 
+class lower_point3d_index_y{ // Sort point3d_index by y
+public:
+  inline bool operator() (const point3d_index& p1, const point3d_index& p2) {
+    return(p1.y < p2.y);
+  }
+};
+
+class lower_point3d_index_z{ // Sort point3d_index by z
+public:
+  inline bool operator() (const point3d_index& p1, const point3d_index& p2) {
+    return(p1.z < p2.z);
+  }
+};
+
+class point4d_index{ // Double-precision 4-D point with long-integer idex
+public:
+  double t;
+  double x;
+  double y;
+  double z;
+  long index;
+  point4d_index(double t, double x, double y, double z, long index) :t(t), x(x), y(y), z(z), index(index) { }
+};
+
+class lower_point4d_index_t{ // Sort point4d_index by t
+public:
+  inline bool operator() (const point4d_index& p1, const point4d_index& p2) {
+    return(p1.t < p2.t);
+  }
+};
+
+class lower_point4d_index_x{ // Sort point4d_index by x
+public:
+  inline bool operator() (const point4d_index& p1, const point4d_index& p2) {
+    return(p1.x < p2.x);
+  }
+};
+
+class lower_point4d_index_y{ // Sort point4d_index by y
+public:
+  inline bool operator() (const point4d_index& p1, const point4d_index& p2) {
+    return(p1.y < p2.y);
+  }
+};
+
+class lower_point4d_index_z{ // Sort point4d_index by z
+public:
+  inline bool operator() (const point4d_index& p1, const point4d_index& p2) {
+    return(p1.z < p2.z);
+  }
+};
+
 class point3LD{ // Long double-precision 3-D point
 public:
   long double x;
@@ -392,6 +446,8 @@ public:
   long double z;
   point3LD(long double x, long double y, long double z) :x(x), y(y), z(z) { }
 };
+
+
 
 class point6LDx2{ // Long double-precision 6-D point plus 2 long integer indices
                   // The purpose of the indices is to specify the pair of detections
@@ -467,6 +523,38 @@ public:
   KD_point6LDx2(point6LDx2 point, long left, long right, int dim, int flag) :point(point), left(left), right(right), dim(dim), flag(flag) {}
 };
 
+class KD_point3d_index{ // 3-dimensional KD tree based on points of type point point3d_index.
+                     // These points carry a long integer index not used by
+                     // the KD tree, which itself uses two additional long integer
+                     // indices to specify the left and right branches, and one
+                     // regular integer to specify the dimension of the current
+                     // branching. We also provide a final integer, flag, to mark
+                     // points as already-checked for DBSCAN or other algorithms.
+public:
+  point3d_index point;
+  long left;
+  long right;
+  int dim;
+  int flag;
+  KD_point3d_index(point3d_index point, long left, long right, int dim, int flag) :point(point), left(left), right(right), dim(dim), flag(flag) {}
+};
+
+class KD_point4d_index{ // 4-dimensional KD tree based on points of type point point4d_index.
+                     // These points carry a long integer index not used by
+                     // the KD tree, which itself uses two additional long integer
+                     // indices to specify the left and right branches, and one
+                     // regular integer to specify the dimension of the current
+                     // branching. We also provide a final integer, flag, to mark
+                     // points as already-checked for DBSCAN or other algorithms.
+public:
+  point4d_index point;
+  long left;
+  long right;
+  int dim;
+  int flag;
+  KD_point4d_index(point4d_index point, long left, long right, int dim, int flag) :point(point), left(left), right(right), dim(dim), flag(flag) {}
+};
+
 class KD6_clust{ // Cluster of points produced by DBSCAN_6D01.
 public:
   int numpoints;
@@ -475,6 +563,7 @@ public:
   vector <long double> rmsvec;
   KD6_clust(int numpoints, vector <long> clustind, vector <long double> meanvec, vector <long double> rmsvec) :numpoints(numpoints), clustind(clustind), meanvec(meanvec), rmsvec(rmsvec) {}
 };
+
 
 class KD6i_clust{ // Cluster of points produced by DBSCAN_6i01.
 public:
@@ -820,6 +909,9 @@ long double intpowLD(long double x, int p);
 long double factorialLD(int p);
 double intpowD(double x, int p);
 double factorialD(int p);
+double dmean01(const vector <double> &invec);
+double drms01(const vector <double> &invec);
+int dmeanrms01(const vector <double> &invec, double *mean, double *rms);
 point3d celeproj01(double RA, double Dec);
 int celedeproj01(point3d p3, double *RA, double *Dec);
 point3LD celeproj01LD(long double RA, long double Dec);
@@ -893,6 +985,10 @@ int read_accel_fileLD(string accelfile, vector <long double> &heliodist, vector 
 int read_longitude_fileLD(string accelfile, vector <long double> &longitude_vel, vector <long double> &longitude_acc);
 long double weight_posvel_rms(const vector <point3LD> &poscluster,const vector <point3LD> &velcluster,const long double dtime, vector <long double> &rmsvec);
 int linfituw01(const vector <double> &x, const vector <double> &y, double &slope, double &intercept);
+int linfit01(const vector <double> &x, const vector <double> &y, const vector <double> &yerr, double &slope, double &intercept);
+int multilinfit01(const vector <double> &yvec, const vector <vector <double>> &xmat, int pnum, int fitnum, vector <double> &avec, int verbose);
+int multilinfit02(const vector <double> &yvec, const vector <double> &sigvec, const vector <vector <double>> &xmat, int pnum, int fitnum, vector <double> &avec, int verbose);
+int multilinfit02b(const vector <double> &yvec, const vector <double> &varvec, const vector <vector <double>> &xmat, int pnum, int fitnum, vector <double> &avec, int verbose);
 int arc2cel01(double racenter,double deccenter,double dist,double pa,double &outra,double &outdec);
 int obscode_lookup(const vector <observatory> &observatory_list, const char* obscode, double &obslon, double &plxcos,double &plxsin);
 string intzero01i(const int i, const int n);
@@ -933,3 +1029,16 @@ int Herget_unboundcheck01(long double geodist1, long double geodist2, int Herget
 long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit, int verbose);
 int Herget_simplex_int(long double geodist1, long double geodist2, long double simpscale, long double simplex[3][2], int simptype);
 long double Hergetfit01(long double geodist1, long double geodist2, long double simplex_scale, int simptype, long double ftol, int point1, int point2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit, int verbose);
+long medind_3d_index(const vector <point3d_index> &pointvec, int dim);
+int split3d_index(const vector <point3d_index> &pointvec, int dim, long splitpoint, vector <point3d_index> &left, vector <point3d_index> &right);
+int kdtree_3d_index(const vector <point3d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point3d_index> &kdvec);
+double point3d_index_dist2(const point3d_index &p1, const point3d_index &p2);
+int kdrange_3d_index(const vector <KD_point3d_index> &kdvec, const point3d_index &querypoint, double range, vector <long> &indexvec);
+long medind_4d_index(const vector <point4d_index> &pointvec, int dim);
+int split4d_index(const vector <point4d_index> &pointvec, int dim, long splitpoint, vector <point4d_index> &left, vector <point4d_index> &right);
+int kdtree_4d_index(const vector <point4d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point4d_index> &kdvec);
+double point4d_index_dist2(const point4d_index &p1, const point4d_index &p2);
+int kdrange_4d_index(const vector <KD_point4d_index> &kdvec, const point4d_index &querypoint, double range, vector <long> &indexvec);
+double MPCcal2MJD(int year, int month, double day);
+int mpc80_parseline(const string &lnfromfile, string &object, double *MJD, double *RA, double *Dec, double *mag, string &band, string &obscode);
+double mpc80_mjd(const string &lnfromfile);
