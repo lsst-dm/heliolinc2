@@ -105,22 +105,24 @@ int main(int argc, char *argv[])
   while(!instream1.bad() && !instream1.fail() && !instream1.eof()) {
     // Read a line from the mpc file
     getline(instream1,lnfromfile);
-    // Extract the MJD
-    MJD = mpc80_mjd(lnfromfile);
-    // Read the obscode
-    obscode={};
-    for(i=77;i<80;i++) {
-      obscode.push_back(lnfromfile[i]);
-    }
-    if(MJD>=mjdstart && MJD<=mjdend) {
-      // See if the code is OK
-      isbadcode=0;
-      for(i=0; i<badcodes.size(); i++) {
-	if(obscode.compare(badcodes[i])==0) isbadcode=1;
+    if(!instream1.bad() && !instream1.fail() && !instream1.eof() && lnfromfile.size()>=80) {
+      // Extract the MJD
+      MJD = mpc80_mjd(lnfromfile);
+      // Read the obscode
+      obscode={};
+      for(i=77;i<80;i++) {
+	obscode.push_back(lnfromfile[i]);
       }
-      if(!isbadcode) {
-	// This line is good: write it to the output file
-	outstream1 << lnfromfile << "\n";
+      if(MJD>=mjdstart && MJD<=mjdend) {
+	// See if the code is OK
+	isbadcode=0;
+	for(i=0; i<badcodes.size(); i++) {
+	  if(obscode.compare(badcodes[i])==0) isbadcode=1;
+	}
+	if(!isbadcode) {
+	  // This line is good: write it to the output file
+	  outstream1 << lnfromfile << "\n";
+	}
       }
     }
   }

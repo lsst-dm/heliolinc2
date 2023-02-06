@@ -358,17 +358,18 @@ int main(int argc, char *argv[])
   while(!instream1.bad() && !instream1.fail() && !instream1.eof()) {
     // Read a line from the mpc file
     getline(instream1,lnfromfile);
-    // Parse out the interesting infromation.
-    mpc80_parseline(lnfromfile, object, &MJD, &RA, &Dec, &mag, band, obscode);
-    //cout << "Object " << object << " " << MJD << " " << RA << " " << Dec << " " << mag << " " << band << " " << obscode << "\n";
-    if(MJD>mjdstart && MJD<mjdend) {
-      mpclines.push_back(lnfromfile);
-      mpc_MJD.push_back(MJD);
-      mpc_RA.push_back(RA);
-      mpc_Dec.push_back(Dec);
-      mpc_mag.push_back(mag);
-      mpc_obscode.push_back(obscode);
-      mpc_object.push_back(object);
+    if(!instream1.bad() && !instream1.fail() && !instream1.eof() && lnfromfile.size()>=80) {
+      // Parse out the interesting infromation.
+      mpc80_parseline(lnfromfile, object, &MJD, &RA, &Dec, &mag, band, obscode);
+      if(MJD>mjdstart && MJD<mjdend) {
+	mpclines.push_back(lnfromfile);
+	mpc_MJD.push_back(MJD);
+	mpc_RA.push_back(RA);
+	mpc_Dec.push_back(Dec);
+	mpc_mag.push_back(mag);
+	mpc_obscode.push_back(obscode);
+	mpc_object.push_back(object);
+      }
     }
   }
 
