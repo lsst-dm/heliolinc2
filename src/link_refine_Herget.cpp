@@ -605,7 +605,7 @@ int main(int argc, char *argv[])
 		startpoint = endpoint+1;
 		i2 = stoi(stest);
 		if(i2 != clustan.clusterct) {
-		  cerr << "ERROR: cluster count mismatch at rms line " << rmslinect << ", cluster file line " << clustlinect << "\n";
+		  cerr << "ERROR: cluster count mismatch at rms line " << rmslinect << ", cluster file line " << clustlinect << ": " << i2 << " != " << clustan.clusterct << "\n";
 		  return(1);
 		}
 	      } else badread=1;
