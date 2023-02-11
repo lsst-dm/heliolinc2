@@ -1150,7 +1150,8 @@ int main(int argc, char *argv[])
   for(i=pairdets.size()-1; i>=0 ;i--) {
     pdct=pair_partner_num[i].index;
     istracklet=0; // Assume there is no tracklet unless one is confirmed to exist.
-    if(pairdets[pdct].indvec.size() > mintrkpts-1) {
+    if(pairdets[pdct].indvec.size() > mintrkpts-1) { // Use mintrkpts-1 because the root detection pdct
+                                                     // is itself is a potential point in the tracklet
       if(DEBUG>=2) {
 	cout << "Working on detection " << i << " = " << pdct << " with " << pair_partner_num[i].lelem << " = " << pairdets[pdct].indvec.size() << " pair partners:\n";
 	for(j=0; j<pairdets[pdct].indvec.size(); j++) {
@@ -1158,7 +1159,7 @@ int main(int argc, char *argv[])
 	}
 	cout << "\n";
       }
-      // The corresponding detection is paired with more than one
+      // Detection number pdct is paired with more than one
       // other detection.
       // Project all of these pairs relative to detection pdct,
       // storing x,y projected coordinates in axyvec.
@@ -1439,15 +1440,18 @@ int main(int argc, char *argv[])
       // Close if-statement checking that detection i has more than
       // one pair-partner, and hence COULD be part of a tracklet
     } else istracklet=0;
-    if(istracklet==0 && mintrkpts==2) {
-      // Write out all the pairs as normal
+    if((istracklet==0 || pairdets[pdct].indvec.size()>0) && mintrkpts==2) {
+      // Either there was no tracklet (istracklet==0) or there was a tracklet,
+      // but the original root point pdct got rejected from it.
+      // In either case, it's necessary to write out the (surviving) pairs
+      // associated with detection pdct.
       for(j=0; j<pairdets[pdct].indvec.size(); j++) {
 	k=pairdets[pdct].indvec[j];
 	// Calculate angular arc and angular velocity
 	distradec02(pairdets[pdct].RA,pairdets[pdct].Dec,pairdets[k].RA,pairdets[k].Dec, &dist, &pa);
 	angvel = dist/fabs(pairdets[pdct].MJD-pairdets[k].MJD); // Degrees per day
 	dist *= 3600.0l; // Arcseconds
-	if(pairdets[k].indvec.size()>0 && k>pdct && angvel>=minvel && dist>=minarc && angvel<=maxvel) {
+	if(pairdets[k].indvec.size()>0 && pairdets[k].MJD>pairdets[pdct].MJD && angvel>=minvel && dist>=minarc && angvel<=maxvel) {
 	  outstream1 << "P " <<  pdct << " " <<  k << "\n";
 	} else if(angvel<minvel || dist<minarc) {
 	  cout << "A pair was rejected: arc = " << setprecision(3) << fixed << dist << " < " << minarc << " or angvel = " << setprecision(5) << fixed << angvel << " not in range " << setprecision(3) << fixed << minvel << "-" << maxvel << "\n";
