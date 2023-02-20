@@ -43,6 +43,18 @@ int stringnmatch01(const char *string1, const char *string2, int n)
   return(0);
 }
 
+// char1000_getstring: February 20, 2023: given an object of class char1000_index,
+// extract just character array and return it as a string
+string char1000_getstring(const char1000_index &ci) {
+  string s1;
+  int i=0;
+  while(i<1000 && ci.selem[i]!=0) {
+    s1.push_back(ci.selem[i]);
+    i++;
+  }
+  return(s1);
+}
+
 // January 20, 2023: changed all the vector and matrix
 // allocations to use <nx, <ny rather than <=nx, <=ny.
 // The old way made them safe against using 1-indexed
@@ -10704,7 +10716,3 @@ double mpc80_mjd(const string &lnfromfile)
   return(MJD);
 }
 
-  
- 
-  
-  

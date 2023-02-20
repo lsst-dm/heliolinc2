@@ -805,6 +805,32 @@ public:
   }
 };
 
+class char1000_index{ // Pairs a string with an index, intended for use
+                      // accessing elements in a vector of a more complex
+                      // class in an order sorted by a string element,
+                      // without actually re-sorting the vector.
+public:
+  char selem[1000];
+  long index;
+  char1000_index(const string &selem, long index) :index(index) {
+    // Copy input value of selem, making sure it's not too long
+    assert(selem.size() < sizeof(this->selem));
+    std::strncpy(this->selem, selem.c_str(), sizeof(this->selem));
+    this->selem[sizeof(this->selem)-1] = 0;
+  }
+};
+
+string char1000_getstring(const char1000_index &ci);
+
+class lower_char1000_index{
+public:
+  inline bool operator() (const char1000_index& i1, const char1000_index& i2) {
+    string s1 = char1000_getstring(i1);
+    string s2 = char1000_getstring(i2);
+    return(s1 < s2);
+  }
+};
+
 class long_index{   // Pairs a long integer with an index, intended for use
                     // accessing elements in a vector of a more complex
                     // class in an order sorted by a long integer element,
