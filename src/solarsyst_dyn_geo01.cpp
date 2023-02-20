@@ -55,6 +55,54 @@ string char1000_getstring(const char1000_index &ci) {
   return(s1);
 }
 
+// char500_getstring: February 20, 2023: given an object of class char500_index,
+// extract just character array and return it as a string
+string char500_getstring(const char500_index &ci) {
+  string s1;
+  int i=0;
+  while(i<500 && ci.selem[i]!=0) {
+    s1.push_back(ci.selem[i]);
+    i++;
+  }
+  return(s1);
+}
+
+// char256_getstring: February 20, 2023: given an object of class char256_index,
+// extract just character array and return it as a string
+string char256_getstring(const char256_index &ci) {
+  string s1;
+  int i=0;
+  while(i<256 && ci.selem[i]!=0) {
+    s1.push_back(ci.selem[i]);
+    i++;
+  }
+  return(s1);
+}
+
+// char128_getstring: February 20, 2023: given an object of class char128_index,
+// extract just character array and return it as a string
+string char128_getstring(const char128_index &ci) {
+  string s1;
+  int i=0;
+  while(i<128 && ci.selem[i]!=0) {
+    s1.push_back(ci.selem[i]);
+    i++;
+  }
+  return(s1);
+}
+
+// char64_getstring: February 20, 2023: given an object of class char64_index,
+// extract just character array and return it as a string
+string char64_getstring(const char64_index &ci) {
+  string s1;
+  int i=0;
+  while(i<64 && ci.selem[i]!=0) {
+    s1.push_back(ci.selem[i]);
+    i++;
+  }
+  return(s1);
+}
+
 // January 20, 2023: changed all the vector and matrix
 // allocations to use <nx, <ny rather than <=nx, <=ny.
 // The old way made them safe against using 1-indexed

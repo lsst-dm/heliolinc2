@@ -831,6 +831,110 @@ public:
   }
 };
 
+class char500_index{ // Pairs a string with an index, intended for use
+                      // accessing elements in a vector of a more complex
+                      // class in an order sorted by a string element,
+                      // without actually re-sorting the vector.
+public:
+  char selem[1000];
+  long index;
+  char500_index(const string &selem, long index) :index(index) {
+    // Copy input value of selem, making sure it's not too long
+    assert(selem.size() < sizeof(this->selem));
+    std::strncpy(this->selem, selem.c_str(), sizeof(this->selem));
+    this->selem[sizeof(this->selem)-1] = 0;
+  }
+};
+
+string char500_getstring(const char500_index &ci);
+
+class lower_char500_index{
+public:
+  inline bool operator() (const char500_index& i1, const char500_index& i2) {
+    string s1 = char500_getstring(i1);
+    string s2 = char500_getstring(i2);
+    return(s1 < s2);
+  }
+};
+
+class char256_index{ // Pairs a string with an index, intended for use
+                      // accessing elements in a vector of a more complex
+                      // class in an order sorted by a string element,
+                      // without actually re-sorting the vector.
+public:
+  char selem[1000];
+  long index;
+  char256_index(const string &selem, long index) :index(index) {
+    // Copy input value of selem, making sure it's not too long
+    assert(selem.size() < sizeof(this->selem));
+    std::strncpy(this->selem, selem.c_str(), sizeof(this->selem));
+    this->selem[sizeof(this->selem)-1] = 0;
+  }
+};
+
+string char256_getstring(const char256_index &ci);
+
+class lower_char256_index{
+public:
+  inline bool operator() (const char256_index& i1, const char256_index& i2) {
+    string s1 = char256_getstring(i1);
+    string s2 = char256_getstring(i2);
+    return(s1 < s2);
+  }
+};
+
+class char128_index{ // Pairs a string with an index, intended for use
+                      // accessing elements in a vector of a more complex
+                      // class in an order sorted by a string element,
+                      // without actually re-sorting the vector.
+public:
+  char selem[1000];
+  long index;
+  char128_index(const string &selem, long index) :index(index) {
+    // Copy input value of selem, making sure it's not too long
+    assert(selem.size() < sizeof(this->selem));
+    std::strncpy(this->selem, selem.c_str(), sizeof(this->selem));
+    this->selem[sizeof(this->selem)-1] = 0;
+  }
+};
+
+string char128_getstring(const char128_index &ci);
+
+class lower_char128_index{
+public:
+  inline bool operator() (const char128_index& i1, const char128_index& i2) {
+    string s1 = char128_getstring(i1);
+    string s2 = char128_getstring(i2);
+    return(s1 < s2);
+  }
+};
+
+class char64_index{ // Pairs a string with an index, intended for use
+                      // accessing elements in a vector of a more complex
+                      // class in an order sorted by a string element,
+                      // without actually re-sorting the vector.
+public:
+  char selem[1000];
+  long index;
+  char64_index(const string &selem, long index) :index(index) {
+    // Copy input value of selem, making sure it's not too long
+    assert(selem.size() < sizeof(this->selem));
+    std::strncpy(this->selem, selem.c_str(), sizeof(this->selem));
+    this->selem[sizeof(this->selem)-1] = 0;
+  }
+};
+
+string char64_getstring(const char64_index &ci);
+
+class lower_char64_index{
+public:
+  inline bool operator() (const char64_index& i1, const char64_index& i2) {
+    string s1 = char64_getstring(i1);
+    string s2 = char64_getstring(i2);
+    return(s1 < s2);
+  }
+};
+
 class long_index{   // Pairs a long integer with an index, intended for use
                     // accessing elements in a vector of a more complex
                     // class in an order sorted by a long integer element,
