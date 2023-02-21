@@ -78,9 +78,9 @@
 
 static void show_usage()
 {
-  cerr << "Usage: link_refine_Herget -pairdet pairdet_file -lflist link_file_list -mjd mjdref -simptype simplex_type -usetime usetime -maxrms maxrms -outfile outfile -outrms rmsfile -verbose verbosity\n";
+  cerr << "Usage: link_refine_Herget -pairdet pairdet_file -lflist link_file_list -mjd mjdref -simptype simplex_type -ptpow point_num_exponent -nightpow night_num_exponent -timepow timespan_exponent -rmspow astrom_rms_exponent -maxrms maxrms -outfile outfile -outrms rmsfile -verbose verbosity\n\nOR, at minimum:\nlink_refine_Herget -pairdet pairdet_file -lflist link_file_list -mjd mjdref -outfile outfile -outrms rmsfile\n";
 }
-    
+
 int main(int argc, char *argv[])
 {
   int i=1;
@@ -146,6 +146,11 @@ int main(int argc, char *argv[])
   int detfilelinect=0;
   point3d unitvec = point3d(0l,0l,0l);
   point3d testvec = point3d(0l,0l,0l);
+  int ptpow = 1;      // Set the exponent to be used for the number of unique
+                      // points in calculating the cluster quality metric.
+  int nightpow = 1;   // Exponent for number of unique nights in quality metric.
+  int timepow = 0;    // Exponent for total time span in quality metric.
+  int rmspow = 2;     // Exponent for astrometric RMS (sqrt(variance)) in quality metric.
   
   float_index findex = float_index(0L,0);
   vector <float_index> clustanvec2;
@@ -168,10 +173,9 @@ int main(int argc, char *argv[])
   long double simplex_scale = SIMPLEX_SCALEFAC;
   int point1, point2;
   int simptype=0;
-  int usetime=0; // Sets whether we include timespan in the cluster quality metric.
   int verbose=0;
   
-  if(argc!=11 && argc!=13 && argc!=15 && argc!=17) {
+  if(argc!=11 && argc!=13 && argc!=15 && argc!=17 && argc!=19 && argc!=21 && argc!=23 && argc!=25) {
     show_usage();
     return(1);
   }
@@ -233,14 +237,47 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-usetime" || string(argv[i]) == "-ut" || string(argv[i]) == "-timeuse" || string(argv[i]) == "-use_time" || string(argv[i]) == "-time_use" || string(argv[i]) == "--use_time" || string(argv[i]) == "--include_time") {
+    } else if(string(argv[i]) == "-ptpow" || string(argv[i]) == "-ptexp" || string(argv[i]) == "-pointpow" || string(argv[i]) == "-pointnumpow" || string(argv[i]) == "-pointnum_exp" || string(argv[i]) == "--ptpow" || string(argv[i]) == "--pointnum_power") {
       if(i+1 < argc) {
 	//There is still something to read;
-	usetime=stoi(argv[++i]);
+	ptpow=stoi(argv[++i]);
 	i++;
       }
       else {
-	cerr << "keyword for whether time is included in cluster metric supplied with no corresponding argument";
+	cerr << "keyword for ptpow, the power to which the number of unique points\nis raised when calcuating the quality metric\nsupplied with no corresponding argument";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-nightpow" || string(argv[i]) == "-nightexp" || string(argv[i]) == "-npow" || string(argv[i]) == "-nightnumpow" || string(argv[i]) == "-nightnum_exp" || string(argv[i]) == "--nightpow" || string(argv[i]) == "--nightnum_power") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	nightpow=stoi(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "keyword for nightpow, the power to which the number of unique\n observing nights is raised when calcuating the quality metric\nsupplied with no corresponding argument";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-timepow" || string(argv[i]) == "-timeexp" || string(argv[i]) == "-timexp" || string(argv[i]) == "-tpow" || string(argv[i]) == "-timespan_pow" || string(argv[i]) == "--timepow" || string(argv[i]) == "--timespan_power") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	timepow=stoi(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "keyword for timepow, the power to which the total timespan is raised when calcuating\nthe quality metric supplied with no corresponding argument";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-rmspow" || string(argv[i]) == "-rmsexp" || string(argv[i]) == "-rmspower" || string(argv[i]) == "-rpow" || string(argv[i]) == "-astromrms_pow" || string(argv[i]) == "--rmspow" || string(argv[i]) == "--astrom_rms_power") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	rmspow=stoi(argv[++i]);
+	i++;
+      }
+      else {
+	cerr << "keyword for rmspow, the power to which the astrometric\nRMS residual is raised when calcuatingthe quality metric\nsupplied with no corresponding argument";
 	show_usage();
 	return(1);
       }
@@ -287,6 +324,10 @@ int main(int argc, char *argv[])
   cout << "input cluster list file " << clusterlist << "\n";
   cout << "Reference MJD: " << mjdref << "\n";
   cout << "Maximum RMS in km: " << maxrms << "\n";
+  cout << "In calculating the cluster quality metric, the number of\nunique points will be raised to the power of " << ptpow << ";\n";
+  cout << "the number of unique nights will be raised to the power of " << nightpow << ";\n";
+  cout << "the total timespan will be raised to the power of " << timepow << ";\n";
+  cout << "and the astrometric RMS will be raised to the power of (negative) " << rmspow << "\n";
   cout << "output cluster file " << outfile << "\n";
   cout << "output rms file " << outrmsfile << "\n";
 
@@ -465,11 +506,7 @@ int main(int argc, char *argv[])
 	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
 	
 	// Recalculate the float clustermetric
-	if(usetime==0) {
-	  clustmetric = double(ptnum)*double(obsnights);
-	} else {
-	  clustmetric = double(ptnum)*double(obsnights)*timespan;
-	}	  
+	clustmetric = intpowD(double(ptnum),ptpow)*intpowD(double(obsnights),nightpow)*intpowD(timespan,timepow);
 	// Note that the value of clustermetric just calculated
 	// will later be divided by the reduced chi-square value of the
 	// astrometric fit, before it is ultimately used as a selection criterion.
@@ -690,8 +727,10 @@ int main(int argc, char *argv[])
 	                             // RMS in units of the typical uncertainty.
 	    // Include this astrometric RMS value in the cluster metric and the RMS vector
 	    clustan.rmsvec.push_back(astromrms); // rmsvec[3]: astrometric rms in arcsec.
-	    clustan.clustermetric /= chisq; // We use reduced chi-square rather than RMS for the clustermetric,
-	                                    // in order to prioritize low astrometric error even more.
+	    clustan.clustermetric /= intpowD(astromrms,rmspow); // Under the default value rmspow=2, this is equivalent
+	                                                        // to dividing by the chi-square value rather than just
+	                                                        // the astrometric RMS, which has the desireable effect of
+	                                                        // prioritizing low astrometric error even more.
 	    for(i=0;i<10;i++) clustan.statevecs.push_back(orbit[i]);
 	    // statevecs now contains original heliolinc state vecs [0-5],
 	    // Herget fit semimajor axis [6], eccentricity [7], MJD at epoch [8],
