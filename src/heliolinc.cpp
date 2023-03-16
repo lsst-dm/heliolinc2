@@ -205,6 +205,11 @@
 
 #define DEBUG_A 0
 
+#define MINGEOOBS 0.0l // Geocentric distance (AU) at time of observation that causes objects
+                       // to be considered for rejection in order to avoid globs.
+#define MINIMPACTPAR 0.0l // Impact parameter with respect to Earth (km) that causes objects
+                          // to be rejected, if also within MINGEOOBS, in order to avoid globs.
+
 static void show_usage()
 {
   cerr << "Usage: heliolinc -dets detfile -pairs pairfile -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad cluster_radius -npt dbscan_npt -minobsnights minobsnights -mintimespan mintimespan -mingeodist minium_geocentric_distance -maxgeodist maximum_geocentric_distance -geologstep logarithmic_step_size_for_geocentric_distance_bins -out outfile -outsum summary_file \n";
@@ -259,7 +264,8 @@ int main(int argc, char *argv[])
   point3LD Earthrefpos = point3LD(0,0,0);
   point3LD targvel1 = point3LD(0,0,0);
   point3LD targvel2 = point3LD(0,0,0);
-  point3LD observerpos = point3LD(0,0,0);
+  point3LD observerpos1 = point3LD(0,0,0);
+  point3LD observerpos2 = point3LD(0,0,0);
   point3LD unitbary = point3LD(0,0,0);
   point3LD targpos1 = point3LD(0,0,0);
   point3LD targpos2 = point3LD(0,0,0);
@@ -346,10 +352,19 @@ int main(int argc, char *argv[])
   int default_cluster_radius, default_npt, default_mindaysteps;
   int default_mintimespan, default_mingeodist, default_maxgeodist;
   int default_geologstep,default_outfile,default_rmsfile;
+  int default_mingeoobs, default_minimpactpar;
   default_cluster_radius = default_npt = default_mindaysteps = default_mintimespan = 1;
   default_mingeodist = default_maxgeodist = default_geologstep = default_outfile = default_rmsfile = 1;
+  default_mingeoobs = default_minimpactpar = 1;
   int verbose=0;
-    
+  int glob_warning=0;
+  long double impactpar=0.0L;
+  long double absvelocity=0.0L;
+  double mingeoobs = MINGEOOBS; // Geocentric distance (AU) at time of observation that causes objects
+                                // to be considered for rejection in order to avoid globs.
+  double minimpactpar =  MINIMPACTPAR; // Impact parameter with respect to Earth (Earth radii) that causes objects
+                                       // to be rejected, if also within MINGEOOBS, in order to avoid globs.
+
   i=1;
   while(i<argc) {
     cout << "Checking out argv[" << i << "] = " << argv[i] << ".\n";
@@ -493,7 +508,31 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    }  else if(string(argv[i]) == "-verbose" || string(argv[i]) == "-verb" || string(argv[i]) == "-VERBOSE" || string(argv[i]) == "-VERB" || string(argv[i]) == "--verbose" || string(argv[i]) == "--VERBOSE" || string(argv[i]) == "--VERB") {
+    } else if(string(argv[i]) == "-mingeoobs" || string(argv[i]) == "-mgo" || string(argv[i]) == "-minobsdist" || string(argv[i]) == "-mindistobs" || string(argv[i]) == "--min_geocentric_obsdist" || string(argv[i]) == "--min_observation_distance" || string(argv[i]) == "--mingeoobs") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	mingeoobs=stod(argv[++i]);
+	default_mingeoobs = 0;
+	i++;
+      }
+      else {
+	cerr << "Minimum geocentric distance at observation keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-minimpactpar" || string(argv[i]) == "-mip" || string(argv[i]) == "-minimp" || string(argv[i]) == "-minimppar" || string(argv[i]) == "--minimum_impact_parameter" || string(argv[i]) == "--minimpactpar" || string(argv[i]) == "--min_impact_par") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	minimpactpar=stod(argv[++i]);
+	default_minimpactpar = 0;
+	i++;
+      }
+      else {
+	cerr << "Minimum impact parameter keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-verbose" || string(argv[i]) == "-verb" || string(argv[i]) == "-VERBOSE" || string(argv[i]) == "-VERB" || string(argv[i]) == "--verbose" || string(argv[i]) == "--VERBOSE" || string(argv[i]) == "--VERB") {
       if(i+1 < argc) {
 	//There is still something to read;
 	verbose=stoi(argv[++i]);
@@ -634,6 +673,10 @@ int main(int argc, char *argv[])
   else cout << "maximum geocentric distance is " << maxgeodist << " AU\n";
   if(default_geologstep==1) cout << "Defaulting to logarithmic step size for geocentric distance bins = " << geologstep << "\n";
   else cout << "logarithmic step size for geocentric distance bins is " << geologstep << "\n";
+  if(default_mingeoobs==1) cout << "Defaulting to minimum geocentric distance at observation = " << mingeoobs << " AU\n";
+  else cout << "Minimum geocentric distance at observation = " << mingeoobs << " AU\n";
+  if(default_minimpactpar==1) cout << "Defaulting to minimum impact parameter = " << minimpactpar << " km\n";
+  else cout << "Minimum impact parameter is " << minimpactpar << " km\n";
   if(default_outfile==1) cout << "WARNING: using default name " << outfile << " for comprehensive output file\n";
   else cout << "comprehensive output file " << outfile << "\n";
   if(default_rmsfile==1) cout << "WARNING: using default name " << rmsfile << " for summary output file\n";
@@ -849,17 +892,18 @@ int main(int argc, char *argv[])
       RA = detvec[i1].RA;
       Dec = detvec[i1].Dec;
       celestial_to_stateunitLD(RA,Dec,unitbary);
-      observerpos = point3LD(detvec[i1].x,detvec[i1].y,detvec[i1].z);
+      observerpos1 = point3LD(detvec[i1].x,detvec[i1].y,detvec[i1].z);
       targposvec1={};
       deltavec1={};
-      status1 = helioproj02LD(unitbary,observerpos, heliodistvec[i1], deltavec1, targposvec1);
+      status1 = helioproj02LD(unitbary,observerpos1, heliodistvec[i1], deltavec1, targposvec1);
       RA = detvec[i2].RA;
       Dec = detvec[i2].Dec;
       celestial_to_stateunitLD(RA,Dec,unitbary);
-      observerpos = point3LD(detvec[i2].x,detvec[i2].y,detvec[i2].z);
+      observerpos2 = point3LD(detvec[i2].x,detvec[i2].y,detvec[i2].z);
       targposvec2={};
       deltavec2={};
-      status2 = helioproj02LD(unitbary, observerpos, heliodistvec[i2], deltavec2, targposvec2);
+      status2 = helioproj02LD(unitbary, observerpos2, heliodistvec[i2], deltavec2, targposvec2);
+      
       if(status1 > 0 && status2 > 0 && badpoint==0) {
 	// Calculate time difference between the observations
 	timediff = (detvec[i2].MJD - detvec[i1].MJD)*SOLARDAY;
@@ -868,35 +912,84 @@ int main(int argc, char *argv[])
 	if(num_dist_solutions > status2) num_dist_solutions = status2;
 	// Loop over solutions (num_dist_solutions can only be 1 or 2).
 	for(solnct=0; solnct<num_dist_solutions; solnct++) {
-	  targpos1 = targposvec1[solnct];
-	  targpos2 = targposvec2[solnct];
+	  // Begin new stuff added to eliminate 'globs'
+	  // These are spurious linkages of unreasonably large numbers (typically tens of thousands)
+	  // of detections that arise when the hypothetical heliocentric distance at a time when
+	  // many observations are acquired is extremely close to, but slightly greater than,
+	  // the heliocentric distance of the observer. Then detections over a large area of sky
+	  // wind up with projected 3-D positions in an extremely small volume -- and furthermore,
+	  // they all have similar velocities because the very small geocentric distance causes
+	  // the inferred velocities to be dominated by the observer's motion and the heliocentric
+	  // hypothesis, with only a negligible contribution from the on-sky angular velocity.
+	  glob_warning=0;
+	  if(deltavec1[solnct]<mingeoobs*AU_KM && deltavec2[solnct]<mingeoobs*AU_KM) {
+	    // New-start
+	    // Load target positions
+	    targpos1 = targposvec1[solnct];
+	    targpos2 = targposvec2[solnct];
+	    // Calculate positions relative to observer
+	    targpos1.x -= observerpos1.x;
+	    targpos1.y -= observerpos1.y;
+	    targpos1.z -= observerpos1.z;
+	    
+	    targpos2.x -= observerpos2.x;
+	    targpos2.y -= observerpos2.y;
+	    targpos2.z -= observerpos2.z;
+	    
+	    // Calculate velocity relative to observer
+	    targvel1.x = (targpos2.x - targpos1.x)/timediff;
+	    targvel1.y = (targpos2.y - targpos1.y)/timediff;
+	    targvel1.z = (targpos2.z - targpos1.z)/timediff;
+   
+	    // Calculate impact parameter (past or future).
+	    absvelocity = vecabs3LD(targvel1);
+	    impactpar = dotprod3LD(targpos1,targvel1)/absvelocity;
+	    // Effectively, we've projected targpos1 onto the velocity
+	    // vector, and impactpar temporarily holds the magnitude of this projection.
+	    // Subtract off the projection of the distance onto the velocity unit vector
+	    targpos1.x -= impactpar*targvel1.x/absvelocity;
+	    targpos1.y -= impactpar*targvel1.y/absvelocity;
+	    targpos1.z -= impactpar*targvel1.z/absvelocity;
+	    // Now targpos1 is the impact parameter vector at projected closest approach.
+	    impactpar  = vecabs3LD(targpos1); // Now impactpar is really the impact parameter
+	    if(impactpar<=minimpactpar) {
+	      // The hypothesis implies the object already passed with minimpactpar km of the Earth
+	      // in the likely case that minimpactpar has been set to imply an actual impact,
+	      // it's not our problem anymore.
+	      glob_warning=1;
+	    }
+	  }
+	  if(!glob_warning) {
+	    targpos1 = targposvec1[solnct];
+	    targpos2 = targposvec2[solnct];
 	  
-	  targvel1.x = (targpos2.x - targpos1.x)/timediff;
-	  targvel1.y = (targpos2.y - targpos1.y)/timediff;
-	  targvel1.z = (targpos2.z - targpos1.z)/timediff;
+	    targvel1.x = (targpos2.x - targpos1.x)/timediff;
+	    targvel1.y = (targpos2.y - targpos1.y)/timediff;
+	    targvel1.z = (targpos2.z - targpos1.z)/timediff;
 
-	  targpos1.x = 0.5L*targpos2.x + 0.5L*targpos1.x;
-	  targpos1.y = 0.5L*targpos2.y + 0.5L*targpos1.y;
-	  targpos1.z = 0.5L*targpos2.z + 0.5L*targpos1.z;
+	    targpos1.x = 0.5L*targpos2.x + 0.5L*targpos1.x;
+	    targpos1.y = 0.5L*targpos2.y + 0.5L*targpos1.y;
+	    targpos1.z = 0.5L*targpos2.z + 0.5L*targpos1.z;
       
-	  // Integrate orbit to the reference time.
-	  mjdavg = 0.5L*detvec[i1].MJD + 0.5L*detvec[i2].MJD;
-	  status1 = Keplerint(GMSUN_KM3_SEC2,mjdavg,targpos1,targvel1,mjdref,targpos2,targvel2);
-	  if(status1 == 0 && badpoint==0) {
-	    statevec1 = point6LDx2(targpos2.x,targpos2.y,targpos2.z,chartimescale*targvel2.x,chartimescale*targvel2.y,chartimescale*targvel2.z,pairct,i1);
-	    // Note that the multiplication by chartimescale converts velocities in km/sec
-	    // to units of km, for apples-to-apples comparison with the positions.
-	    stateveci = conv_6LD_to_6i(statevec1,INTEGERIZING_SCALE);
-	    allstatevecs.push_back(stateveci);
-	  } else {
-	    // Kepler integration encountered unphysical situation.
+	    // Integrate orbit to the reference time.
+	    mjdavg = 0.5L*detvec[i1].MJD + 0.5L*detvec[i2].MJD;
+	    status1 = Keplerint(GMSUN_KM3_SEC2,mjdavg,targpos1,targvel1,mjdref,targpos2,targvel2);
+	    if(status1 == 0 && badpoint==0) {
+	      statevec1 = point6LDx2(targpos2.x,targpos2.y,targpos2.z,chartimescale*targvel2.x,chartimescale*targvel2.y,chartimescale*targvel2.z,pairct,i1);
+	      // Note that the multiplication by chartimescale converts velocities in km/sec
+	      // to units of km, for apples-to-apples comparison with the positions.
+	      stateveci = conv_6LD_to_6i(statevec1,INTEGERIZING_SCALE);
+	      allstatevecs.push_back(stateveci);
+	    } else {
+	      // Kepler integration encountered unphysical situation.
 	    continue;
+	    }
 	  }
 	}
       } else {
-	badpoint=1;
-	// Heliocentric projection found no physical solution.
-	continue;
+	  badpoint=1;
+	  // Heliocentric projection found no physical solution.
+	  continue;
       }
     }
   
