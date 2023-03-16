@@ -112,6 +112,7 @@ using namespace std;
                                                      // exceeds this value.
 #define LOG10_e 0.434294481903252L
 #define LN10 2.30258509299405L
+#define IMAGETIMETOL 1.0 // Tolerance for matching image time, in seconds
 
 // String-handling stuff that has to be declared early because other things depend on it.
 void stringncopy01(char *dest, const string &source, int n);
@@ -182,19 +183,19 @@ class det_obsmag_indvec{ // Detection of some astronomical source with
                          // the input idstring, band, and obcode strings are
                          // not too long.
 public:
-  long double MJD;
+  double MJD;
   double RA;
   double Dec;
-  long double x;
-  long double y;
-  long double z;
+  double x;
+  double y;
+  double z;
   char idstring[SHORTSTRINGLEN];
   double mag;
   char band[MINSTRINGLEN];
   char obscode[MINSTRINGLEN];
   long index;
   vector <int> indvec;
-  det_obsmag_indvec(long double mjd, double ra, double dec, long double x, long double y, long double z, const string &idstring, double mag, const string &band, const string &obscode, long index, vector <int> indvec) :MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), mag(mag), index(index) , indvec(indvec) {
+  det_obsmag_indvec(long double mjd, double ra, double dec, double x, double y, double z, const string &idstring, double mag, const string &band, const string &obscode, long index, vector <int> indvec) :MJD(mjd), RA(ra), Dec(dec), x(x), y(y), z(z), mag(mag), index(index) , indvec(indvec) {
     // Copy input value of idstring, making sure it's not too long
     assert(idstring.size() < sizeof(this->idstring));
     std::strncpy(this->idstring, idstring.c_str(), sizeof(this->idstring));
@@ -1172,3 +1173,8 @@ int kdrange_4d_index(const vector <KD_point4d_index> &kdvec, const point4d_index
 double MPCcal2MJD(int year, int month, double day);
 int mpc80_parseline(const string &lnfromfile, string &object, double *MJD, double *RA, double *Dec, double *mag, string &band, string &obscode);
 double mpc80_mjd(const string &lnfromfile);
+int read_obscode_file(string obscodefile,  vector <observatory> &observatory_list);
+int read_detection_filemt(string indetfile, int idcol, int mjdcol, int racol, int deccol, int magcol,int bandcol, int obscodecol, vector <det_obsmag_indvec> &detvec, int forcerun);
+double avg_extrema(const vector <double> &x);
+int read_image_file(string inimfile, vector <img_log03> &img_log);
+int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indvec> &detvec);

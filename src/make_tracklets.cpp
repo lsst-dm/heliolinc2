@@ -94,7 +94,6 @@
 #define BANDCOL 6
 #define OBSCODECOL 7
 #define COLS_TO_READ 7
-#define IMAGETIMETOL 1.0 // Tolerance for matching image time, in seconds
 #define MAXVEL 1.5 // Default max angular velocity in deg/day.
 #define MAXTIME (1.5/24.0) // Default max inter-image time interval
                            // for tracklets, in days.
@@ -117,30 +116,23 @@ static void show_usage()
   cerr << "Note well that the minimum invocation will leave a bunch of things\n";
   cerr << "set to defaults that may not be what you want.\n";
 }
-    
+
+
 int main(int argc, char *argv[])
 {
-  det_obsmag_indvec o1 = det_obsmag_indvec(0L,0l,0l,0L,0L,0L,"null",0l,"V","I11",0,{});
   vector <det_obsmag_indvec> detvec = {};
   vector <det_obsmag_indvec> pairdets = {};
   vector <det_obsmag_indvec> ppset = {};
-  observatory obs1 = observatory("Ill",0l,0l,0l);
   vector <observatory> observatory_list = {};
-  img_log03 imlog = img_log03(0.0,0.0,0.0,"I11",0,0);
-  vector <img_log03> img_log_tmp = {};
   vector <img_log03> img_log = {};
   longpair onepair = longpair(0,0);
   vector <longpair> pairvec ={};
-  point3d p3 = point3d(0,0,0);
-  point3d p3avg = point3d(0,0,0);
   vector <point3LD> Earthpos;
   vector <point3LD> Earthvel;
   vector <point3LD> observer_heliopos;
   vector <long double> EarthMJD;
   point3LD outpos = point3LD(0,0,0);
   double tdelt = 0;
-  double mjdmean = 0;
-  double mjdnorm = 0;
   char idstring[SHORTSTRINGLEN];
   char band[MINSTRINGLEN];
   char obscode[MINSTRINGLEN];
@@ -156,8 +148,6 @@ int main(int argc, char *argv[])
   long detnum=0;
   long num_dets=0;
   long detct=0;
-  int startind=0;
-  int endind=0;
   int reachedeof = 0;
   char c='0';
   long double MJD,RA,Dec;
@@ -221,8 +211,6 @@ int main(int argc, char *argv[])
   int magcol = MAGCOL;
   int bandcol = BANDCOL;
   int obscodecol = OBSCODECOL;
-  int idread,mjdread,raread,decread,magread,bandread,obscoderead;
-  idread = mjdread = raread = decread = magread = bandread = obscoderead = 0;
   int colreadct=0;
   ifstream instream1;
   ofstream outstream1;
@@ -305,7 +293,7 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-imrad") {
+    } else if(string(argv[i]) == "-imrad" || string(argv[i]) == "-imagerad" ) {
       if(i+1 < argc) {
 	//There is still something to read;
         imrad=stod(argv[++i]);
@@ -604,28 +592,12 @@ int main(int argc, char *argv[])
   cout << "OBSCODECOL " << obscodecol << "\n";
 
   // Read observatory code file
-  instream1.open(obscodefile);
-  if(!instream1) {
-    cerr << "can't open input file " << obscodefile << "\n";
+  status = read_obscode_file(obscodefile, observatory_list);
+  if(status!=0) {
+    cerr << "ERROR reading observatory code file " << obscodefile << "\n";
     return(1);
   }
-  // Skip one-line header
-  getline(instream1,lnfromfile);
-  while (!instream1.eof() && !instream1.fail() && !instream1.bad())
-    {
-      instream1 >> stest;
-      stringncopy01(obscode,stest,MINSTRINGLEN);
-      instream1 >> obslon;
-      instream1 >> plxcos;
-      instream1 >> plxsin;
-      obs1 = observatory(obscode,obslon,plxcos,plxsin);
-      observatory_list.push_back(obs1);
-      // Skip the rest of the line
-      getline(instream1,lnfromfile);
-    }
-  instream1.close();
   cout << "Read " << observatory_list.size() << " lines from observatory code file " << obscodefile << "\n";
-  
   if(DEBUG>=2) {
     for(i=0;i<observatory_list.size();i++) {
       cout << observatory_list[i].obscode << " " << observatory_list[i].obslon << " " << observatory_list[i].plxcos << " " << observatory_list[i].plxsin << "\n";
@@ -633,300 +605,36 @@ int main(int argc, char *argv[])
   }
   
   // Read input detection file.
-  instream1.open(indetfile);
-  if(!instream1) {
-    cerr << "can't open input file " << indetfile << "\n";
-    return(1);
-  }
-  // Skip one-line header
-  getline(instream1,lnfromfile);
-  lct++;
-  //cout << lnfromfile << "\n";
-  while(reachedeof==0) {
-    getline(instream1,lnfromfile);
-    lct++;
-    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) ; // Read on.
-    else if(instream1.eof()) reachedeof=1; //End of file, fine.
-    else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
-    else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
-    i=0;
-    j = 0;
-    c='0';
-    idread = mjdread = raread = decread = magread = bandread = obscoderead = 0;
-    while(i<lnfromfile.size() && lnfromfile.size()>=30 && reachedeof == 0) {
-      // Note check on line length: it is completely impossible for a
-      // line containing all the required quantities at minimum plausible
-      // precision to be less than 30 characters long.
-      c='0';
-      stest="";
-      while(i<lnfromfile.size() && c!=',' && c!='\n' && c!=EOF) {
-	c=lnfromfile[i];
-	if(c!=',' && c!='\n' && c!=EOF) stest.push_back(c);
-	i++;
-      }
-      // We just finished reading something
-      j++;
-      if(j==idcol) {
-	stringncopy01(idstring,stest,SHORTSTRINGLEN);
-	idread=1;
-      } else if(j==mjdcol) {
-	MJD=stold(stest);
-	mjdread=1;
-      } else if(j==racol) {
-	RA=stold(stest);
-	raread=1;
-      } else if(j==deccol) {
-	Dec=stold(stest);
-	decread=1;
-      } else if(j==magcol) {
-	mag=stod(stest);
-	magread=1;
-      } else if(j==bandcol) {
-	stringncopy01(band,stest,MINSTRINGLEN);
-	bandread=1;
-      } else if(j==obscodecol) {
-	stringncopy01(obscode,stest,MINSTRINGLEN);
-	obscoderead=1;
-      }
-      // cout<<"Column "<< j << " read as " << stest << ".\n";
-    }
-    if(reachedeof == 0 && lnfromfile.size()>=30) {
-      if(!mjdread) {
-	cerr << "ERROR: MJD not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
-	return(2);
-      }
-      if(!raread) {
-	cerr << "ERROR: RA not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
-	return(2);
-      }
-      if(!decread) {
-	cerr << "ERROR: Dec not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
-	return(2);
-      }
-      if(!idread) {
-	if(forcerun) {
-	  stringncopy01(idstring,"null",SHORTSTRINGLEN);
-	  cout << "WARNING: ID not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
-	  cout << "String ID will be set to null.\n";
-	} else {
-	  cerr << "ERROR: String ID not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
-	  return(2);
-	}
-      }
-      if(!magread) {
-	if(forcerun) {
-	  mag = 99.999;
-	  cout << "WARNING: magnitude not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
-	  cout << "magnitude will be set to 99.999\n";
-	} else {
-	  cerr << "ERROR: magnitude not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
-	  return(2);
-	}
-      }
-      if(!bandread) {
-	if(forcerun) {
-	  stringncopy01(band,"V",MINSTRINGLEN);
-	  cout << "WARNING: photometric band not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
-	  cout << "band will be set to V\n";
-	} else {
-	  cerr << "ERROR: photometric band not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
-	  return(2);
-	}
-      }
-      if(!obscoderead) {
-	if(forcerun) {
-	  stringncopy01(obscode,"500",MINSTRINGLEN);
-	  cout << "WARNING: observatory code not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
-	  cout << "observatory code will be set to 500 (Geocentric)\n";
-	} else {
-	  cerr << "ERROR: observatory code not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
-	  return(2);
-	}
-      }
-      o1=det_obsmag_indvec(MJD,RA,Dec,0L,0L,0L,idstring,mag,band,obscode,-lct,{});
-      detvec.push_back(o1);
-    }
-  }
-  instream1.close();
-  if(reachedeof==1) { 
+  status = read_detection_filemt(indetfile, idcol, mjdcol, racol, deccol, magcol, bandcol, obscodecol, detvec, forcerun);
+
+  if(status==0) { 
     cout << "Input file " << indetfile << " read successfully to the end.\n";
   }
-  else if(reachedeof==-1) cout << "Warning: file read failed\n";
-  else if(reachedeof==-2) cout << "Warning: file possibly corrupted\n";
-  else cout << "Warning: unknown file read problem\n";
-
+  else if(status==1) {
+    cerr << "Warning: file read failed\n";
+    return(1);
+  } else if(status==2) {
+    cerr << "Warning: file possibly corrupted\n";
+    return(2);
+  } else {
+    cerr << "Warning: unknown file read problem\n";
+    return(3);
+  }
+  
   // time-sort the detection vector
   sort(detvec.begin(), detvec.end(), early_det_obsmag_indvec());
   
-  // Get image information.
+  // Get image information, if there is an image file
   if(inimfile.size()>0) {
-    // Read input image file: MJD, RA, Dec, obscode:
-    instream1.open(inimfile);
-    if(!instream1) {
-      cerr << "can't open input file " << inimfile << "\n";
-      return(1);
-    }
-    reachedeof=0;
-    while(reachedeof==0) {
-      getline(instream1,lnfromfile);
-      if(!instream1.eof() && !instream1.fail() && !instream1.bad()) ; // Read on.
-      else if(instream1.eof()) reachedeof=1; //End of file, fine.
-      else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
-      else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
-      i=0;
-      j = 0;
-      c='0';
-      MJD=0.0;
-      while(i<lnfromfile.size() && reachedeof == 0) {
-	stest="";
-	c='0';
-	while(i<lnfromfile.size() && c!=',' && c!=' ' && c!='\n' && c!=EOF) {
-	  // We allow the file to be delimited by comma or space.
-	  c=lnfromfile[i];
-	  if(c!=',' && c!=' ' && c!='\n' && c!=EOF) stest.push_back(c);
-	  i++;
-	}
-	// We just finished reading something
-	j++;
-	if(j==1) MJD=stod(stest); // We assume we have MJD, RA, Dec, obscode
-	else if(j==2) RA=stod(stest);
-	else if(j==3) Dec=stod(stest);
-	else if(j==4) stringncopy01(obscode,stest,MINSTRINGLEN);
-      }
-      if((reachedeof == 0 || reachedeof == 1) && MJD>0.0) {
-	// Requirement of MJD>0.0 tests that we read a plausibly
-	// valid line.
-	imlog=img_log03(MJD,RA,Dec,obscode,0,0);
-	img_log_tmp.push_back(imlog);
-      }
-    }
-    if(reachedeof==1) { 
-      cout << "Input file " << inimfile << " read successfully to the end.\n";
-    }
-    else if(reachedeof==-1) cout << "Warning: file read failed\n";
-    else if(reachedeof==-2) cout << "Warning: file possibly corrupted\n";
-    else cout << "Warning: unknown file read problem\n";
-    // time-sort the image file
-    sort(img_log_tmp.begin(), img_log_tmp.end(), early_imlg3());
-    // find the indices in the time-sorted detection file
-    // that correspond to the earliest and latest detections
-    // on each image, and load these values into imglog02.
-    detct=0;
-    for(imct=0;imct<img_log_tmp.size();imct++) {
-      while(detct<detvec.size() && detvec[detct].MJD < img_log_tmp[imct].MJD-IMAGETIMETOL/SOLARDAY) detct++; //Not on any image
-      if(detct<detvec.size() && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log_tmp[imct].obscode,3)==0) {
-	// This should be the first detection on image imct.
-	img_log_tmp[imct].startind = detct;
-	while(detct<detvec.size() && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log_tmp[imct].obscode,3)==0) detct++; //Still on this same image
-	// This should be the first detection on the next image
-	img_log_tmp[imct].endind = detct;
-      }
-      if(img_log_tmp[imct].startind >= 0 && img_log_tmp[imct].endind > 0) {
-	img_log.push_back(img_log_tmp[imct]);
-      }
-    }
-    instream1.close();
-  } else {
-    // No input image file was supplied: we have to create one from
-    // the sorted detection file.
-    mjdnorm = 1.0;
-    mjdmean = detvec[0].MJD;
-    startind=0;
-    for(i=1;i<detvec.size();i++) {
-      tdelt = detvec[i].MJD - detvec[i-1].MJD;
-      if(tdelt < IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[i].obscode,detvec[i-1].obscode,3)==0) {
-	//This point corresponds to the same image as the previous one.
-	mjdmean += detvec[i].MJD;
-	mjdnorm += 1.0;
-      }
-      else {
-	//Now we are considering a new image.
-	//Calculate the meanmjd of the previous image, for which
-	// we have now seen all points.
-	//Record the current detct i as the detection index just
-	//after the end of the previous image
-	endind=i;
-	if(isnormal(mjdnorm)) mjdmean /= mjdnorm;
-	else mjdmean = 0.0;
-	//Load it into the vector with mean MJD for all images,
-	// and increment image count.
-	imlog = img_log03(mjdmean,0.0,0.0,detvec[endind-1].obscode,startind,endind);
-	img_log.push_back(imlog);
-	// Set up for the next image, starting with detvec[i].MJD;
-	mjdmean = detvec[i].MJD;
-	mjdnorm = 1.0;
-	startind=i;
-      }
-    }
-    // Account for the final image.
-    if(isnormal(mjdnorm)) {
-      endind=i;
-      mjdmean /= mjdnorm;
-      //Load it into the vector with mean MJD for all images,
-      // and increment image count.
-      imlog = img_log03(mjdmean,0.0,0.0,detvec[endind-1].obscode,startind,endind);
-      img_log.push_back(imlog);
-    }
-
-    //We've now loaded the mean MJDs and the starting and ending
-    //detection table indices for each image; it still remains to
-    //get the mean RA and Dec.
-   
-    detnum = detvec.size();
-    imnum = img_log.size();
-    cout << img_log.size() << " unique images were identified.\n";
-    cout << "Given our total of " << detvec.size() << " detections,\n";
-    cout << "we have " << double(detvec.size())/double(img_log.size()) << " detections per image, on average\n";
-
-    // Find the number of detections and the average RA, Dec on each image.
-    // We perform the average after projection onto the unit circle, to
-    // avoid wrapping issues.
-    detct=imct=0;
-    while( imct<imnum && detct<detnum ) {
-      vector <det_obsmag_indvec> imobs = {};
-      num_dets=0;
-      p3avg = point3d(0,0,0);
-      if(DEBUGA>0) cout << fixed << setprecision(6) << "imct = " << imct << "detct,detnum,detvec[detct].MJD,img_log[imct].MJD = " << detct << " " << detnum << " " << detvec[detct].MJD << " " << img_log[imct].MJD << " " << img_log[imct].MJD + IMAGETIMETOL/SOLARDAY << "\n";
-      while(detct<detnum && detvec[detct].MJD < img_log[imct].MJD + IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)==0) {
-	num_dets++; //Keep count of detections on this image
-	imobs.push_back(detvec[detct]); //Load vector of observations for this image
-	p3 =  celeproj01(detvec[detct].RA,detvec[detct].Dec); // Project current detection
-	p3avg.x += p3.x;
-	p3avg.y += p3.y;
-	p3avg.z += p3.z; // Average projected coords
-	detct++;
-      }
-      // If we got here, we must just have finished with an image.
-      // Finish the average
-      if(num_dets>0) {
-	p3avg.x /= double(num_dets);
-	p3avg.y /= double(num_dets);
-	p3avg.z /= double(num_dets);
-	i=celedeproj01(p3avg, &img_log[imct].RA, &img_log[imct].Dec);
-	if(DEBUGA>0) cout << "imct = " << imct << ": " << img_log[imct].RA << ", " << img_log[imct].Dec << "\n";
-	if(i==0) ; // All is well.
-	else if(i==1) {
-	  cout << "Warning: vector of zeros fed to celedeproj01\n";
-	  img_log[imct].RA = img_log[imct].Dec = 0.0;
-	}
-	else if(i==2) {
-	  cout << "Warning: impossible z value " << p3avg.z << " fed to celedeproj01\n";
-	  img_log[imct].RA = img_log[imct].Dec = 0.0;
-	}
-	else {
-	  cout << "Warning: unspecified failure from celedeproj01 with\n";
-	  cout << "input " << p3avg.x << " " << p3avg.y << " " << p3avg.z << "\n";
-	  img_log[imct].RA = img_log[imct].Dec = 0.0;
-	}
-      }
-      if(DEBUG>=1) {
-	cout << "Image " << imct << " of " << img_log.size() << ": " << num_dets << " = " << img_log[imct].endind-img_log[imct].startind ;
-	cout << " from " << img_log[imct].startind << " to " << img_log[imct].endind << " of " << detvec.size() << ".\n";
-	fflush(stdout);
-      }	
-      imct++;
+    status = read_image_file(inimfile, img_log);
+    if(status==0) {
+      // time-sort the image file
+      sort(img_log.begin(), img_log.end(), early_imlg3());
+    } else {
+      img_log={};
     }
   }
+  status = load_image_table(img_log, detvec);
 
   EarthMJD={};
   Earthpos={};
@@ -968,7 +676,7 @@ int main(int argc, char *argv[])
 	cerr << "ERROR: obscode_lookup failed for observatory code " << img_log[imct].obscode << "\n";
 	return(3);
       }
-      // Calculate observer's exact heliolcentric position,
+      // Calculate observer's exact heliocentric position,
       // and push it back onto the vector observer_heliopos.
       observer_barycoords01LD(img_log[imct].MJD, 5, obslon, plxcos, plxsin, EarthMJD, Earthpos, outpos);
       observer_heliopos.push_back(outpos);
@@ -1463,3 +1171,4 @@ int main(int argc, char *argv[])
   outstream1.close();
   return(0);
 }
+
