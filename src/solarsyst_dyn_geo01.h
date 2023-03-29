@@ -32,6 +32,7 @@ using namespace std;
 #define LDSQUARE(x) (((long double)x)*((long double)x))
 
 #define SOLARDAY 86400.0L
+#define SIDEREALDAY 86164.09053L
 #define NEPRA 270.0L //Right ascension of the North Ecliptic Pole.
 #define NEPDEC 66.560708333333L // Declination of the North Ecliptic Pole
 #define NGPRA 192.728L //Right ascension of the North Galactic Pole (Karim and Mamajek 2017)
@@ -214,6 +215,107 @@ public:
   det_obsmag_indvec() = default;
 };
 
+
+class hldet{ // Detection of some astronomical source with
+             // info required for new version of heliolinc:
+public:
+  double MJD;
+  double RA;
+  double Dec;
+  float mag;
+  float trail_len;  // In arcseconds. Use zero unless object is certainly trailed.
+  float trail_PA;   // In degrees. Default to 90 deg for un-trailed sources.
+  float sigmag;
+  float sig_across; // Astrometric uncertainty cross-trail (or in RA for untrailed sources), in arcsec
+  float sig_along;  // Astrometric uncertainty cross-trail (or in Dec for untrailed sources), in arcsec
+  int image;        // Vitally important index to image catalog.
+  char idstring[SHORTSTRINGLEN];  // E.g., diaSourceID
+  char band[MINSTRINGLEN];        // photometric band
+  char obscode[MINSTRINGLEN];     // Observatory code
+  long index;                     // Line count in original input structure
+  hldet(double mjd, double ra, double dec, float mag, float trail_len, float trail_PA, float sigmag, float sig_across, float sig_along, int image, const string &idstring, const string &band, const string &obscode, long index) :MJD(mjd), RA(ra), Dec(dec), mag(mag), trail_len(trail_len), trail_PA(trail_PA), sigmag(sigmag), sig_across(sig_across), sig_along(sig_along), index(index) {
+    // Copy input value of idstring, making sure it's not too long
+    assert(idstring.size() < sizeof(this->idstring));
+    std::strncpy(this->idstring, idstring.c_str(), sizeof(this->idstring));
+    this->idstring[sizeof(this->idstring)-1] = 0;
+
+    // Copy input value for photometric band, making sure it's not too long
+    assert(band.size() < sizeof(this->band));
+    std::strncpy(this->band, band.c_str(), sizeof(this->band));
+    this->band[sizeof(this->band)-1] = 0;
+    
+    // Copy input value for obscode, making sure it's not too long
+    assert(obscode.size() < sizeof(this->obscode));
+    std::strncpy(this->obscode, obscode.c_str(), sizeof(this->obscode));
+    this->obscode[sizeof(this->obscode)-1] = 0;
+  }
+  hldet() = default;
+};
+
+class hlimage{ // Astronomical image with MJD of mid-exposure, boresight RA and Dec,
+               // observatory code, and observer X, Y, Z, VX, VY, VZ
+public:
+  double MJD;
+  double RA;
+  double Dec;
+  char obscode[MINSTRINGLEN];     // Observatory code
+  double X;
+  double Y;
+  double Z;
+  double VX;
+  double VY;
+  double VZ;
+  long startind;
+  long endind;
+  hlimage(double mjd, double ra, double dec, const string &obscode, double x, double y, double z, double vx, double vy, double vz, long startind, long endind) :MJD(mjd), RA(ra), Dec(dec), X(x), Y(y), Z(z), VX(vx), VY(vy), VZ(vz), startind(startind), endind(endind) {
+    // Copy input value for obscode, making sure it's not too long
+    assert(obscode.size() < sizeof(this->obscode));
+    std::strncpy(this->obscode, obscode.c_str(), sizeof(this->obscode));
+    this->obscode[sizeof(this->obscode)-1] = 0;
+  }
+  hlimage() = default;
+};
+
+struct MakeTrackletsConfig {
+  int mintrkpts = 2;
+  double imagetimetol = IMAGETIMETOL/SOLARDAY;    // Tolerance for matching image time, in days
+  double maxvel = 1.5l;         // Default max angular velocity in deg/day.
+  double minvel = 0.0l;         // Min angular velocity in deg/day
+  double minarc = 0.0l;         // Min total angular arc in arcseconds
+  double maxtime = 1.5 / 24.0;  // Default max inter-image time interval
+                                // for tracklets, in days.
+  double mintime = 1.0 / SOLARDAY; // Minimum inter-image time interval, in days.
+  double imagerad = 2.0;        // radius from image center to most distant corner (deg)
+  double maxgcr = 0.5;          // Default maximum Great Circle Residual allowed for a valid tracklet
+  int forcerun = 0; // Pushes through all but the immediately fatal errors.
+};
+
+struct HeliolincConfig {
+  double MJDref = 0.0l;        // MJD of reference time. Must be specified at runtime:
+                               //   no sensible default is possible, because the reference
+                               //   time MUST be near the center of the time spanned by
+                               //   the input detection catalog.
+  double clustrad = 1.0e5l;    // Clustering radius for the DBSCAN algorithm, in km.
+  int dbscan_npt = 3;            // Number of points npt for the DBSCAN algorithm
+  int minobsnights = 3;        // Minimum number of distinct observing nights for a valid linkage
+  double mintimespan = 1.0l;   // Minimum timespan for a valid linkage
+  double mingeodist = 0.10l;   // Geocentric distance (AU) at the center of the innermost
+                               //   geocentric distance bin.
+  double maxgeodist = 100.0l;    // Minimum value in AU for the center of the outermost distance bin
+  double geologstep = 1.5l;      // Factor by which the center of a geocentric distance bin
+                               //   moves outward from one bin to the next: e.g. 0.1, 0.15, 0.225, 0.338.
+                               //   This is also the logarithmic width of each bin: e.g., the bin centered
+                               //   at 0.15 AU ranges from 0.1 to 0.225 AU.
+  double mingeoobs = 0.0l;     // Minimum inferred geocentric distance for a valid tracklet.
+  double minimpactpar = 0.0l;  // Miniumum inferred impact parameter for a valid tracklet.
+                               // These last two parameters can be raised above the default
+                               //   value of zero to limit the formation of 'globs' -- enormous
+                               //   spurious linkages -- when probing heliocentric hypothesis
+                               //   that have the potential to imply near-zero distance from Earth
+                               //   for some observations.
+  int verbose=0;
+};
+
 class observatory{ // observatory code and location values.
 public:
   char obscode[MINSTRINGLEN];
@@ -228,6 +330,71 @@ public:
   }
   observatory() = default;
 };
+
+class tracklet{ // Pair or tracklet for heliolinc 
+public:
+  long Img1;
+  double RA1;
+  double Dec1;
+  long Img2;
+  double RA2;
+  double Dec2;
+  int npts;
+  long trk_ID;
+  tracklet(long img1, double ra1, double dec1, long img2, double ra2, double dec2, int npts, long trk_id) :Img1(img1), RA1(ra1), Dec1(dec1), Img2(img2), RA2(ra2), Dec2(dec2), npts(npts), trk_ID(trk_id) { }
+  tracklet() = default;
+};
+
+class hlradhyp{ // Heliolinc heliocentric radial motion hypothesis
+public:
+  double HelioRad;
+  double R_dot;
+  double R_dubdot;
+  hlradhyp(double heliorad, double rdot, double rdubdot) :HelioRad(heliorad), R_dot(rdot), R_dubdot(rdubdot) { }
+  hlradhyp() = default;
+};
+
+class hlclust{ // cluster (linkage) type used as output by heliolinc and I/O by link_refine
+public:
+  long clusternum;
+  double posRMS;
+  double velRMS;
+  double totRMS;
+  double astromRMS;
+  int pairnum;
+  double timespan;
+  int uniquepoints;
+  int obsnights;
+  double metric;
+  char rating[SHORTSTRINGLEN];
+  double heliohyp0;
+  double heliohyp1;
+  double heliohyp2;
+  double posX;
+  double posY;
+  double posZ;
+  double velX;
+  double velY;
+  double velZ;
+  double orbit_a;
+  double orbit_e;
+  double orbit_MJD;
+  double orbitX;
+  double orbitY;
+  double orbitZ;
+  double orbitVX;
+  double orbitVY;
+  double orbitVZ;
+  long orbit_eval_count;
+  hlclust(long clusternum, double posRMS, double velRMS, double totRMS, double astromRMS, int pairnum, double timespan, int uniquepoints, int obsnights, double metric, const string &rating, double heliohyp0, double heliohyp1, double heliohyp2, double posX, double posY, double posZ, double velX, double velY, double velZ, double orbit_a, double orbit_e, double orbit_MJD, double orbitX, double orbitY, double orbitZ, double orbitVX, double orbitVY, double orbitVZ, long orbit_eval_count) :clusternum(clusternum), posRMS(posRMS), velRMS(posRMS), totRMS(totRMS), astromRMS(astromRMS), pairnum(pairnum), timespan(timespan), uniquepoints(uniquepoints), obsnights(obsnights), metric(metric), heliohyp0(heliohyp0), heliohyp1(heliohyp1), heliohyp2(heliohyp2), posX(posX), posY(posY), posZ(posZ), velX(velX), velY(velY), velZ(velZ), orbit_a(orbit_a), orbit_e(orbit_e), orbit_MJD(orbit_MJD), orbitX(orbitX), orbitY(orbitY), orbitZ(orbitZ), orbitVX(orbitVX), orbitVY(orbitVY), orbitVZ(orbitVZ), orbit_eval_count(orbit_eval_count) { 
+    // Copy input value of rating, making sure it's not too long
+    assert(rating.size() < sizeof(this->rating));
+    std::strncpy(this->rating, rating.c_str(), sizeof(this->rating));
+    this->rating[sizeof(this->rating)-1] = 0;
+  }
+  hlclust() = default;
+};
+
 
 class xy_index{ // Double-precision x,y point plus long index
 public:
@@ -362,6 +529,7 @@ public:
   long i1;
   long i2;
   longpair(long i1, long i2) :i1(i1), i2(i2) { }
+  longpair() = default;
 };
 
 class point3d{ // Double-precision 3-D point
@@ -448,6 +616,20 @@ public:
   point3LD(long double x, long double y, long double z) :x(x), y(y), z(z) { }
 };
 
+class point6dx2{ // Double-precision 6-D point plus 2 long integer indices
+                  // The purpose of the indices is to specify the pair of detections
+                  // from which the position and velocity state vectors originated.
+public:
+  double x;
+  double y;
+  double z;
+  double vx;
+  double vy;
+  double vz;
+  long i1;
+  long i2;
+  point6dx2(double x, double y, double z, double vx, double vy, double vz, long i1, long i2) :x(x), y(y), z(z), vx(vx), vy(vy), vz(vz), i1(i1), i2(i2) {}
+};
 
 
 class point6LDx2{ // Long double-precision 6-D point plus 2 long integer indices
@@ -699,7 +881,7 @@ public:
   vector <double> heliopar;
   vector <double> rmsvec; // pos(3), vel(3), postotal, veltotal, total 
   vector <int> clustind;
-  clusteran01( string recfile, int accelct, int clusternum, int numpoints, double timespan, int daysteps, vector <double> rmsvec, vector <double> heliopar, vector <int> clustind) :recfile(recfile), accelct(accelct), clusternum(clusternum), numpoints(numpoints), timespan(timespan), daysteps(daysteps), rmsvec(rmsvec), heliopar(heliopar), clustind(clustind) {}
+  clusteran01( string recfile, int accelct, int clusternum, int numpoints, double timespan, int daysteps, vector <double> heliopar, vector <double> rmsvec, vector <int> clustind) :recfile(recfile), accelct(accelct), clusternum(clusternum), numpoints(numpoints), timespan(timespan), daysteps(daysteps), heliopar(heliopar), rmsvec(rmsvec), clustind(clustind) {}
 };
 
 class clusteran02{ // Analysis of a heliolinc cluster (candidate discovery).
@@ -715,7 +897,7 @@ public:
   vector <double> rmsvec; // pos(3), vel(3), postotal, veltotal, total 
   vector <int> clustind;
   double clustermetric;
-  clusteran02( string recfile, int accelct, int clusternum, int numpoints, double timespan, int daysteps, vector <double> rmsvec, vector <double> heliopar, vector <int> clustind, double clustermetric) :recfile(recfile), accelct(accelct), clusternum(clusternum), numpoints(numpoints), timespan(timespan), daysteps(daysteps), rmsvec(rmsvec), heliopar(heliopar), clustind(clustind), clustermetric(clustermetric) {}
+  clusteran02( string recfile, int accelct, int clusternum, int numpoints, double timespan, int daysteps, vector <double> heliopar, vector <double> rmsvec, vector <int> clustind, double clustermetric) :recfile(recfile), accelct(accelct), clusternum(clusternum), numpoints(numpoints), timespan(timespan), daysteps(daysteps), heliopar(heliopar), rmsvec(rmsvec), clustind(clustind), clustermetric(clustermetric) {}
 };
 
 class lowermetric_clusteran02{
@@ -739,7 +921,7 @@ public:
   vector <float> rmsvec; // pos(3), vel(3), postotal, veltotal, total 
   vector <int> clustind;
   float clustermetric;
-  clusteran03( string recfile, int accelct, int clusternum, int numpoints, float timespan, int daysteps, vector <float> rmsvec, vector <float> heliopar, vector <int> clustind, float clustermetric) :recfile(recfile), accelct(accelct), clusternum(clusternum), numpoints(numpoints), timespan(timespan), daysteps(daysteps), rmsvec(rmsvec), heliopar(heliopar), clustind(clustind), clustermetric(clustermetric) {}
+  clusteran03( string recfile, int accelct, int clusternum, int numpoints, float timespan, int daysteps, vector <float> heliopar, vector <float> rmsvec, vector <int> clustind, float clustermetric) :recfile(recfile), accelct(accelct), clusternum(clusternum), numpoints(numpoints), timespan(timespan), daysteps(daysteps), heliopar(heliopar), rmsvec(rmsvec), clustind(clustind), clustermetric(clustermetric) {}
 };
 
 class lowermetric_clusteran03{
@@ -1018,6 +1200,22 @@ public:
   keplerian_orbit(long double semimaj_axis, long double eccentricity, long double inclination, long double long_ascend_node, long double arg_perihelion, long double mean_anom, long double mjd_epoch, long double mean_daily_motion) :semimaj_axis(semimaj_axis), eccentricity(eccentricity), inclination(inclination), long_ascend_node(long_ascend_node), arg_perihelion(arg_perihelion), mean_anom(mean_anom), mjd_epoch(mjd_epoch), mean_daily_motion(mean_daily_motion) {}
 };
 
+struct EarthState {
+    long double MJD;
+    long double x;
+    long double y;
+    long double z;
+    long double vx;
+    long double vy;
+    long double vz;
+
+    EarthState() = default;
+
+    EarthState(long double MJD, long double x, long double y, long double z,
+               long double vx, long double vy, long double vz)
+            : MJD(MJD), x(x), y(y), z(z), vx(vx), vy(vy), vz(vz) {}
+};
+
 void make_ivec(int nx, vector <int> &ivec);
 void make_imat(int nx, int ny, vector <vector <int>> &imat);
 void make_lvec(int nx, vector <long> &lvec);
@@ -1051,12 +1249,12 @@ double angspeed01(det_bsc o1, det_bsc o2);
 double distradec01(double RA1, double Dec1, double RA2, double Dec2);
 int distradec02(double ra1,double dec1,double ra2,double dec2,double *dist,double *pa);
 long medindex(const vector <xy_index> &xyvec, int dim);
-int splitxy(const vector <xy_index> &xyvec, int dim, long splitpoint, vector <xy_index> &left, vector <xy_index> &right);
-int kdtree01(const vector <xy_index> &xyvec, int dim, long rootptxy, long rootptkd, vector <kdpoint> &kdvec);
+int splitxy(const vector <xy_index> &xyvec, int dim, long unsigned int splitpoint, vector <xy_index> &left, vector <xy_index> &right);
+int kdtree01(const vector <xy_index> &xyvec, int dim, long unsigned int rootptxy, long unsigned int rootptkd, vector <kdpoint> &kdvec);
 int kdrange01(const vector <kdpoint> &kdvec,double x,double y,double range,vector <long> &indexvec);
 long medind_6LDx2(const vector <point6LDx2> &pointvec, int dim);
-int splitLDx2(const vector <point6LDx2> &pointvec, int dim, long splitpoint, vector <point6LDx2> &left, vector <point6LDx2> &right);
-int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long splitpoint, long kdroot, vector <KD_point6LDx2> &kdvec);
+int splitLDx2(const vector <point6LDx2> &pointvec, int dim, long unsigned int splitpoint, vector <point6LDx2> &left, vector <point6LDx2> &right);
+int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long unsigned int splitpoint, long unsigned int kdroot, vector <KD_point6LDx2> &kdvec);
 long double point6LDx2_dist(const point6LDx2 &p1, const point6LDx2 &p2);
 long double point6LDx2_dist2(const point6LDx2 &p1, const point6LDx2 &p2);
 int kdrange_6D01(const vector <KD_point6LDx2> &kdvec, const point6LDx2 &querypoint, long double range, vector <long> &indexvec);
@@ -1065,9 +1263,11 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, vector <KD6_clust> &outclusters);
 point6ix2 conv_6LD_to_6i(point6LDx2 p1, long double scale);
 point6LDx2 conv_6i_to_6LD(point6ix2 p1, long double scale);
+point6ix2 conv_6d_to_6i(point6dx2 p1, double scale);
+point6dx2 conv_6i_to_6d(point6ix2 p1, double scale);
 long medind_6ix2(const vector <point6ix2> &pointvec, int dim);
-int splitix2(const vector <point6ix2> &pointvec, int dim, long splitpoint, vector <point6ix2> &left, vector <point6ix2> &right);
-int kdtree_6i01(const vector <point6ix2> &invec, int dim, long splitpoint, long kdroot, vector <KD_point6ix2> &kdvec);
+int splitix2(const vector <point6ix2> &pointvec, int dim, long unsigned int splitpoint, vector <point6ix2> &left, vector <point6ix2> &right);
+int kdtree_6i01(const vector <point6ix2> &invec, int dim, long unsigned int splitpoint, long unsigned int kdroot, vector <KD_point6ix2> &kdvec);
 long point6ix2_dist2(const point6ix2 &p1, const point6ix2 &p2);
 int kdrange_6i01(const vector <KD_point6ix2> &kdvec, const point6ix2 &querypoint, long range, vector <long> &indexvec);
 double cluster_stats6i01(const vector <KD_point6ix2> &cluster, double intconvscale, vector <double> &meanvals, vector <double> &rmsvals);
@@ -1090,18 +1290,23 @@ int perfectpoly01(const vector <double> &x, const vector <double> &y, vector <do
 int perfectpoly01LD(const vector <long double> &x, const vector <long double> &y, vector <long double> &fitvec);
 int planetpos01(double detmjd, int polyorder, const vector <double> &posmjd, const vector <point3d> &planetpos, point3d &outpos);
 int planetpos01LD(long double detmjd, int polyorder, const vector <long double> &posmjd, const vector <point3LD> &planetpos, point3LD &outpos);
+int planetposvel01(double detmjd, int polyorder, const vector <double> &posmjd, const vector <point3d> &planetpos, const vector <point3d> &planetvel, point3d &outpos, point3d &outvel);
 int planetposvel01LD(long double detmjd, int polyorder, const vector <long double> &posmjd, const vector <point3LD> &planetpos, const vector <point3LD> &planetvel, point3LD &outpos, point3LD &outvel);
 int nplanetpos01LD(long double detmjd, int planetnum, int polyorder, const vector <long double> &posmjd, const vector <point3LD> &planetpos, vector <point3LD> &outpos);
 int nplanetgrab01LD(int pointrequest, int planetnum, const vector <long double> &posmjd, const vector <point3LD> &planetpos, vector <point3LD> &outpos);
 int observer_barycoords01(double detmjd, int polyorder, double lon, double obscos, double obssine, const vector <double> &posmjd, const vector <point3d> &planetpos, point3d &outpos);
 int observer_barycoords01LD(long double detmjd, int polyorder, long double lon, long double obscos, long double obssine, const vector <long double> &posmjd, const vector <point3LD> &planetpos, point3LD &outpos);
+int observer_baryvel01(double detmjd, int polyorder, double lon, double obscos, double obssine, const vector <double> &posmjd, const vector <point3d> &planetpos, const vector <point3d> &planetvel, point3d &outpos, point3d &outvel);
 int helioproj01(point3d unitbary, point3d obsbary,double heliodist,double &geodist, point3d &projbary);
 int helioproj01LD(point3LD unitbary, point3LD obsbary, long double heliodist, long double &geodist, point3LD &projbary);
 int helioproj02LD(point3LD unitbary, point3LD obsbary, long double heliodist, vector <long double> &geodist, vector <point3LD> &projbary);
+int helioproj02(point3d unitbary, point3d obsbary, double heliodist, vector <double> &geodist, vector <point3d> &projbary);
 int accelcalc01LD(int planetnum, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, const point3LD &targpos, point3LD &accel);
 int integrate_orbit_constac(int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel);
 long double kep_transcendental(long double q, long double e, long double tol);
 int Keplerint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
+double kep_transcendentald(double q, double e, double tol);
+int Keplerintd(const double MGsun, const double mjdstart, const point3d &startpos, const point3d &startvel, const double mjdend, point3d &endpos, point3d &endvel);
 int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD &outpos,  point3LD &outvel);
 long double hyp_transcendental(long double q, long double e, long double tol);
 int Hyper_Kepint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
@@ -1178,3 +1383,8 @@ int read_detection_filemt(string indetfile, int idcol, int mjdcol, int racol, in
 double avg_extrema(const vector <double> &x);
 int read_image_file(string inimfile, vector <img_log03> &img_log);
 int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indvec> &detvec);
+int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double imagetimetol, int forcerun);
+int find_pairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <hldet> &pairdets, vector <vector <long>> &indvecs, vector <longpair> &pairvec, double mintime, double maxtime, double imrad, double maxvel);
+int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs, const vector <longpair> &pairvec, vector <tracklet> &tracklets, vector <longpair> &trk2det, int mintrkpts, double maxgcr, double minarc, double minvel, double maxvel);
+int trk2statevec(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar);
+vector <long> tracklet_lookup(const vector <longpair> &trk2det, long trknum);

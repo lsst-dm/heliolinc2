@@ -650,16 +650,16 @@ int distradec02(double ra1,double dec1,double ra2,double dec2,double *dist,doubl
 long medindex(const vector <xy_index> &xyvec, int dim)
 {
   vector <xy_index> xyv = xyvec; //Mutable copy of immutable input vector
-  for(int i=0; i<xyv.size(); i++) xyv[i].index=i; //Redefine indices
+  for(long unsigned int i=0; i<xyv.size(); i++) xyv[i].index=i; //Redefine indices
   long medpt = xyv.size()/2;
   if(dim%2==1) sort(xyv.begin(), xyv.end(), xyind_lower_x());
   else sort(xyv.begin(), xyv.end(), xyind_lower_y());
   return(xyv[medpt].index);
 }
 
-int splitxy(const vector <xy_index> &xyvec, int dim, long splitpoint, vector <xy_index> &left, vector <xy_index> &right)
+int splitxy(const vector <xy_index> &xyvec, int dim, long unsigned int splitpoint, vector <xy_index> &left, vector <xy_index> &right)
 {
-  long i=0;
+  long unsigned int i=0;
   double xval = xyvec[splitpoint].x;
   double yval = xyvec[splitpoint].y;
   
@@ -688,24 +688,21 @@ int splitxy(const vector <xy_index> &xyvec, int dim, long splitpoint, vector <xy
 // right and left branches, load the branches and then
 // call kdtree01 on them recursively.
 // NOTE THAT THIS IS FOR 2-D KD trees.
-int kdtree01(const vector <xy_index> &xyvec, int dim, long rootptxy, long rootptkd, vector <kdpoint> &kdvec)
+int kdtree01(const vector <xy_index> &xyvec, int dim, long unsigned int rootptxy, long unsigned int rootptkd, vector <kdpoint> &kdvec)
 {
-  int status=0;
   int lmed=0;
   int rmed=0;
   int kdct = kdvec.size()-1;
-  int i=0;
   long leftrootkd=-1;
   long rightrootkd=-1;
   xy_index xyi = xy_index(0.0,0.0,0);
-  kdpoint root = kdvec[kdct];
   kdpoint lp = kdpoint(xyi,-1,-1,0);
   kdpoint rp = kdpoint(xyi,-1,-1,0);
   kdpoint kdtest = kdpoint(xyi,-1,-1,0);
   vector <xy_index> leftvec = {};
   vector <xy_index> rightvec = {};
 
-  status = splitxy(xyvec,dim,rootptxy,leftvec,rightvec);
+  splitxy(xyvec,dim,rootptxy,leftvec,rightvec);
   
   if(dim==1) dim=2;
   else dim=1;
@@ -778,10 +775,8 @@ int kdtree01(const vector <xy_index> &xyvec, int dim, long rootptxy, long rootpt
 // NOTE THAT THIS IS FOR 2-D KD trees.
 int kdrange01(const vector <kdpoint> &kdvec,double x,double y,double range,vector <long> &indexvec)
 {
-  int branchct=0;
   double rng2 = range*range;
   int notdone=1;
-  int kdveclen = kdvec.size();
   int dim=1;
   int currentpoint=0;
   int leftpoint=0;
@@ -791,8 +786,7 @@ int kdrange01(const vector <kdpoint> &kdvec,double x,double y,double range,vecto
   double xdiff=0.0;
   double ydiff=0.0;
   vector <long> checkit={};
-  int i=0;
-  int checknum=0;
+  long unsigned int checknum=0;
 
   while(notdone>0) {
     // Climb to the top of the k-d tree, keeping track
@@ -931,7 +925,7 @@ int kdrange01(const vector <kdpoint> &kdvec,double x,double y,double range,vecto
 long medind_6LDx2(const vector <point6LDx2> &pointvec, int dim)
 {
   vector <point6LDx2> pvec = pointvec; //Mutable copy of immutable input vector
-  for(long i=0; i<pvec.size(); i++) pvec[i].i1=i; //Redefine indices
+  for(long unsigned int i=0; i<pvec.size(); i++) pvec[i].i1=i; //Redefine indices
   long medpt = pvec.size()/2; // Central point of vector (it will be off by one half
                               // for a vector with even length, but we don't care).
   if(dim%6 == 1) sort(pvec.begin(), pvec.end(), lower_point6LDx2_x()); // Sort vector by x
@@ -953,9 +947,9 @@ long medind_6LDx2(const vector <point6LDx2> &pointvec, int dim)
 // a left half with all the points lower than or equal to a specified
 // split point along the chosen dimension (use dim = 1, 2, 3, 4, 5, or 6
 // to split along x, y, z, vx, vy, or vz respectively).
-int splitLDx2(const vector <point6LDx2> &pointvec, int dim, long splitpoint, vector <point6LDx2> &left, vector <point6LDx2> &right)
+int splitLDx2(const vector <point6LDx2> &pointvec, int dim, long unsigned int splitpoint, vector <point6LDx2> &left, vector <point6LDx2> &right)
 {
-  long i=0;
+  long unsigned int i=0;
   long double splitval = 0.0L;
 
   if(dim%6==1) {
@@ -1029,17 +1023,14 @@ int splitLDx2(const vector <point6LDx2> &pointvec, int dim, long splitpoint, vec
 // Given an input root point, presumed to have null
 // right and left branches, load the branches and then
 // call kdtree_6D01 on them recursively.
-int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long splitpoint, long kdroot, vector <KD_point6LDx2> &kdvec)
+int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long unsigned int splitpoint, long unsigned int kdroot, vector <KD_point6LDx2> &kdvec)
 {
-  int status=0;
   int lmed=0;
   int rmed=0;
   int kdct = kdvec.size()-1;
-  int i=0;
   long leftrootkd=-1;
   long rightrootkd=-1;
   point6LDx2 point0 = point6LDx2(0.0L,0.0L,0.0L,0.0L,0.0L,0.0L,0,0);
-  KD_point6LDx2 root = kdvec[kdct];
   KD_point6LDx2 lp = KD_point6LDx2(point0,-1,-1,0,0);
   KD_point6LDx2 rp = KD_point6LDx2(point0,-1,-1,0,0);
   vector <point6LDx2> leftvec = {};
@@ -1053,7 +1044,7 @@ int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long splitpoint, long
   // these medians. Then call kdtree_6D01 itself recursively on
   // each of these median points, to peform a new split along a
   // different dimension.
-  status = splitLDx2(invec,dim,splitpoint,leftvec,rightvec);
+  splitLDx2(invec,dim,splitpoint,leftvec,rightvec);
 
   dim+=1;
   while(dim>6) dim-=6;
@@ -1137,10 +1128,8 @@ long double point6LDx2_dist2(const point6LDx2 &p1, const point6LDx2 &p2)
 // Assumes that kdvec[0] is the root of the k-d tree.
 int kdrange_6D01(const vector <KD_point6LDx2> &kdvec, const point6LDx2 &querypoint, long double range, vector <long> &indexvec)
 {
-  int branchct=0;
   long double rng2 = range*range;
   int notdone=1;
-  int kdveclen = kdvec.size();
   int dim=1;
   int currentpoint=0;
   int leftpoint=0;
@@ -1150,8 +1139,7 @@ int kdrange_6D01(const vector <KD_point6LDx2> &kdvec, const point6LDx2 &querypoi
   long double pointdiff = 0.0L;
   long double pdist2 = 0.0L;
   vector <long> checkit={};
-  int i=0;
-  int checknum=0;
+  long unsigned int checknum=0;
 
   while(notdone>0) {
     // Climb to the top of the k-d tree, keeping track
@@ -1255,7 +1243,7 @@ long double cluster_stats6D01(const vector <KD_point6LDx2> &cluster, vector <lon
   long double velrms = 0.0L;
   long double totalrms = 0.0L;
   
-  for(int i=0; i<cluster.size(); i++) {
+  for(long i=0; i<long(cluster.size()); i++) {
     xmean += cluster[i].point.x;   
     ymean += cluster[i].point.y;   
     zmean += cluster[i].point.z;
@@ -1277,7 +1265,7 @@ long double cluster_stats6D01(const vector <KD_point6LDx2> &cluster, vector <lon
   meanvals.push_back(vymean);
   meanvals.push_back(vzmean);
   
-  for(int i=0; i<cluster.size(); i++) {
+  for(long i=0; i<long(cluster.size()); i++) {
     xrms += LDSQUARE(cluster[i].point.x - xmean);   
     yrms += LDSQUARE(cluster[i].point.y - ymean);   
     zrms += LDSQUARE(cluster[i].point.z - zmean);
@@ -1335,7 +1323,6 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 {
   long kdnum = kdtree.size();
   long kdct=0;
-  int clustptnum=0;
   int clustptct=0;
   long clusternum=0;
   long fakeclusternum=0;
@@ -1348,7 +1335,7 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
   vector <long double> meanvec;
   vector <long double> rmsvec;
   long double trms = 0.0L;
-  int i=0;
+  long  i=0;
   vector <long> pointind;
   vector <long> pointjunk;
   vector <long double> clustmjd;
@@ -1374,7 +1361,7 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 	kdtree[kdct].flag = -1; // Noise point.
 	// cout << "Point " << kdct << ": noise\n";
       }
-      else if(queryout.size() >= npt) {
+      else if(long(queryout.size()) >= npt) {
 	// This is a core point of a new cluster.
 	cout << "Point " << kdct << ": cluster core with " << queryout.size() << " neighbors.\n";
 	fakeclusternum++;
@@ -1384,7 +1371,7 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 	cluster.push_back(kdtree[kdct]);
 	// Loop on points in cluster.
 	clustptct=0;
-	while(clustptct<queryout.size()) {
+	while(clustptct<long(queryout.size())) {
 	  if(kdtree[queryout[clustptct]].flag != 0) {
 	    // Current point has already been considered: skip to the next.
 	    clustptct++;
@@ -1393,13 +1380,13 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 	    querypoint = kdtree[queryout[clustptct]].point;
 	    subquery={};
 	    kdrange_6D01(kdtree, querypoint, clustrad, subquery);
-	    if(subquery.size()>=npt) {
+	    if(long(subquery.size())>=npt) {
 	      // This point is a core point.
 	      kdtree[queryout[clustptct]].flag = fakeclusternum;
 	      clusterind.push_back(queryout[clustptct]);
 	      cluster.push_back(kdtree[queryout[clustptct]]);
 	      // Add additional points to queryout as appropriate
-	      for(i=0;i<subquery.size();i++) {
+	      for(i=0;i<long(subquery.size());i++) {
 		if(kdtree[subquery[i]].flag == 0) queryout.push_back(subquery[i]);
 	      }
 	    } else {
@@ -1422,7 +1409,7 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 	// Map cluster to individual detections.
 	// create vector of unique detection indices.
 	pointind={};
-	for(i=0;i<clusterind.size();i++) {
+	for(i=0;i<long(clusterind.size());i++) {
 	  pointind.push_back(kdtree[clusterind[i]].point.i1);
 	  pointind.push_back(kdtree[clusterind[i]].point.i2);
 	}
@@ -1432,12 +1419,12 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 	pointjunk = pointind;
 	pointind={};
 	pointind.push_back(pointjunk[0]);
-	for(i=1; i<pointjunk.size(); i++) {
+	for(i=1; i<long(pointjunk.size()); i++) {
 	  if(pointjunk[i]!=pointjunk[i-1]) pointind.push_back(pointjunk[i]);
 	}
 	// Load vector of detection MJD's
 	clustmjd = {};
-	for(i=0; i<pointind.size(); i++) {
+	for(i=0; i<long(pointind.size()); i++) {
 	  clustmjd.push_back(detvec[pointind[i]].MJD);
 	}
 	// Sort vector of MJD's
@@ -1445,12 +1432,12 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 	timespan = clustmjd[clustmjd.size()-1] - clustmjd[0];
 	// Load vector of MJD steps
 	mjdstep={};
-	for(i=1; i<clustmjd.size(); i++) {
+	for(i=1; i<long(clustmjd.size()); i++) {
 	  mjdstep.push_back(clustmjd[i]-clustmjd[i-1]);
 	}
 	// Count steps large enough to suggest a daytime period between nights.
 	numdaysteps=0;	
-	for(i=0; i<mjdstep.size(); i++) {
+	for(i=0; i<long(mjdstep.size()); i++) {
 	  if(mjdstep[i]>INTRANIGHTSTEP) numdaysteps++;
 	}
 	cout << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
@@ -1469,7 +1456,7 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 	  outstream1 << "Cluster vel RMS: " << rmsvec[3] << " " << rmsvec[4] << " " << rmsvec[5] <<  " total vel " << rmsvec[7] << "\n";
 	  outstream1 << "Cluster total RMS: " << rmsvec[8] << " = " << trms << "\n";
 	  // Write individual detections to output file
-	  for(i=0; i<pointind.size(); i++) {
+	  for(i=0; i<long(pointind.size()); i++) {
 	    outstream1 << i << " " << detvec[pointind[i]].MJD << " " << detvec[pointind[i]].RA << " " << detvec[pointind[i]].Dec << " " << det_id_vec[pointind[i]] << "\n";
 	    cout << i << " " << detvec[pointind[i]].MJD << " " << detvec[pointind[i]].RA << " " << detvec[pointind[i]].Dec << " " << det_id_vec[pointind[i]] << "\n";
 	  }
@@ -1503,7 +1490,6 @@ int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, v
 {
   long kdnum = kdtree.size();
   long kdct=0;
-  int clustptnum=0;
   int clustptct=0;
   long clusternum=0;
   vector <long> queryout;
@@ -1514,8 +1500,7 @@ int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, v
   KD6_clust oneclust = KD6_clust(0,{},{},{});
   vector <long double> meanvec;
   vector <long double> rmsvec;
-  long double trms = 0.0L;
-  int i=0;
+  long i=0;
 
   // Loop on points
   for(kdct=0; kdct<kdnum; kdct++) {
@@ -1532,7 +1517,7 @@ int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, v
 	kdtree[kdct].flag = -1; // Noise point.
 	// cout << "Point " << kdct << ": noise\n";
       }
-      else if(queryout.size() >= npt) {
+      else if(long(queryout.size()) >= npt) {
 	// This is a core point of a new cluster.
 	cout << "Point " << kdct << ": cluster core with " << queryout.size() << " neighbors.\n";
 	clusternum++;
@@ -1542,7 +1527,7 @@ int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, v
 	cluster.push_back(kdtree[kdct]);
 	// Loop on points in cluster.
 	clustptct=0;
-	while(clustptct<queryout.size()) {
+	while(clustptct<long(queryout.size())) {
 	  if(kdtree[queryout[clustptct]].flag != 0) {
 	    // Current point has already been considered: skip to the next.
 	    clustptct++;
@@ -1551,13 +1536,13 @@ int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, v
 	    querypoint = kdtree[queryout[clustptct]].point;
 	    subquery={};
 	    kdrange_6D01(kdtree, querypoint, clustrad, subquery);
-	    if(subquery.size()>=npt) {
+	    if(long(subquery.size())>=npt) {
 	      // This point is a core point.
 	      kdtree[queryout[clustptct]].flag = clusternum;
 	      clusterind.push_back(queryout[clustptct]);
 	      cluster.push_back(kdtree[queryout[clustptct]]);
 	      // Add additional points to queryout as appropriate
-	      for(i=0;i<subquery.size();i++) {
+	      for(i=0;i<long(subquery.size());i++) {
 		if(kdtree[subquery[i]].flag == 0) queryout.push_back(subquery[i]);
 	      }
 	    } else {
@@ -1576,7 +1561,7 @@ int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, v
 	// Just finished loading a cluster.
 	// Calculate some cluster statistics.
 	meanvec = rmsvec = {};
-	trms = cluster_stats6D01(cluster, meanvec, rmsvec);
+	cluster_stats6D01(cluster, meanvec, rmsvec);
 	// Load cluster into oneclust.
 	oneclust = KD6_clust(cluster.size(),clusterind,meanvec,rmsvec);
 	// Push oneclust onto output vector.
@@ -1636,10 +1621,53 @@ point6LDx2 conv_6i_to_6LD(point6ix2 p1, long double scale)
   return(p2);
 }
 
+// conv_6d_to_6i: March 28, 2023
+// Integerize an object of class point6dx2 (6-dimensional
+// double point with 2 long integer indices) into an
+// object of class point6ix2, to enable clustering algorithms
+// to run faster. NOTE WELL that since the same scale factor
+// is used for position and velocity, it is implicitly
+// assumed that the velocity has previously been converted
+// to position units via multiplication by an appropriate
+// characteristic timescale.
+point6ix2 conv_6d_to_6i(point6dx2 p1, double scale)
+{
+  point6ix2 p2 = point6ix2(0,0,0,0,0,0,0,0);
+  p2.x = int(p1.x/scale + 0.5);
+  p2.y = int(p1.y/scale + 0.5);
+  p2.z = int(p1.z/scale + 0.5);
+  p2.vx = int(p1.vx/scale + 0.5);
+  p2.vy = int(p1.vy/scale + 0.5);
+  p2.vz = int(p1.vz/scale + 0.5);
+  p2.i1 = p1.i1;
+  p2.i2 = p1.i2;
+  return(p2);
+}
+
+// conv_6i_to_6d: March 28, 2023:
+// Reverse the effect of conv_6d_to_6i: expand an integerized
+// 6-dimensional state vector back out into long doubles.
+// Warning: Massive loss of precision, use only for crude
+// comparisons!
+point6dx2 conv_6i_to_6d(point6ix2 p1, double scale)
+{
+  point6dx2 p2 = point6dx2(0l,0l,0l,0l,0l,0l,0,0);
+  p2.x = p1.x*scale;
+  p2.y = p1.y*scale;
+  p2.z = p1.z*scale;
+  p2.vx = p1.vx*scale;
+  p2.vy = p1.vy*scale;
+  p2.vz = p1.vz*scale;
+  p2.i1 = p1.i1;
+  p2.i2 = p1.i2;
+  return(p2);
+}
+
+
 long medind_6ix2(const vector <point6ix2> &pointvec, int dim)
 {
   vector <point6ix2> pvec = pointvec; //Mutable copy of immutable input vector
-  for(long i=0; i<pvec.size(); i++) pvec[i].i1=i; //Redefine indices
+  for(long unsigned int i=0; i<pvec.size(); i++) pvec[i].i1=i; //Redefine indices
   long medpt = pvec.size()/2; // Central point of vector (it will be off by one half
                               // for a vector with even length, but we don't care).
   if(dim%6 == 1) sort(pvec.begin(), pvec.end(), lower_point6ix2_x()); // Sort vector by x
@@ -1661,9 +1689,9 @@ long medind_6ix2(const vector <point6ix2> &pointvec, int dim)
 // a left half with all the points lower than or equal to a specified
 // split point along the chosen dimension (use dim = 1, 2, 3, 4, 5, or 6
 // to split along x, y, z, vx, vy, or vz respectively).
-int splitix2(const vector <point6ix2> &pointvec, int dim, long splitpoint, vector <point6ix2> &left, vector <point6ix2> &right)
+int splitix2(const vector <point6ix2> &pointvec, int dim, long unsigned int splitpoint, vector <point6ix2> &left, vector <point6ix2> &right)
 {
-  long i=0;
+  long unsigned int i=0;
   int splitval = 0;
 
   if(dim%6==1) {
@@ -1737,17 +1765,14 @@ int splitix2(const vector <point6ix2> &pointvec, int dim, long splitpoint, vecto
 // Given an input root point, presumed to have null
 // right and left branches, load the branches and then
 // call kdtree_6i01 on them recursively.
-int kdtree_6i01(const vector <point6ix2> &invec, int dim, long splitpoint, long kdroot, vector <KD_point6ix2> &kdvec)
+int kdtree_6i01(const vector <point6ix2> &invec, int dim, long unsigned int splitpoint, long unsigned int kdroot, vector <KD_point6ix2> &kdvec)
 {
-  int status=0;
   int lmed=0;
   int rmed=0;
   int kdct = kdvec.size()-1;
-  int i=0;
   long leftrootkd=-1;
   long rightrootkd=-1;
   point6ix2 point0 = point6ix2(0,0,0,0,0,0,0,0);
-  KD_point6ix2 root = kdvec[kdct];
   KD_point6ix2 lp = KD_point6ix2(point0,-1,-1,0,0);
   KD_point6ix2 rp = KD_point6ix2(point0,-1,-1,0,0);
   vector <point6ix2> leftvec = {};
@@ -1761,7 +1786,7 @@ int kdtree_6i01(const vector <point6ix2> &invec, int dim, long splitpoint, long 
   // these medians. Then call kdtree_6i01 itself recursively on
   // each of these median points, to peform a new split along a
   // different dimension.
-  status = splitix2(invec,dim,splitpoint,leftvec,rightvec);
+  splitix2(invec,dim,splitpoint,leftvec,rightvec);
 
   dim+=1;
   while(dim>6) dim-=6;
@@ -1837,10 +1862,8 @@ long point6ix2_dist2(const point6ix2 &p1, const point6ix2 &p2)
 // Assumes that kdvec[0] is the root of the k-d tree.
 int kdrange_6i01(const vector <KD_point6ix2> &kdvec, const point6ix2 &querypoint, long range, vector <long> &indexvec)
 {
-  int branchct=0;
   long rng2 = range*range;
   int notdone=1;
-  int kdveclen = kdvec.size();
   int dim=1;
   int currentpoint=0;
   int leftpoint=0;
@@ -1850,8 +1873,7 @@ int kdrange_6i01(const vector <KD_point6ix2> &kdvec, const point6ix2 &querypoint
   long pointdiff = 0;
   long pdist2 = 0;
   vector <long> checkit={};
-  int i=0;
-  int checknum=0;
+  unsigned int checknum=0;
 
   while(notdone>0) {
     // Climb to the top of the k-d tree, keeping track
@@ -1959,7 +1981,7 @@ double cluster_stats6i01(const vector <KD_point6ix2> &cluster, double intconvsca
   double velrms = 0.0l;
   double totalrms = 0.0l;
   
-  for(int i=0; i<cluster.size(); i++) {
+  for(unsigned int i=0; i<cluster.size(); i++) {
     xmean += intconvscale * cluster[i].point.x;   
     ymean += intconvscale * cluster[i].point.y;   
     zmean += intconvscale * cluster[i].point.z;
@@ -1981,7 +2003,7 @@ double cluster_stats6i01(const vector <KD_point6ix2> &cluster, double intconvsca
   meanvals.push_back(vymean);
   meanvals.push_back(vzmean);
   
-  for(int i=0; i<cluster.size(); i++) {
+  for(unsigned int i=0; i<cluster.size(); i++) {
     xrms += DSQUARE(intconvscale * cluster[i].point.x - xmean);   
     yrms += DSQUARE(intconvscale * cluster[i].point.y - ymean);   
     zrms += DSQUARE(intconvscale * cluster[i].point.z - zmean);
@@ -2032,7 +2054,6 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
 {
   long kdnum = kdtree.size();
   long kdct=0;
-  int clustptnum=0;
   int clustptct=0;
   long clusternum=0;
   vector <long> queryout;
@@ -2043,8 +2064,7 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
   KD6i_clust oneclust = KD6i_clust(0,{},{},{});
   vector <double> meanvec;
   vector <double> rmsvec;
-  double trms = 0.0l;
-  int i=0;
+  long i=0;
 
   // Loop on points
   for(kdct=0; kdct<kdnum; kdct++) {
@@ -2060,7 +2080,7 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
       if(queryout.size()<=1) {
 	kdtree[kdct].flag = -1; // Noise point.
       }
-      else if(queryout.size() >= npt) {
+      else if(long(queryout.size()) >= npt) {
 	// This is a core point of a new cluster.
 	if(verbose>=1) cout << "Point " << kdct << ": cluster core with " << queryout.size() << " neighbors.\n";
 	clusternum++;
@@ -2070,7 +2090,7 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
 	cluster.push_back(kdtree[kdct]);
 	// Loop on points in cluster.
 	clustptct=0;
-	while(clustptct<queryout.size()) {
+	while(clustptct<long(queryout.size())) {
 	  if(kdtree[queryout[clustptct]].flag != 0) {
 	    // Current point has already been considered: skip to the next.
 	    clustptct++;
@@ -2079,13 +2099,13 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
 	    querypoint = kdtree[queryout[clustptct]].point;
 	    subquery={};
 	    kdrange_6i01(kdtree, querypoint, clustrad, subquery);
-	    if(subquery.size()>=npt) {
+	    if(long(subquery.size())>=npt) {
 	      // This point is a core point.
 	      kdtree[queryout[clustptct]].flag = clusternum;
 	      clusterind.push_back(queryout[clustptct]);
 	      cluster.push_back(kdtree[queryout[clustptct]]);
 	      // Add additional points to queryout as appropriate
-	      for(i=0;i<subquery.size();i++) {
+	      for(i=0;i<long(subquery.size());i++) {
 		if(kdtree[subquery[i]].flag == 0) queryout.push_back(subquery[i]);
 	      }
 	    } else {
@@ -2104,11 +2124,11 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
 	  // Close loop over the whole cluster
 	}
 	// Just finished loading a cluster.
-	if(cluster.size()>=npt) {	  
+	if(long(cluster.size())>=npt) {	  
 	  // This cluster has enough points to be considered.
 	  // Calculate some cluster statistics.
 	  meanvec = rmsvec = {};
-	  trms = cluster_stats6i01(cluster, intconvscale, meanvec, rmsvec);
+	  cluster_stats6i01(cluster, intconvscale, meanvec, rmsvec);
 	  // Load cluster into oneclust
 	  oneclust = KD6i_clust(cluster.size(),clusterind,meanvec,rmsvec);
 	  // Push oneclust onto output vector.
@@ -2186,7 +2206,7 @@ int celestial_to_stateunit(double RA, double Dec,point3d &baryvec)
   baryvec.x = y;
   baryvec.y = -x*sin(thetapole) + z*cos(thetapole);
   baryvec.z = x*cos(thetapole) + z*sin(thetapole);
-  // -x and y are switched above becuase we are rotating by 90 degrees
+  // -x and y are switched above because we are rotating by 90 degrees
   // after the pole-switch, to get the old North Celestial Pole
   // on the +y axis where it should be.
   return(0);
@@ -2206,7 +2226,7 @@ int celestial_to_stateunitLD(long double RA, long double Dec, point3LD &baryvec)
   baryvec.x = y;
   baryvec.y = -x*sin(thetapole) + z*cos(thetapole);
   baryvec.z = x*cos(thetapole) + z*sin(thetapole);
-  // -x and y are switched above becuase we are rotating by 90 degrees
+  // -x and y are switched above because we are rotating by 90 degrees
   // after the pole-switch, to get the old North Celestial Pole
   // on the +y axis where it should be.
   return(0);
@@ -2229,12 +2249,12 @@ int read_horizons_file(string infile, vector <double> &mjdvec, vector <point3d> 
   point3d velpoint = point3d(0.0,0.0,0.0);
   int reachedeof=0;
   int ondata=0;
-  int i=0;
+  unsigned int i=0;
   char c = '0';
   int reachedend=0;
   string teststring, lnfromfile;
   double x,y,z,vx,vy,vz,MJD;
-  MJD=x=y=z=vz=vy=vz=0.0;
+  x = y = z = vx = vy = vz = MJD = 0.0l;
   
   if(!instream1) {
     cerr << "ERROR: can't open input file " << infile << "\n";
@@ -2414,12 +2434,12 @@ int read_horizons_fileLD(string infile, vector <long double> &mjdvec, vector <po
   point3LD velpoint = point3LD(0.0,0.0,0.0);
   int reachedeof=0;
   int ondata=0;
-  int i=0;
+  unsigned int i=0;
   char c = '0';
   int reachedend=0;
   string teststring, lnfromfile;
   long double x,y,z,vx,vy,vz,MJD;
-  MJD=x=y=z=vz=vy=vz=0.0;
+  x = y = z = vx = vy = vz = MJD = 0.0l;
   
   if(!instream1) {
     cerr << "ERROR: can't open input file " << infile << "\n";
@@ -2890,7 +2910,8 @@ epoch-of-date and precess to J2000.0*/
 int precess01a(double ra1,double dec1,double mjd,double *ra2,double *dec2,int precesscon)
 {
   double ndays,tds,zetaa,thetaa,zaa,ra4,dec4,cosra,sinra;
-
+  ndays = tds = zetaa = thetaa = zaa = ra4 = dec4 = cosra = sinra = 0.0l;
+  
   /*time since standard epoch*/
   ndays = mjd-(double)51544; /*Number of days since Jan 1, 2000*/
   tds = ndays/(double)36525.0;
@@ -3016,7 +3037,8 @@ int precess01a(double ra1,double dec1,double mjd,double *ra2,double *dec2,int pr
 int precess01aLD(long double ra1,long double dec1,long double mjd,long double *ra2,long double *dec2,int precesscon)
 {
   long double ndays,tds,zetaa,thetaa,zaa,ra4,dec4,cosra,sinra;
-
+  ndays = tds = zetaa = thetaa = zaa = ra4 = dec4 = cosra = sinra = 0.0L;
+  
   /*time since standard epoch*/
   ndays = mjd-51544L; /*Number of days since Jan 1, 2000*/
   tds = ndays/36525.0L;
@@ -3410,11 +3432,11 @@ int perfectpoly01(const vector <double> &x, const vector <double> &y, vector <do
 {
   vector <vector <double>> dmatrix;
   vector <double> outvec;
-  int i=0;
-  int j=0;
-  int k=0;
+  unsigned int i=0;
+  unsigned int j=0;
+  unsigned int k=0;
   int status=0;
-  int npoints = x.size();
+  unsigned int npoints = x.size();
   if(y.size() != npoints) {
     cerr << "ERROR: x and y vectors in perfectpoly don't have the same number of points!\n";
     return(1);
@@ -3444,11 +3466,11 @@ int perfectpoly01LD(const vector <long double> &x, const vector <long double> &y
 {
   vector <vector <long double>> dmatrix;
   vector <long double> outvec;
-  int i=0;
-  int j=0;
-  int k=0;
+  unsigned int i=0;
+  unsigned int j=0;
+  unsigned int k=0;
   int status=0;
-  int npoints = x.size();
+  unsigned int npoints = x.size();
   if(y.size() != npoints) {
     cerr << "ERROR: x and y vectors in perfectpoly don't have the same number of points!\n";
     return(1);
@@ -3486,17 +3508,17 @@ int perfectpoly01LD(const vector <long double> &x, const vector <long double> &y
 // pre-subtracted from detmjd, so it will cancel out internally.
 int planetpos01(double detmjd, int polyorder, const vector <double> &posmjd, const vector <point3d> &planetpos, point3d &outpos)
 {
-  int fitnum = polyorder+1;
-  int pointsbefore = fitnum - fitnum/2;
-  int pbf=0;
+  long fitnum = polyorder+1;
+  long pointsbefore = fitnum - fitnum/2;
+  long pbf=0;
   vector <double> xvec;
   vector <double> yvec;
   vector <double> fitvec;
   double tdelt=0;
   double sumvar=0;
-  int i=0;
-  int j=0;
-  int k=0;
+  long i=0;
+  long j=0;
+  long k=0;
   make_dvec(fitnum,fitvec);
 
   // Convert input time from UT1 standard to the dynamical time (TT) used
@@ -3507,8 +3529,8 @@ int planetpos01(double detmjd, int polyorder, const vector <double> &posmjd, con
   //Interpolate to find the planet's exact position at the time
   //of the detection.
   pbf=0;
-  i=posmjd.size();
-  if(planetpos.size()!=i) {
+  i=long(posmjd.size());
+  if(long(planetpos.size())!=i) {
     cerr << "ERROR: planetpos01 finds time and position vectors\n";
     cerr << "to have different lengths\n";
     return(1);
@@ -3575,15 +3597,15 @@ int planetpos01(double detmjd, int polyorder, const vector <double> &posmjd, con
 // pre-subtracted from detmjd, so it will cancel out internally.
 int planetpos01LD(long double detmjd, int polyorder, const vector <long double> &posmjd, const vector <point3LD> &planetpos, point3LD &outpos)
 {
-  int fitnum = polyorder+1;
-  int pointsbefore = fitnum - fitnum/2;
-  int pbf=0;
+  long fitnum = polyorder+1;
+  long pointsbefore = fitnum - fitnum/2;
+  long pbf=0;
   vector <long double> xvec;
   vector <long double> yvec;
   vector <long double> fitvec;
   long double tdelt=0;
   long double sumvar=0;
-  int i=0;
+  long i=0;
   int j=0;
   int k=0;
   make_LDvec(fitnum,fitvec);
@@ -3596,8 +3618,8 @@ int planetpos01LD(long double detmjd, int polyorder, const vector <long double> 
   //Interpolate to find the planet's exact position at the time
   //of the detection.
   pbf=0;
-  i=posmjd.size();
-  if(planetpos.size()!=i) {
+  i=long(posmjd.size());
+  if(long(planetpos.size())!=i) {
     cerr << "ERROR: planetpos01 finds time and position vectors\n";
     cerr << "to have different lengths\n";
     return(1);
@@ -3652,6 +3674,106 @@ int planetpos01LD(long double detmjd, int polyorder, const vector <long double> 
   return(0);
 }
 
+// planetposvel01: December 09, 2021:
+// Given a vector of MJD values, a vector of 3-D planet positions,
+// and a vector of 3-D planet velocities (expected usually to be for the Sun,
+// but could be for another object), perform a polynomial fit to the velocity,
+// and use it to calculate an interpolated velocity and an integrated position
+// at the instant detmjd. It is assumed that the
+// input time detmjd is in UT1 or some reasonable approximation
+// thereof, while the planet ephemeris vectors are in dynamical TT.
+// Hence, a correction is applied to the input time before the
+// interpolation. If the calling function actually has time in TT
+// already, planetpos01 should be called with the correction
+// pre-subtracted from detmjd, so it will cancel out internally.
+int planetposvel01(double detmjd, int polyorder, const vector <double> &posmjd, const vector <point3d> &planetpos, const vector <point3d> &planetvel, point3d &outpos, point3d &outvel)
+{
+  long fitnum = polyorder+1;
+  long pointsbefore = fitnum - fitnum/2;
+  long pbf=0;
+  vector <double> xvec;
+  vector <double> yvec;
+  vector <double> fitvec;
+  double tdelt=0;
+  double sumvar=0;
+  long i=0;
+  int j=0;
+  int k=0;
+  make_dvec(fitnum,fitvec);
+  
+  // Convert input time from UT1 standard to the dynamical time (TT) used
+  // by JPL Horizons for the state vectors.
+  detmjd += TTDELTAT/SOLARDAY;
+  // TT is ahead of UT1 because the Earth's rotation is slowing down.
+
+  //Interpolate to find the planet's exact velocity at the time
+  //of the detection.
+  pbf=0;
+  i=long(posmjd.size());
+  if(long(planetpos.size())!=i) {
+    cerr << "ERROR: planetpos01 finds time and position vectors\n";
+    cerr << "to have different lengths\n";
+    return(1);
+  }
+  while(i>0 && pbf<pointsbefore)
+    {
+      i--;
+      if(posmjd[i]<detmjd) pbf++;
+    }
+  pbf=i;
+  xvec={};
+  yvec={};
+  tdelt = detmjd-posmjd[pbf];
+  // Load vectors to fit x-coordinate of the planet's velocity
+  for(i=pbf;i<pbf+fitnum;i++) {
+    xvec.push_back(posmjd[i]-posmjd[pbf]);
+    yvec.push_back(planetvel[i].x);
+  }
+  // Solve for polynomial interpolation
+  perfectpoly01(xvec,yvec,fitvec);
+  // Calculate interpolated velocity and position
+  outvel.x = fitvec[0];
+  outpos.x = planetpos[pbf].x + fitvec[0]*tdelt*SOLARDAY;
+  for(j=1;j<fitnum;j++) {
+    sumvar = fitvec[j]*tdelt;
+    for(k=2;k<=j;k++) sumvar*=tdelt;
+    outvel.x += sumvar;
+    sumvar *= tdelt*SOLARDAY/((long double)(j+1.0L)); // One more power of tdelt, for the position.
+    outpos.x += sumvar;
+  }
+  // Load vector to fit y-coordinate
+  yvec={};
+  for(i=pbf;i<pbf+fitnum;i++) yvec.push_back(planetvel[i].y);
+  // Solve for polynomial interpolation
+  perfectpoly01(xvec,yvec,fitvec);
+  // Calculate interpolated position.
+  outvel.y = fitvec[0];
+  outpos.y = planetpos[pbf].y + fitvec[0]*tdelt*SOLARDAY;
+  for(j=1;j<fitnum;j++) {
+    sumvar = fitvec[j]*tdelt;
+    for(k=2;k<=j;k++) sumvar*=tdelt;
+    outvel.y += sumvar;
+    sumvar *= tdelt*SOLARDAY/((long double)(j+1.0L)); // One more power of tdelt, for the position.
+    outpos.y += sumvar;
+  }
+  // Load vector to fit z-coordinate
+  yvec={};
+  for(i=pbf;i<pbf+fitnum;i++) yvec.push_back(planetvel[i].z);
+  // Solve for polynomial interpolation
+  perfectpoly01(xvec,yvec,fitvec);
+  // Calculate interpolated position.
+  outvel.z = fitvec[0];
+  outpos.z = planetpos[pbf].z + fitvec[0]*tdelt*SOLARDAY;
+  for(j=1;j<fitnum;j++) {
+    sumvar = fitvec[j]*tdelt;
+    for(k=2;k<=j;k++) sumvar*=tdelt;
+    outvel.z += sumvar;
+    sumvar *= tdelt*SOLARDAY/((long double)(j+1.0L)); // One more power of tdelt, for the position.
+    outpos.z += sumvar;
+  }
+  return(0);
+}
+
 // planetposvel01LD: December 09, 2021:
 // Given a vector of MJD values, a vector of 3-D planet positions,
 // and a vector of 3-D planet velocities (expected usually to be for the Sun,
@@ -3666,15 +3788,15 @@ int planetpos01LD(long double detmjd, int polyorder, const vector <long double> 
 // pre-subtracted from detmjd, so it will cancel out internally.
 int planetposvel01LD(long double detmjd, int polyorder, const vector <long double> &posmjd, const vector <point3LD> &planetpos, const vector <point3LD> &planetvel, point3LD &outpos, point3LD &outvel)
 {
-  int fitnum = polyorder+1;
-  int pointsbefore = fitnum - fitnum/2;
-  int pbf=0;
+  long fitnum = polyorder+1;
+  long pointsbefore = fitnum - fitnum/2;
+  long pbf=0;
   vector <long double> xvec;
   vector <long double> yvec;
   vector <long double> fitvec;
   long double tdelt=0;
   long double sumvar=0;
-  int i=0;
+  long i=0;
   int j=0;
   int k=0;
   make_LDvec(fitnum,fitvec);
@@ -3687,8 +3809,8 @@ int planetposvel01LD(long double detmjd, int polyorder, const vector <long doubl
   //Interpolate to find the planet's exact velocity at the time
   //of the detection.
   pbf=0;
-  i=posmjd.size();
-  if(planetpos.size()!=i) {
+  i=long(posmjd.size());
+  if(long(planetpos.size())!=i) {
     cerr << "ERROR: planetpos01 finds time and position vectors\n";
     cerr << "to have different lengths\n";
     return(1);
@@ -3956,6 +4078,91 @@ int observer_barycoords01(double detmjd, int polyorder, double lon, double obsco
   return(0);
 }
 
+// observer_baryvel01: March 21, 2023:
+// Exactly like observer_barycoords01, but also calculates the
+// observer's barycentric velocity.
+// Note that the handling of Earth's rotation assumes that the
+// input MJD is UT1, while the ephemeris vectors posmjd
+// and planetpos are in dynamical TT. Hence, after calculating
+// aspects related to Earth's rotation with detmjd as input,
+// planetpos01 is called which internally converts the input
+// UT1 into TT.
+int observer_baryvel01(double detmjd, int polyorder, double lon, double obscos, double obssine, const vector <double> &posmjd, const vector <point3d> &planetpos, const vector <point3d> &planetvel, point3d &outpos, point3d &outvel)
+{
+  double gmst=0;
+  double djdoff = detmjd-51544.5l;
+  double zenithRA=0.0l;
+  double zenithDec=0.0l;
+  double velRA=0.0l; // RA of the observer's geocentric velocity vector
+  double velDec=0.0l; // Dec of the observer's geocentric velocity vector, always 0.
+  double junkRA=0.0l;
+  double junkDec=0.0l;
+  double crad = sqrt(obscos*obscos + obssine*obssine)*EARTHEQUATRAD;
+  double cvel = 2.0l*M_PI*obscos*EARTHEQUATRAD/SIDEREALDAY;
+  point3d obs_from_geocen = point3d(0,0,0);
+  point3d vel_from_geocen = point3d(0,0,0);
+  point3d geocen_from_barycen = point3d(0,0,0);
+  point3d vel_from_barycen = point3d(0,0,0);
+
+  gmst = 18.697374558l + 24.06570982441908l*djdoff;
+  // Add the longitude, converted to hours.
+  // Note: at this point it stops being gmst.
+  gmst += lon/15.0l;
+  // Get a value between 0 and 24.0.
+  while(gmst>=24.0l) gmst-=24.0l;
+  while(gmst<0.0l) gmst+=24.0l;
+  // Convert to degrees
+  zenithRA = gmst * 15.0l;
+  // Get zenithDec    
+  if(obscos!=0.0l) {
+    zenithDec = atan(obssine/obscos)*DEGPRAD;
+  } else if(obssine>=0.0l) {
+    zenithDec = 90.0l;
+  } else {
+    zenithDec=-90.0l;
+  }
+  // Calculate RA and Dec of the observer's geocentric velocity vector.
+  velRA = zenithRA+90.0l;
+  if(velRA >= 360.0l) velRA -= 360.0l;
+  velDec = 0.0l;
+  
+  // Now zenithRA and zenithDec are epoch-of-date coordinates.
+  // If you want them in J2000.0, this is the place to convert them.
+  int precesscon=-1; //Precess epoch-of-date to J2000.0
+  junkRA = zenithRA/DEGPRAD;
+  junkDec = zenithDec/DEGPRAD;
+  precess01a(junkRA,junkDec,detmjd,&zenithRA,&zenithDec,precesscon);
+  zenithRA*=DEGPRAD;
+  zenithDec*=DEGPRAD;
+  celestial_to_statevec(zenithRA,zenithDec,crad,obs_from_geocen);
+  // crad is the distance from the geocenter to the observer, in AU.
+  // Now velRA and velDec are also epoch-of-date coordinates,
+  // and hence should be converted to J2000.0.
+  junkRA = velRA/DEGPRAD;
+  junkDec = velDec/DEGPRAD;
+  precess01a(junkRA,junkDec,detmjd,&velRA,&velDec,precesscon);
+  velRA*=DEGPRAD;
+  velDec*=DEGPRAD;
+  celestial_to_statevec(velRA,velDec,cvel,vel_from_geocen);
+  // cvel is the Earth's rotation velocity at the latitude of
+  // the observer, in km/sec.
+
+  planetposvel01(detmjd,polyorder,posmjd,planetpos,planetvel,geocen_from_barycen,vel_from_barycen);
+
+  outpos.x = geocen_from_barycen.x + obs_from_geocen.x;
+  outpos.y = geocen_from_barycen.y + obs_from_geocen.y;
+  outpos.z = geocen_from_barycen.z + obs_from_geocen.z;
+  outvel.x = vel_from_barycen.x + vel_from_geocen.x;
+  outvel.y = vel_from_barycen.y + vel_from_geocen.y;
+  outvel.z = vel_from_barycen.z + vel_from_geocen.z;
+ 
+  cout << "spinvel: " << vel_from_geocen.x << " " << vel_from_geocen.y << " " << vel_from_geocen.z << "\n";
+  cout << "orbvel: " << vel_from_barycen.x << " " << vel_from_barycen.y << " " << vel_from_barycen.z << "\n";
+  cout << "total: " << outvel.x << " " << outvel.y << " " << outvel.z << "\n";
+  return(0);
+}
+
+
 // observer_barycoords01LD: November 24, 2021:
 // Given the MJD of an observation, and a file giving barycentric state-vector
 // coordinates for the Earth, the longitude and MPC latitude sin and cos terms
@@ -4020,19 +4227,19 @@ int observer_barycoords01LD(long double detmjd, int polyorder, long double lon, 
 int helioproj01(point3d unitbary, point3d obsbary,double heliodist,double &geodist, point3d &projbary)
 {
   double a,b,c;
-  double alphapos,alphaneg;
-  double opdistcos,sunelong,barydist;
-  double obsdot,opelong;
+  double alphapos;
+  // double opdistcos,sunelong,opelon;
+  double barydist,obsdot;
   
   //cout << fixed << setprecision(9) << "helioproj01 input observer pos: " << obsbary.x << " " << obsbary.y << " " << obsbary.z << "\n";
   //cout << "barycentric unit vector: " << unitbary.x << " " << unitbary.y << " " << unitbary.z << "\n";
 
   barydist = sqrt(dotprod3d(obsbary,obsbary));
   obsdot = dotprod3d(unitbary,obsbary);
-  opdistcos = obsdot/barydist;
-  opelong = acos(opdistcos)*DEGPRAD;
-  if(opelong < 0.0) opelong = 90.0 - opelong;
-  sunelong = 180.0 - opelong;
+  // opdistcos = obsdot/barydist;
+  // opelong = acos(opdistcos)*DEGPRAD;
+  // if(opelong < 0.0) opelong = 90.0 - opelong;
+  // sunelong = 180.0 - opelong;
 
   //cout << "barydist = " << barydist << ", obsdot = " << obsdot << ", opdistcos = " << opdistcos << ", opelong = " << opelong << ", sunelong = " << sunelong << "\n";
   
@@ -4086,7 +4293,7 @@ int helioproj01(point3d unitbary, point3d obsbary,double heliodist,double &geodi
 int helioproj01LD(point3LD unitbary, point3LD obsbary, long double heliodist, long double &geodist, point3LD &projbary)
 {
   long double a,b,c;
-  long double alphapos,alphaneg,obsdot,barydist;
+  long double alphapos,obsdot,barydist;
   // long double opdistcos,sunelong,opelong;
   
   //cout << fixed << setprecision(9) << "helioproj01 input observer pos: " << obsbary.x << " " << obsbary.y << " " << obsbary.z << "\n";
@@ -4216,6 +4423,85 @@ int helioproj02LD(point3LD unitbary, point3LD obsbary, long double heliodist, ve
   return(-1);
 }
 
+// helioproj02: March 28, 2023
+// Like helioproj02LD, but uses just double-precision, rather than
+// long double. Correctly solves cases where the vector
+// originates outside the heliocentric sphere and interesects it twice.
+// If valid solutions exist, returns the number of solutions found
+// (either 1 or 2), with the solutions stored in the ouput vectors geodist
+// and projbary. If no solution exists, returns -1 with output vectors
+// empty.
+int helioproj02(point3d unitbary, point3d obsbary, double heliodist, vector <double> &geodist, vector <point3d> &projbary)
+{
+  double a,b,c;
+  double alphapos,alphaneg,barydist,obsdot;
+  point3d barypos = point3d(0.0l,0.0l,0.0l);
+  
+  barydist = sqrt(dotprod3d(obsbary,obsbary));
+  obsdot = dotprod3d(unitbary,obsbary);
+
+  // Make sure output vectors start out empty
+  geodist = {};
+  projbary = {};
+
+  a = 1.0l;
+  b = 2.0l*obsdot;
+  c = barydist*barydist - heliodist*heliodist;
+  
+  if((b*b-4.0L*a*c)>=0.0l) {
+    // Quadratic has two real solutions for geocentric distance.
+    alphapos = (-b + sqrt(b*b-4.0L*a*c))/2.0L/a;
+    if(alphapos>0.0L) {
+      // The first solution is positive, and hence physically possible
+      geodist.push_back(alphapos);
+      barypos.x = obsbary.x + alphapos*unitbary.x;
+      barypos.y = obsbary.y + alphapos*unitbary.y;
+      barypos.z = obsbary.z + alphapos*unitbary.z;
+      projbary.push_back(barypos);
+      alphaneg = (-b - sqrt(b*b-4.0L*a*c))/2.0L/a;
+      if(alphaneg>0.0L) {
+	// The second solution is also positive, so they are both physically possible
+	geodist.push_back(alphaneg);
+	barypos.x = obsbary.x + alphaneg*unitbary.x;
+	barypos.y = obsbary.y + alphaneg*unitbary.y;
+	barypos.z = obsbary.z + alphaneg*unitbary.z;
+	projbary.push_back(barypos);
+	// Sanity check before we return
+	if(geodist.size()==2 || projbary.size()==2) {
+	  return(2);
+	} else {
+	  cerr << "ERROR: vector sizes don't match number of real solutions!\n";
+	  cerr << "Sizes: " << geodist.size() << " " << projbary.size() << " should both be exactly 2\n";
+	} 
+      } else {
+	// Only the first solution was positive.
+	if(geodist.size()==1 || projbary.size()==1) {
+	  return(1);
+	} else {
+	  cerr << "ERROR: vector sizes don't match number of real solutions!\n";
+	  cerr << "Sizes: " << geodist.size() << " " << projbary.size() << " should both be exactly 1\n";
+	} 
+      }
+    } else {
+      // There were no positive real solutions for geocentric distance.
+      // Since scalar distance cannot be negative, this means the quadratic
+      // has no physical solution: the vector unitbary has no intersection
+      // with the heliocentric sphere of radius heliodist in the positive direction.
+      return(-1);
+    }
+  } else {
+    // Quadratic equation for object's distance from the
+    // observer has no real solution: this unit vector extending
+    // from Earth can never intersect this heliocentric
+    // sphere. Most likely, the heliocentric sphere lies
+    // entirely inside the vector from Earth.
+    return(-1);
+  }
+  // Should never reach this point, but return anyway just in case.
+  return(-1);
+}
+
+
 // accelcalc01LD: December 01, 2021
 // Given a vector of planet positions for a particular instant in time,
 // calculate the resulting gravitational acceleration at the point targpos.
@@ -4248,7 +4534,6 @@ int accelcalc01LD(int planetnum, const vector <long double> &planetmasses, const
 // acceleration between timesteps.
 int integrate_orbit_constac(int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel)
 {
-  int endnear=0;
   int startnear=0;
   int pointafter=0;
   int lastpoint=0;
@@ -4270,8 +4555,6 @@ int integrate_orbit_constac(int planetnum, const vector <long double> &planetmjd
   // Find the point nearest mjdstart, and the point nearest mjdend.
   if(fabs(planetmjd[pointafter]-mjdstart) < fabs(planetmjd[pointafter-1]-mjdstart)) startnear = pointafter;
   else startnear = pointafter-1;
-  if(fabs(planetmjd[lastpoint]-mjdend) < fabs(planetmjd[lastpoint+1]-mjdend)) endnear = lastpoint;
-  else endnear = lastpoint+1;
 
   // Load starting position and velocity.
   singlepos = startpos;
@@ -4377,8 +4660,6 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
 {
   long double e,E,a,lscalar,r0,v0,r1,v1;
   point3LD lvec = point3LD(0L,0L,0L);
-  point3LD lunit = point3LD(0L,0L,0L);
-  point3LD r0unit = point3LD(0L,0L,0L);
   point3LD r1unit = point3LD(0L,0L,0L);
   point3LD v1unit = point3LD(0L,0L,0L);
   e = E = a = lscalar = r0 = v0 = r1 = v1 = 0L;
@@ -4388,9 +4669,8 @@ int Keplerint(const long double MGsun, const long double mjdstart, const point3L
   omega = t0omega = t0 = t1omega = t1 = 0L;
   long double lra,ldec,r0ra,r0dec,r1ra,r1dec,newra,newdec;
   lra = ldec = r0ra = r0dec = r1ra = r1dec = newra = newdec = 0L;
-  int status = 0;
-  long double junkra,junkdec,sinev,thetav,v1ra,v1dec;
-  junkra = junkdec = sinev = thetav = v1ra = v1dec = 0L;
+  long double sinev,thetav,v1ra,v1dec;
+  sinev = thetav = v1ra = v1dec = 0L;
     
   // Calculate scalar input position
   r0 = sqrt(dotprod3LD(startpos,startpos));
@@ -4580,11 +4860,8 @@ int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD
   long double heliodist,ellipsearea,Period,sweeprate;
   long double radvel,angvel,tanvel,poleRA,poleDec,oldpoleRA;
   long double newRA,newDec,totalvel,thetaoc;
-  int verbose=1;
   long double vtheta1,vtheta2,posRA,posDec,velRA,velDec;
-  long double GMsun=0.0L;
-  long double omega=0.0L;
-  long double E=0.0L;
+  vtheta1 = vtheta2 = posRA = posDec = velRA = velDec = 0.0L;
   // keporb.semimaj_axis        in AU
   // keporb.eccentricity        unitless
   // keporb.inclination         in degrees
@@ -4717,6 +4994,244 @@ int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD
   return(0);
 }
 
+// kep_transcendentald: March 28, 2023:
+// Exactly like kep_transcendental, but uses only
+// double precision, not long double.
+// Solve the trancendental Kepler Equation
+// q = psi - e*sin(psi) for psi given q and e,
+// returning a result guaranteed to be correct
+// within tol, unless KEPTRANSITMAX iterations
+// elapse without achieving this.
+double kep_transcendentald(double q, double e, double tol)
+{
+  int itct=0;
+  double psi_guess = M_PI; // Derivative is always positive: correct answer
+                          // can always be reached starting from psi = pi.
+
+  if(tol<=0l) {
+    cerr << "ERROR: kep_trancendental called with non-positive tolerance " << tol << "\n";
+    return(-99.9);
+  }
+
+  double fpsi = psi_guess - e*sin(psi_guess) - q;
+  double fprime = 1.0l - e*cos(psi_guess);
+  itct=0;
+  cout.precision(17);
+  while(itct<KEPTRANSITMAX && fabs(fpsi) > tol) {
+    psi_guess += -fpsi/fprime;
+    if(psi_guess >= 2.0l*M_PI) psi_guess = 2.0l*M_PI - tol;
+    if(psi_guess < 0.0l) psi_guess = 0.0l + tol;
+    fpsi = psi_guess - e*sin(psi_guess) - q;
+    fprime = 1.0l - e*cos(psi_guess);
+    itct++;
+  }
+
+  if(itct>=KEPTRANSITMAX) {
+    cout.precision(21);
+    cout << "Warning: kep_trancendental " << itct << " iters, still " << fpsi << " > tol = " << tol;
+    cout << " Call was q = " << q << ", e = " << e << "\n";
+  }
+  // cout << "kep_transcendental obtained error of " << fpsi << " in only " << itct << " iterations\n";
+  return(psi_guess);
+}
+    
+// Keplerintd: March 28, 2023: Like Keplerint, but uses only
+// double precision, not long double.
+// Integrate an orbit assuming we have a Keplerian 2-body problem
+// with all the mass in the Sun, and the input position and velocity
+// are relative to the Sun.
+int Keplerintd(const double MGsun, const double mjdstart, const point3d &startpos, const point3d &startvel, const double mjdend, point3d &endpos, point3d &endvel)
+{
+  double e,E,a,lscalar,r0,v0,r1,v1;
+  point3d lvec = point3d(0l,0l,0l);
+  point3d r1unit = point3d(0l,0l,0l);
+  point3d v1unit = point3d(0l,0l,0l);
+  e = E = a = lscalar = r0 = v0 = r1 = v1 = 0l;
+  double costheta,theta0,theta1,radvel,cospsi,psi;
+  costheta = theta0 = theta1 = radvel = cospsi = psi = 0l;
+  double omega, t0omega, t0, t1omega, t1;
+  omega = t0omega = t0 = t1omega = t1 = 0l;
+  double lra,ldec,r0ra,r0dec,r1ra,r1dec,newra,newdec;
+  lra = ldec = r0ra = r0dec = r1ra = r1dec = newra = newdec = 0l;
+  double sinev,thetav,v1ra,v1dec;
+  sinev = thetav = v1ra = v1dec = 0l;
+    
+  // Calculate scalar input position
+  r0 = sqrt(dotprod3d(startpos,startpos));
+  v0 = sqrt(dotprod3d(startvel,startvel));
+  
+  // Calculate specific energy and angular momentum
+  E = 0.5l*v0*v0 - MGsun/r0;
+  lvec = crossprod3d(startpos,startvel);
+  lscalar = sqrt(dotprod3d(lvec,lvec));
+  if(E>=0l) {
+    //cerr << "ERROR: Keplerint finds positive total energy: " << E << "\n";
+    return(1);
+  }
+		 
+  // Calculate a and e: orbital semimajor axis and eccentricity.
+  cout.precision(17);
+  a = -MGsun*0.5l/E;
+  e = sqrt(1.0l + 2.0l*E*lscalar*lscalar/MGsun/MGsun);
+  if(e < 0l && e > -KEPTRANSTOL) {
+    // eccentricity is formally negative, but very close to zero, so instead
+    // of throwing an error, we simply set it to exactly zero.
+    e = 0l;
+  }
+  if(e<0l || e>=1.0l) {
+    cerr << "ERROR: Keplerint finds eccentricity out of range: " << e << "\n";
+    return(1);
+  }
+
+  // Calculate angle theta0 from perihelion using simple ellipse geometry.
+  if(e>0l) costheta = ((a-a*e*e)/r0 - 1.0l)/e;
+  else costheta = 1.0l;
+  if(costheta>=-1.0l && costheta<=1.0l) theta0 = acos(costheta);
+  else if(costheta<-1.0) {
+    // cerr << "WARNING: Keplerint finds costheta+1.0 = " << costheta+1.0 << "\n";
+    costheta = -1.0l;
+    theta0 = M_PI;
+  } else if(costheta>1.0) {
+    // cerr << "WARNING: Keplerint finds costheta-1.0 = " << costheta-1.0 << "\n";
+    costheta = 1.0l;
+    theta0 = 0l;
+  } else {
+    cerr << "ERROR: Keplerint finds costheta = " << costheta << "\n";
+    return(1);
+  }
+    
+  radvel = dotprod3d(startpos,startvel)/r0;
+  //cout << "Radial velocity = " << radvel << " km/sec\n";
+  
+  if(radvel>=0) {
+    // We are moving outward from perihelion: theta will be correct.
+    //cout << "Moving outward from perihelion.\n";
+    ;
+  } else {
+    // We are moving inward towards perihelion: theta needs adjustment.
+    theta0 = 2.0l*M_PI - theta0;
+    //cout << "Moving inward towards perihelion.\n";
+  }
+  // If e=0, we'll have costheta = 1.0 and theta0 = 0.0
+  
+  // Calculate Goldstein's psi variable from theta.
+  cospsi = (costheta + e)/(1.0l + costheta*e);
+  if(cospsi>=-1.0l && cospsi<=1.0l) psi = acos(cospsi);
+  else if(cospsi<-1.0) {
+    // cerr << "WARNING: Keplerint finds cospsi+1.0 = " << cospsi+1.0 << "\n";
+    cospsi = -1.0l;
+    psi = M_PI;
+  } else if(cospsi>1.0) {
+    // cerr << "WARNING: Keplerint finds cospsi-1.0 = " << cospsi-1.0 << "\n";
+    cospsi = 1.0l;
+    psi = 0l;  
+  } else {
+    cerr << "ERROR: Keplerint finds cospsi = " << cospsi << "\n";
+    return(1);
+  }
+  if(radvel<0) {
+    // We are moving inward towards perihelion: psi needs adjustment.
+    psi = 2.0l*M_PI - psi;
+  }
+  // If e=0, we'll have cospsi = 1.0 and psi = 0.0
+
+  // Calculate time since perihelion using psi.
+  omega = sqrt(MGsun/(a*a*a));
+  //cout << "Period = " << 2.0L*M_PI/omega/SOLARDAY/365.25 << " years\n";
+  t0omega = psi - e*sin(psi);
+  // If e=0, we'll have t0omega = 0.0
+ 
+  // The new time t1 for which we want to re-evaluate psi is
+  // given by t0 + mjdend-mjdstart.
+  t1omega = t0omega + (mjdend-mjdstart)*SOLARDAY*omega;
+  //cout << " t1omega = " << t1omega;
+  while(t1omega >= 2.0l*M_PI) t1omega -= 2.0l*M_PI;
+  while(t1omega < 0.0l) t1omega += 2.0l*M_PI;
+  //cout << " t1omega = " << t1omega << "\n";
+  // Solve Kepler's equation for psi(t1)
+  psi = kep_transcendentald(t1omega,e,KEPTRANSTOL);
+  //cout << "New psi = " << psi*DEGPRAD;
+  cospsi = cos(psi);
+  //cout << " New cospsi = " << cospsi;
+  // Calculate theta(t1) from psi(t1)
+  if(1.0l - e*cospsi != 0.0l) {
+    costheta = (cospsi - e)/(1.0l - e*cospsi);
+    if(costheta >= -1.0l && costheta <= 1.0l) theta1 = acos(costheta);
+    else if(costheta < -1.0l) {
+      cout << "Warning: costheta = " << costheta << "\n";
+      theta1 = M_PI;
+    } else {
+      cout << "Warning: costheta = " << costheta << "\n";
+      theta1 = 0.0l;
+    }
+    if(psi>M_PI && theta1<=M_PI) theta1 = 2.0l*M_PI - theta1;
+  } else {
+    cerr << "Warning: e*cos(psi) = " << e*cospsi << " so 1 - e*cos(psi) = " << 1.0l - e*cospsi << "\n";
+    theta1 = 0.0l;
+  }
+  while(theta1<0.0l) theta1 += 2.0l*M_PI;
+  while(theta1>=2.0l*M_PI) theta1 -= 2.0l*M_PI;
+
+  // Calculate r(t1) from psi(t1)
+  r1 = a*(1.0L - e*cospsi);
+  // Calculate v1 from r1 and the known energy
+  v1 = sqrt((E +  MGsun/r1)*2.0L);
+  
+  // Use vector algebra to find the full vector r(t1).
+  // This vector is perpendicular to lvec, and is angled by theta1-theta0
+  // relative to startpos.
+  // Convert angular momentum vector to spherical coordinates
+  celedeproj01(lvec,&lra,&ldec); // Note that output is in degrees.
+  //cout << "Psuedo-celestial coords of angular momentum vector: " << lra << " " << ldec << "\n";
+  celedeproj01(startpos,&r0ra,&r0dec); // Note that output is in degrees.
+  //cout << "Psuedo-celestial coords of original position: " << r0ra << " " << r0dec << "\n";
+  // Transform the starting unit vector into a coordinate system with
+  // the angular momentum vector at the pole, and the old pole at RA=0
+  poleswitch01(r0ra/DEGPRAD,r0dec/DEGPRAD,lra/DEGPRAD,ldec/DEGPRAD,0.0L,newra,newdec); // Output is radians
+  //cout << "Orbital plane coords of original position: " << newra*DEGPRAD << " " << newdec*DEGPRAD << "\n";
+  // Rotate starting unit vector around the angular momentum axis by
+  // the calculated angle.
+  newra += theta1-theta0;
+  // cout << "Orbital plane coords of new position " << newra*DEGPRAD << " " << newdec*DEGPRAD << "\n";
+  // The unit vector for the new position r1 is on the equator at this RA,
+  // in the coordinate system that has the angular momentum vector at the pole.
+  // Convert back to the original coordinate system.
+  poleswitch01(newra,0.0l,0.0l,ldec/DEGPRAD,lra/DEGPRAD,r1ra,r1dec); // Output is radians
+  // Now for the velocity. If the velocity is at right angle to the vector r1,
+  // the product v1*r1 is the angular momentum. Otherwise, l/(v1*r1) is the sine
+  // of the angle between v1 and r1.
+
+  sinev = lscalar/v1/r1;
+  if(sinev>=1.0l) thetav = 0.5l*M_PI;
+  else if(sinev<0.0l) {
+    cerr << "ERROR: negative angular momentum?\nv1,r1,v1*r1,lscalar,sinev = " << v1 << ", " << r1 << ", " << v1*r1 << ", " << lscalar << ", " << sinev << "\n";
+    thetav = 0.0l;
+  }
+  else thetav = asin(sinev);
+  if(theta1<=M_PI) {
+    // Outward bound from perihelion.
+    newra += thetav;
+  } else {
+    // Inward bound to perihelion
+    newra += (M_PI - thetav);
+  }
+  poleswitch01(newra,0.0l,0.0l,ldec/DEGPRAD,lra/DEGPRAD,v1ra,v1dec); // Output is radians
+
+  // cout << "Psuedo-celestial coords of new position: " << r1ra*DEGPRAD << " " << r1dec*DEGPRAD << "\n";
+  r1unit = celeproj01(r1ra*DEGPRAD,r1dec*DEGPRAD);
+  v1unit =celeproj01(v1ra*DEGPRAD,v1dec*DEGPRAD);
+  
+  endpos.x = r1unit.x*r1;
+  endpos.y = r1unit.y*r1;
+  endpos.z = r1unit.z*r1;
+  endvel.x = v1unit.x*v1;
+  endvel.y = v1unit.y*v1;
+  endvel.z = v1unit.z*v1;
+  
+  return(0);
+}
+
+
 // hyp_transcendental: April 25, 2022:
 // Solve the hyperbolic form of the trancendental
 // Kepler Equation q = e*sinh(psi) - psi for psi given q and e,
@@ -4765,8 +5280,6 @@ int Hyper_Kepint(const long double MGsun, const long double mjdstart, const poin
 {
   long double e,E,a,lscalar,r0,v0,r1,v1;
   point3LD lvec = point3LD(0L,0L,0L);
-  point3LD lunit = point3LD(0L,0L,0L);
-  point3LD r0unit = point3LD(0L,0L,0L);
   point3LD r1unit = point3LD(0L,0L,0L);
   point3LD v1unit = point3LD(0L,0L,0L);
   e = E = a = lscalar = r0 = v0 = r1 = v1 = 0L;
@@ -4776,7 +5289,6 @@ int Hyper_Kepint(const long double MGsun, const long double mjdstart, const poin
   omega = t0omega = t0 = t1omega = t1 = 0L;
   long double lra,ldec,r0ra,r0dec,r1ra,r1dec,newra,newdec;
   lra = ldec = r0ra = r0dec = r1ra = r1dec = newra = newdec = 0L;
-  int status = 0;
   long double x,y,junkra,junkdec,sinev,thetav,v1ra,v1dec;
   x = y = junkra = junkdec = sinev = thetav = v1ra = v1dec = 0L;
   int debug=0;
@@ -5126,7 +5638,6 @@ int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double>
   int k=0;
   int endhere=-1;
   int planetpointnum = planetmjd.size();
-  int planetpointct = 0;
   int pointafter=0;
   int latestpoint=0;
   int stepsin=0;
@@ -5589,7 +6100,7 @@ int readconfigLD(ifstream &instream1, long double *ldval)
 {
   string lnfromfile;
   string stest;
-  int i=0;
+  unsigned int i=0;
   int c = '0';
   *ldval = 0L;
   getline(instream1,lnfromfile);
@@ -5632,7 +6143,7 @@ int readconfigd(ifstream &instream1, double *dval)
 {
   string lnfromfile;
   string stest;
-  int i=0;
+  unsigned int i=0;
   int c = '0';
   *dval = 0L;
   getline(instream1,lnfromfile);
@@ -5675,7 +6186,7 @@ int readconfigint(ifstream &instream1, int *ival)
 {
   string lnfromfile;
   string stest;
-  int i=0;
+  unsigned int i=0;
   int c = '0';
   *ival = 0;
   getline(instream1,lnfromfile);
@@ -5717,7 +6228,7 @@ int readconfigstring(ifstream &instream1, string &sval)
 {
   string lnfromfile;
   string stest;
-  int i=0;
+  unsigned int i=0;
   int c = '0';
   sval={};
   getline(instream1,lnfromfile);
@@ -5773,8 +6284,6 @@ int read_accel_fileLD(string accelfile, vector <long double> &heliodist, vector 
 {
   string lnfromfile;
   string stest;
-  int i=0;
-  int lnct=0;
   char c = '0';
   long double dist,vel,norm,acc;
   dist = vel = norm = acc = 0L;
@@ -5835,8 +6344,6 @@ int read_longitude_fileLD(string accelfile, vector <long double> &longitude_vel,
 {
   string lnfromfile;
   string stest;
-  int i=0;
-  int lnct=0;
   char c = '0';
   long double vel,acc;
   vel = acc = 0L;
@@ -5890,8 +6397,8 @@ int read_longitude_fileLD(string accelfile, vector <long double> &longitude_vel,
 // with the velocity terms pre-weighted via multiplication by dtime.
 long double weight_posvel_rms(const vector <point3LD> &poscluster,const vector <point3LD> &velcluster,const long double dtime, vector <long double> &rmsvec)
 {
-  int pnum = poscluster.size();
-  int i=0;
+  unsigned int pnum = poscluster.size();
+  unsigned int i=0;
   long double norm,x,y,z,vx,vy,vz;
   x = y = z = vx = vy = vz = 0L;
   norm = pnum;
@@ -5961,8 +6468,7 @@ int linfituw01(const vector <double> &x, const vector <double> &y, double &slope
 {
   int i;
   int pointnum = x.size();
-  double delta,xal,yal,xty,xsq,nsum,rms,err,errmax;
-  double siga,sigb;
+  double delta,xal,yal,xty,xsq,nsum;
 
   if(pointnum<=1) {
     cerr << "ERROR: linfituw01 CALLED WITH ONLY ONE POINT\n";
@@ -5995,8 +6501,7 @@ int linfit01(const vector <double> &x, const vector <double> &y, const vector <d
 {
   int i;
   int pointnum = x.size();
-  double delta,xal,yal,xty,xsq,nsum,rms,err,errmax;
-  double siga,sigb;
+  double delta,xal,yal,xty,xsq,nsum;
 
   if(pointnum<=1) {
     cerr << "ERROR: linfit01 CALLED WITH ONLY ONE POINT\n";
@@ -6288,7 +6793,7 @@ string intzero01i(const int i, const int n)
 
   if(isneg==1) outstring.push_back('-');
   for(j=0;j<leadzero;j++) outstring.push_back('0');
-  for(j=0;j<str.size();j++) outstring.push_back(str[j]);
+  for(j=0;j<int(str.size());j++) outstring.push_back(str[j]);
   return(outstring);
 }
 
@@ -6299,7 +6804,7 @@ string intzero01i(const int i, const int n)
 // Otherwise, return -1 as an error code.
 int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint)
 {
-  int i=startpoint;
+  unsigned int i=startpoint;
   char c='0';
   outstring="";
   while(i<lnfromfile.size() && c!=',' && c!='\n' && c!=EOF) {
@@ -6322,7 +6827,7 @@ int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint
 // are in fact frequently designed to indicate null fields.
 int get_col_vector01(const string &lnfromfile, vector <string> &outvec)
 {
-  int i=0;
+  unsigned int i=0;
   int stringct=0;
   char c='0';
   string outstring;
@@ -6778,11 +7283,9 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
   int k=0;
   int obsnum=obsMJD.size();
   int obsct=0;
-  int endhere=-1;
   int planetpointnum = planetmjd.size();
   vector <long double> forwardmjd;
   vector <long double> backwardmjd;
-   int planetpointct = 0;
   int pointafter=0;
   int pointbefore=0;
   int latestpoint=0;
@@ -6920,7 +7423,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
     }
     if(DEBUG>1) {
       cout << fixed << setprecision(6)  << "Loaded " << forwardmjd.size() << " points in forwardmjd\n";
-      for(i=0;i<forwardmjd.size();i++) {
+      for(i=0;i<long(forwardmjd.size());i++) {
 	cout  << fixed << setprecision(6) << "Forward MJD = " << forwardmjd[i] << "\n";
       }
     }
@@ -7139,7 +7642,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
     }
     latestpoint=polyorder+1;
     // Proceed with the full polynomial integration.
-    while(latestpoint<forwardmjd.size()-1) {
+    while(latestpoint<long(forwardmjd.size())-1) {
       latestpoint++;
       // Cycle the dynamical vectors
       for(i=0;i<polyorder+1;i++) {
@@ -7309,7 +7812,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
   } // END OF FORWARD INTEGRATION
   if(DEBUG>1) {
     cout << "Results of forward integration:\n";
-    for(j=0;j<temptime.size();j++) {
+    for(j=0;j<long(temptime.size());j++) {
       cout  << fixed << setprecision(6) << temptime[j] << " " << targpos[j].x/AU_KM << " " << targpos[j].y/AU_KM << " " << targpos[j].z/AU_KM << " " << targvel[j].x << " " << targvel[j].y << " " << targvel[j].z << "\n";
     }
   }
@@ -7389,7 +7892,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
     }
     if(DEBUG>1) {
       cout << fixed << setprecision(6)  << "Loaded " << backwardmjd.size() << " points in backwardmjd\n";
-      for(i=0;i<backwardmjd.size();i++) {
+      for(i=0;i<long(backwardmjd.size());i++) {
 	cout  << fixed << setprecision(6) << "Backward MJD = " << backwardmjd[i] << "\n";
       }
     }
@@ -7609,7 +8112,7 @@ int integrate_orbit03LD(int polyorder, int planetnum, const vector <long double>
     }
     latestpoint=polyorder+1;
     // Proceed with the full polynomial integration.
-    while(latestpoint<backwardmjd.size()-1) {
+    while(latestpoint<long(backwardmjd.size())-1) {
       latestpoint++;
       // Cycle the dynamical vectors
       for(i=0;i<polyorder+1;i++) {
@@ -7884,14 +8387,8 @@ int integrate_orbit04LD(int polyorder, int planetnum, const vector <long double>
   point3LD singlepos = point3LD(0L,0L,0L);
   int i=0;
   int j=0;
-  int k=0;
   int outnum = endpoint-startpoint+1;
   int outct=0;
-  int endhere=-1;
-  int planetpointnum = planetmjd.size();
-   int planetpointct = 0;
-  int pointafter=0;
-  int pointbefore=0;
   int latestpoint=0;
   int stepsin=0;
   long double dt0=0L;
@@ -7908,7 +8405,7 @@ int integrate_orbit04LD(int polyorder, int planetnum, const vector <long double>
   if(endpoint<startpoint) {
     cerr << "ERROR: integrate_orbit04LD called with end point (" << endpoint << ") before starting point (" << startpoint << ")\n";
     return(1);
-  } else if(startpoint<0 || endpoint>=planetmjd.size()) {
+  } else if(startpoint<0 || endpoint>=long(planetmjd.size())) {
     cerr << "ERROR: integrate_orbit04LD called with starting point " << startpoint << " or endpoint" << endpoint << " outside range of planet vectors (0 - " << planetmjd.size() << ")\n";
     return(1);
   }
@@ -8430,7 +8927,6 @@ int multilinfit01(const vector <double> &yvec, const vector <double> &sigvec, co
 // vector of best-fit coefficients for xmat is given in avec.*/
 int polyfit01(const vector <double> &yvec, const vector <double> &sigvec, const vector <double> &xvec, int pnum, int polyorder, vector <double> &avec)
 {
-  double x;
   vector <vector <double>> xmat;
   int pct,fitct;
   avec = {};
@@ -8451,10 +8947,9 @@ int polyfit01(const vector <double> &yvec, const vector <double> &sigvec, const 
 // heliocentric vane of constant ecliptic longitude.
 int vaneproj01LD(point3LD unitbary, point3LD obsbary, long double ecliplon, long double &geodist, point3LD &projbary)
 {
-  long double barydist,normdot1,normaldist;
+  long double normdot1,normaldist;
   point3LD plane_normvec = point3LD(0L,0L,0L);
   point3LD plane_to_obs = point3LD(0L,0L,0L);
-  point3LD periobs = point3LD(0L,0L,0L);
   
   // 1. The input heliocentric ecliptic longitude defines a plane.
   //    Calculate the unit vector normal from the sun.
@@ -8474,14 +8969,7 @@ int vaneproj01LD(point3LD unitbary, point3LD obsbary, long double ecliplon, long
   plane_to_obs.x = normaldist*plane_normvec.x;
   plane_to_obs.y = normaldist*plane_normvec.y;
   plane_to_obs.z = normaldist*plane_normvec.z;
-  
-  // 3d. Subtract the resulting physical vector from the instantaneous position of the observer,
-  //     yielding the position of the point on the plane closest to the observer.
-  //     Call this point 'periobs'.
-  periobs.x = obsbary.x - plane_to_obs.x;
-  periobs.y = obsbary.y - plane_to_obs.y;
-  periobs.z = obsbary.z - plane_to_obs.z;
-  
+    
   // 4. Calculate the normalized dot product of the vector from the observer to periobs
   //     and the observation unit vector. Reject the point if the normalized dot product
   //     is too small.
@@ -8601,8 +9089,6 @@ int Keplerint_multipoint01(const long double MGsun, const long double mjdstart, 
 {
   long double e,E,a,lscalar,r0,v0,r1,v1;
   point3LD lvec = point3LD(0L,0L,0L);
-  point3LD lunit = point3LD(0L,0L,0L);
-  point3LD r0unit = point3LD(0L,0L,0L);
   point3LD r1unit = point3LD(0L,0L,0L);
   point3LD v1unit = point3LD(0L,0L,0L);
   point3LD targpos = point3LD(0L,0L,0L);
@@ -8614,9 +9100,8 @@ int Keplerint_multipoint01(const long double MGsun, const long double mjdstart, 
   omega = t0omega = t0 = t1omega = t1 = 0L;
   long double lra,ldec,r0ra,r0dec,r1ra,r1dec,newra,newdec;
   lra = ldec = r0ra = r0dec = r1ra = r1dec = newra = newdec = 0L;
-  int status = 0;
-  long double junkra,junkdec,sinev,thetav,v1ra,v1dec;
-  junkra = junkdec = sinev = thetav = v1ra = v1dec = 0L;
+  long double sinev,thetav,v1ra,v1dec;
+  sinev = thetav = v1ra = v1dec = 0L;
   int obsct=0;
   int obsnum = obsMJD.size();
  
@@ -8794,8 +9279,6 @@ int Keplerint_multipoint02(const long double MGsun, const long double mjdstart, 
 {
   long double e,E,a,lscalar,r0,v0,r1,v1;
   point3LD lvec = point3LD(0L,0L,0L);
-  point3LD lunit = point3LD(0L,0L,0L);
-  point3LD r0unit = point3LD(0L,0L,0L);
   point3LD r1unit = point3LD(0L,0L,0L);
   point3LD v1unit = point3LD(0L,0L,0L);
   point3LD targpos = point3LD(0L,0L,0L);
@@ -8807,9 +9290,8 @@ int Keplerint_multipoint02(const long double MGsun, const long double mjdstart, 
   omega = t0omega = t0 = t1omega = t1 = 0L;
   long double lra,ldec,r0ra,r0dec,r1ra,r1dec,newra,newdec;
   lra = ldec = r0ra = r0dec = r1ra = r1dec = newra = newdec = 0L;
-  int status = 0;
-  long double junkra,junkdec,sinev,thetav,v1ra,v1dec;
-  junkra = junkdec = sinev = thetav = v1ra = v1dec = 0L;
+  long double sinev,thetav,v1ra,v1dec;
+  sinev = thetav = v1ra = v1dec = 0L;
   int obsct=0;
   int obsnum = obsMJD.size();
  
@@ -9286,12 +9768,9 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
   long double X=1.0L;
   long double Y=Ysign;
   long double aorb;
-  int ai;
   long double delta_aorb;
   long double f;
   long double fprime;
-  long double f2;
-  long double fprime2;
   //long double eccen,thetaperi;
   
   if(timediff*SOLARDAY>dtc) X=-1.0L;
@@ -9428,8 +9907,8 @@ point3LD geodist_to_3Dpos01(long double RA, long double Dec, point3LD observerpo
 // imply an unbound (hyperbolic) orbit.
 int Herget_unboundcheck01(long double geodist1, long double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec)
 {
-  int numobs = obsMJD.size();
-  if(obsRA.size() != numobs || obsDec.size() != numobs || observerpos.size() != numobs) {
+  long numobs = long(obsMJD.size());
+  if(long(obsRA.size()) != numobs || long(obsDec.size()) != numobs || long(observerpos.size()) != numobs) {
     cerr << "ERROR: Hergetchi01 finds unequal lenths among input vectors:\n";
     cerr << "observed MJD, RA, Dec, sigastrom, and observerpos have lengths " << numobs << " " << obsRA.size() << " " << obsDec.size() << " " << observerpos.size() << "\n";
     return(-1);
@@ -9482,8 +9961,8 @@ int Herget_unboundcheck01(long double geodist1, long double geodist2, int Herget
 // The vector orbit holds a, e, mjd, and the state vectors, for now.
 long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit, int verbose)
 {
-  int numobs = obsMJD.size();
-  if(obsRA.size() != numobs || obsDec.size() != numobs || sigastrom.size() != numobs || observerpos.size() != numobs) {
+  long numobs = long(obsMJD.size());
+  if(long(obsRA.size()) != numobs || long(obsDec.size()) != numobs || long(sigastrom.size()) != numobs || long(observerpos.size()) != numobs) {
     cerr << "ERROR: Hergetchi01 finds unequal lenths among input vectors:\n";
     cerr << "observed MJD, RA, Dec, sigastrom, and observerpos have lengths " << numobs << " " << obsRA.size() << " " << obsDec.size() << " " <<  sigastrom.size() << " " << observerpos.size() << "\n";
     return(LARGERR);
@@ -9644,7 +10123,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
   long double simprange;
   long double simplex[3][2];
   long double simpchi[3];
-  long double refdist[2],trialdist[2],bestdist[2];
+  long double refdist[2],trialdist[2];
   long double chisq, bestchi, worstchi, newchi;
   long double global_bestchi = LARGERR;
   long double global_bestd1 = geodist1;
@@ -9666,7 +10145,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 
   if(DEBUG_2PTBVP>0) {
     cout << "Herget points: " << Hergetpoint1 << " " << Hergetpoint2 << "\n";
-    for(i=0;i<obsMJD.size();i++) {
+    for(i=0;i<long(obsMJD.size());i++) {
       cout << "Input observerpos " << i << ": " << obsMJD[i] << " " << observerpos[i].x << " " << observerpos[i].y << " " << observerpos[i].z << "\n";
     }
   }
@@ -9975,7 +10454,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 long medind_3d_index(const vector <point3d_index> &pointvec, int dim)
 {
   vector <point3d_index> pvec = pointvec; //Mutable copy of immutable input vector
-  for(long i=0; i<pvec.size(); i++) pvec[i].index=i; //Redefine indices
+  for(long i=0; i<long(pvec.size()); i++) pvec[i].index=i; //Redefine indices
   long medpt = pvec.size()/2; // Central point of vector (it will be off by one half
                               // for a vector with even length, but we don't care).
   if(dim%3 == 1) sort(pvec.begin(), pvec.end(), lower_point3d_index_x()); // Sort vector by x
@@ -10002,7 +10481,7 @@ int split3d_index(const vector <point3d_index> &pointvec, int dim, long splitpoi
   if(dim%3==1) {
     // split on x
     splitval = pointvec[splitpoint].x;
-    for(i=0 ; i<pointvec.size(); i++) {
+    for(i=0 ; i<long(pointvec.size()); i++) {
       if(i!=splitpoint && pointvec[i].x<=splitval) {
 	left.push_back(pointvec[i]);
       } else if (i!=splitpoint) {
@@ -10012,7 +10491,7 @@ int split3d_index(const vector <point3d_index> &pointvec, int dim, long splitpoi
   } else if(dim%3==2) {
     // split on y
     splitval = pointvec[splitpoint].y;
-    for(i=0 ; i<pointvec.size(); i++) {
+    for(i=0 ; i<long(pointvec.size()); i++) {
       if(i!=splitpoint && pointvec[i].y<=splitval) {
 	left.push_back(pointvec[i]);
       } else if (i!=splitpoint) {
@@ -10022,7 +10501,7 @@ int split3d_index(const vector <point3d_index> &pointvec, int dim, long splitpoi
   } else if(dim%3==0) {
     // split on z
     splitval = pointvec[splitpoint].z;
-    for(i=0 ; i<pointvec.size(); i++) {
+    for(i=0 ; i<long(pointvec.size()); i++) {
       if(i!=splitpoint && pointvec[i].z<=splitval) {
 	left.push_back(pointvec[i]);
       } else if (i!=splitpoint) {
@@ -10042,15 +10521,12 @@ int split3d_index(const vector <point3d_index> &pointvec, int dim, long splitpoi
 // call kdtree_3d_index on them recursively.
 int kdtree_3d_index(const vector <point3d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point3d_index> &kdvec)
 {
-  int status=0;
   int lmed=0;
   int rmed=0;
   int kdct = kdvec.size()-1;
-  int i=0;
   long leftrootkd=-1;
   long rightrootkd=-1;
   point3d_index point0 = point3d_index(0.0l,0.0l,0.0l,0);
-  KD_point3d_index root = kdvec[kdct];
   KD_point3d_index lp = KD_point3d_index(point0,-1,-1,0,0);
   KD_point3d_index rp = KD_point3d_index(point0,-1,-1,0,0);
   vector <point3d_index> leftvec = {};
@@ -10064,7 +10540,7 @@ int kdtree_3d_index(const vector <point3d_index> &invec, int dim, long splitpoin
   // these medians. Then call kdtree_6D01 itself recursively on
   // each of these median points, to peform a new split along a
   // different dimension.
-  status = split3d_index(invec,dim,splitpoint,leftvec,rightvec);
+  split3d_index(invec,dim,splitpoint,leftvec,rightvec);
 
   dim+=1;
   while(dim>3) dim-=3;
@@ -10140,10 +10616,8 @@ double point3d_index_dist2(const point3d_index &p1, const point3d_index &p2)
 // Assumes that kdvec[0] is the root of the k-d tree.
 int kdrange_3d_index(const vector <KD_point3d_index> &kdvec, const point3d_index &querypoint, double range, vector <long> &indexvec)
 {
-  int branchct=0;
   double rng2 = range*range;
   int notdone=1;
-  int kdveclen = kdvec.size();
   int dim=1;
   int currentpoint=0;
   int leftpoint=0;
@@ -10153,7 +10627,6 @@ int kdrange_3d_index(const vector <KD_point3d_index> &kdvec, const point3d_index
   double pointdiff = 0.0l;
   double pdist2 = 0.0l;
   vector <long> checkit={};
-  int i=0;
   int checknum=0;
 
   while(notdone>0) {
@@ -10184,7 +10657,7 @@ int kdrange_3d_index(const vector <KD_point3d_index> &kdvec, const point3d_index
 	  if(rightpoint>=0) {
 	    // Rightward branch will also be explored later
 	    checknum++;
-	    if(checknum>checkit.size()) {
+	    if(checknum>long(checkit.size())) {
 	      checkit.push_back(rightpoint);
 	    }
 	    else {
@@ -10245,7 +10718,7 @@ int kdrange_3d_index(const vector <KD_point3d_index> &kdvec, const point3d_index
 long medind_4d_index(const vector <point4d_index> &pointvec, int dim)
 {
   vector <point4d_index> pvec = pointvec; //Mutable copy of immutable input vector
-  for(long i=0; i<pvec.size(); i++) pvec[i].index=i; //Redefine indices
+  for(long i=0; i<long(pvec.size()); i++) pvec[i].index=i; //Redefine indices
   long medpt = pvec.size()/2; // Central point of vector (it will be off by one half
                               // for a vector with even length, but we don't care).
   if(dim%4 == 1) sort(pvec.begin(), pvec.end(), lower_point4d_index_t()); // Sort vector by t
@@ -10273,7 +10746,7 @@ int split4d_index(const vector <point4d_index> &pointvec, int dim, long splitpoi
   if(dim%4==1) {
     // split on t
     splitval = pointvec[splitpoint].t;
-    for(i=0 ; i<pointvec.size(); i++) {
+    for(i=0 ; i<long(pointvec.size()); i++) {
       if(i!=splitpoint && pointvec[i].t<=splitval) {
 	left.push_back(pointvec[i]);
       } else if (i!=splitpoint) {
@@ -10283,7 +10756,7 @@ int split4d_index(const vector <point4d_index> &pointvec, int dim, long splitpoi
   } else if(dim%4==2) {
     // split on x
     splitval = pointvec[splitpoint].x;
-    for(i=0 ; i<pointvec.size(); i++) {
+    for(i=0 ; i<long(pointvec.size()); i++) {
       if(i!=splitpoint && pointvec[i].x<=splitval) {
 	left.push_back(pointvec[i]);
       } else if (i!=splitpoint) {
@@ -10293,7 +10766,7 @@ int split4d_index(const vector <point4d_index> &pointvec, int dim, long splitpoi
   } else if(dim%4==3) {
     // split on y
     splitval = pointvec[splitpoint].y;
-    for(i=0 ; i<pointvec.size(); i++) {
+    for(i=0 ; i<long(pointvec.size()); i++) {
       if(i!=splitpoint && pointvec[i].y<=splitval) {
 	left.push_back(pointvec[i]);
       } else if (i!=splitpoint) {
@@ -10303,7 +10776,7 @@ int split4d_index(const vector <point4d_index> &pointvec, int dim, long splitpoi
   } else if(dim%4==0) {
     // split on z
     splitval = pointvec[splitpoint].z;
-    for(i=0 ; i<pointvec.size(); i++) {
+    for(i=0 ; i<long(pointvec.size()); i++) {
       if(i!=splitpoint && pointvec[i].z<=splitval) {
 	left.push_back(pointvec[i]);
       } else if (i!=splitpoint) {
@@ -10323,15 +10796,12 @@ int split4d_index(const vector <point4d_index> &pointvec, int dim, long splitpoi
 // call kdtree_4d_index on them recursively.
 int kdtree_4d_index(const vector <point4d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point4d_index> &kdvec)
 {
-  int status=0;
   int lmed=0;
   int rmed=0;
-  int kdct = kdvec.size()-1;
-  int i=0;
+  long kdct = kdvec.size()-1;
   long leftrootkd=-1;
   long rightrootkd=-1;
   point4d_index point0 = point4d_index(0.0l,0.0l,0.0l,0.0l,0);
-  KD_point4d_index root = kdvec[kdct];
   KD_point4d_index lp = KD_point4d_index(point0,-1,-1,0,0);
   KD_point4d_index rp = KD_point4d_index(point0,-1,-1,0,0);
   vector <point4d_index> leftvec = {};
@@ -10345,7 +10815,7 @@ int kdtree_4d_index(const vector <point4d_index> &invec, int dim, long splitpoin
   // these medians. Then call kdtree_6D01 itself recursively on
   // each of these median points, to peform a new split along a
   // different dimension.
-  status = split4d_index(invec,dim,splitpoint,leftvec,rightvec);
+  split4d_index(invec,dim,splitpoint,leftvec,rightvec);
 
   dim+=1;
   while(dim>4) dim-=4;
@@ -10421,10 +10891,8 @@ double point4d_index_dist2(const point4d_index &p1, const point4d_index &p2)
 // Assumes that kdvec[0] is the root of the k-d tree.
 int kdrange_4d_index(const vector <KD_point4d_index> &kdvec, const point4d_index &querypoint, double range, vector <long> &indexvec)
 {
-  int branchct=0;
   long double rng2 = range*range;
   int notdone=1;
-  int kdveclen = kdvec.size();
   int dim=1;
   int currentpoint=0;
   int leftpoint=0;
@@ -10434,7 +10902,6 @@ int kdrange_4d_index(const vector <KD_point4d_index> &kdvec, const point4d_index
   long double pointdiff = 0.0L;
   long double pdist2 = 0.0L;
   vector <long> checkit={};
-  int i=0;
   int checknum=0;
 
   while(notdone>0) {
@@ -10466,7 +10933,7 @@ int kdrange_4d_index(const vector <KD_point4d_index> &kdvec, const point4d_index
 	  if(rightpoint>=0) {
 	    // Rightward branch will also be explored later
 	    checknum++;
-	    if(checknum>checkit.size()) {
+	    if(checknum>long(checkit.size())) {
 	      checkit.push_back(rightpoint);
 	    }
 	    else {
@@ -10528,8 +10995,6 @@ int kdrange_4d_index(const vector <KD_point4d_index> &kdvec, const point4d_index
 double MPCcal2MJD(int year, int month, double day)
 {
   int daystojan;
-  int leaps;
-  float data1,data2;
   double totaldays = 15020.0l; // MJD on UT 1900 January 1.0
   int i=1900;
   int isleap=0;
@@ -10779,7 +11244,6 @@ int read_obscode_file(string obscodefile,  vector <observatory> &observatory_lis
   char obscode[MINSTRINGLEN];
   double obslon,plxcos,plxsin;
   obslon = plxcos = plxsin = 0.0l;
-  int i=0;
   observatory obs1 = observatory("X05",0l,0l,0l);
   ifstream instream1;
   instream1.open(obscodefile);
@@ -10816,8 +11280,9 @@ int read_detection_filemt(string indetfile, int idcol, int mjdcol, int racol, in
   det_obsmag_indvec o1 = det_obsmag_indvec(0l,0l,0l,0l,0l,0l,"null",0l,"V","I11",0,{});
   ifstream instream1;
   string lnfromfile,stest;
-  int lct,i,j,reachedeof,idread,mjdread,raread,decread,magread,bandread,obscoderead;
-  lct=i=j=idread = mjdread = raread = decread = magread = bandread = obscoderead = 0;
+  int lct,j,reachedeof,idread,mjdread,raread,decread,magread,bandread,obscoderead;
+  lct = j = reachedeof = idread = mjdread = raread = decread = magread = bandread = obscoderead = 0;
+  long i = 0;
   char c='0';
   double MJD,RA,Dec,mag;
   MJD = RA = Dec = mag = 0.0l;  
@@ -10834,6 +11299,7 @@ int read_detection_filemt(string indetfile, int idcol, int mjdcol, int racol, in
   getline(instream1,lnfromfile);
   lct++;
   //cout << lnfromfile << "\n";
+  reachedeof = 0;
   while(reachedeof==0) {
     getline(instream1,lnfromfile);
     lct++;
@@ -10845,13 +11311,13 @@ int read_detection_filemt(string indetfile, int idcol, int mjdcol, int racol, in
     j = 0;
     c='0';
     idread = mjdread = raread = decread = magread = bandread = obscoderead = 0;
-    while(i<lnfromfile.size() && lnfromfile.size()>=30 && reachedeof == 0) {
+    while(i<long(lnfromfile.size()) && lnfromfile.size()>=30 && reachedeof == 0) {
       // Note check on line length: it is completely impossible for a
       // line containing all the required quantities at minimum plausible
       // precision to be less than 30 characters long.
       c='0';
       stest="";
-      while(i<lnfromfile.size() && c!=',' && c!='\n' && c!=EOF) {
+      while(i<long(lnfromfile.size()) && c!=',' && c!='\n' && c!=EOF) {
 	c=lnfromfile[i];
 	if(c!=',' && c!='\n' && c!=EOF) stest.push_back(c);
 	i++;
@@ -10956,11 +11422,11 @@ int read_detection_filemt(string indetfile, int idcol, int mjdcol, int racol, in
 // avg_extrema: March 14, 2023: Given an input vector x, find and return
 // the average of the extrema: that is, (xmin + xmax)/2.
 double avg_extrema(const vector <double> &x) {
-  int i=0;
+  long i=0;
   double xmin=x[0];
   double xmax=x[0];
 
-  for(i=1;i<x.size();i++) {
+  for(i=1;i<long(x.size());i++) {
     if(x[i]>xmax) xmax=x[i];
     if(x[i]<xmin) xmin=x[i];
   }
@@ -11001,10 +11467,10 @@ int read_image_file(string inimfile, vector <img_log03> &img_log)
     j = 0;
     c='0';
     MJD=0.0l;
-    while(i<lnfromfile.size() && reachedeof == 0) {
+    while(i<long(lnfromfile.size()) && reachedeof == 0) {
       stest="";
       c='0';
-      while(i<lnfromfile.size() && c!=',' && c!=' ' && c!='\n' && c!=EOF) {
+      while(i<long(lnfromfile.size()) && c!=',' && c!=' ' && c!='\n' && c!=EOF) {
 	// We allow the file to be delimited by comma or space.
 	c=lnfromfile[i];
 	if(c!=',' && c!=' ' && c!='\n' && c!=EOF) stest.push_back(c);
@@ -11041,6 +11507,8 @@ int read_image_file(string inimfile, vector <img_log03> &img_log)
   }
 }
 
+#define DEBUGB 1
+
 // load_image_table: March 14, 2023: Construct an
 // image table in the form of a vector of type img_log03.
 // If the input image log is non-empty, assume it contains
@@ -11068,7 +11536,8 @@ int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indve
   vector <double> x;
   vector <double> y;
   vector <double> z;
-  
+
+  if(DEBUGB==1) cout << "Inside load_image_table\n";
   
   if(img_log_tmp.size() > 0) {
     // We received an input image table, and all we have to do is
@@ -11078,12 +11547,12 @@ int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indve
     // that correspond to the earliest and latest detections
     // on each image, and load these values into imglog02.
     detct=0;
-    for(imct=0;imct<img_log_tmp.size();imct++) {
-      while(detct<detvec.size() && detvec[detct].MJD < img_log_tmp[imct].MJD-IMAGETIMETOL/SOLARDAY) detct++; //Not on any image
-      if(detct<detvec.size() && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log_tmp[imct].obscode,3)==0) {
+    for(imct=0;imct<long(img_log_tmp.size());imct++) {
+      while(detct<long(detvec.size()) && detvec[detct].MJD < img_log_tmp[imct].MJD-IMAGETIMETOL/SOLARDAY) detct++; //Not on any image
+      if(detct<long(detvec.size()) && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log_tmp[imct].obscode,3)==0) {
 	// This should be the first detection on image imct.
 	img_log_tmp[imct].startind = detct;
-	while(detct<detvec.size() && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log_tmp[imct].obscode,3)==0) detct++; //Still on this same image
+	while(detct<long(detvec.size()) && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log_tmp[imct].obscode,3)==0) detct++; //Still on this same image
 	// This should be the first detection on the next image
 	img_log_tmp[imct].endind = detct;
       }
@@ -11092,12 +11561,14 @@ int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indve
       }
     }
   } else {
+    if(DEBUGB==1) cout << "Creating new image table\n";
+
     // No input image file was supplied: we have to create one from
     // the sorted detection file.
     mjdnorm = 1.0;
     mjdmean = detvec[0].MJD;
     startind=0;
-    for(i=1;i<detvec.size();i++) {
+    for(i=1;i<long(detvec.size());i++) {
       tdelt = detvec[i].MJD - detvec[i-1].MJD;
       if(tdelt < IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[i].obscode,detvec[i-1].obscode,3)==0) {
 	//This point corresponds to the same image as the previous one.
@@ -11115,6 +11586,7 @@ int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indve
 	else mjdmean = 0.0;
 	//Load it into the vector with mean MJD for all images,
 	// and increment image count.
+	if(DEBUGB==1) cout << "Working on image " << img_log.size() << ", detections from " << startind << " to " << endind << "\n";
 	imlog = img_log03(mjdmean,0.0,0.0,detvec[endind-1].obscode,startind,endind);
 	img_log.push_back(imlog);
 	// Set up for the next image, starting with detvec[i].MJD;
@@ -11125,7 +11597,8 @@ int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indve
     }
     // Account for the final image.
     if(isnormal(mjdnorm)) {
-      endind=i;
+      endind=detvec.size();
+      if(DEBUGB==1) cout << "Working on final image, " << img_log.size() << ", detections from " << startind << " to " << endind << "\n";
       mjdmean /= mjdnorm;
       //Load it into the vector with mean MJD for all images,
       // and increment image count.
@@ -11137,8 +11610,8 @@ int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indve
     //detection table indices for each image; it still remains to
     //get the mean RA and Dec.
    
-    int detnum = detvec.size();
-    int imnum = img_log.size();
+    long detnum = detvec.size();
+    long imnum = img_log.size();
     cout << img_log.size() << " unique images were identified.\n";
     cout << "Given our total of " << detvec.size() << " detections,\n";
     cout << "we have " << double(detvec.size())/double(img_log.size()) << " detections per image, on average\n";
@@ -11187,3 +11660,1111 @@ int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indve
   }
   return(0);
 }
+
+#undef DEBUGB
+
+// load_image_indices: March 23, 2023: Load the starting and
+// ending indices in an image table of the form used in the
+// python-wrapped version of make_tracklets. 
+int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double imagetimetol, int forcerun)
+{
+  long imnum = img_log.size();
+  long detnum = detvec.size();
+  long imct,detct,startind,endind,i;
+  imct = detct = startind = endind = i = 0;
+
+  // Load indices in detvec. This is incidental to the main
+  // purpose of load_image_indices(), but it's necessary and
+  // this is a convenient place to do it. 
+  for(detct=0;detct<detnum;detct++) detvec[detct].index = -detct;
+  
+  detct=0;
+  for(imct=0;imct<imnum;imct++) {
+    if(detct<detnum && fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)==0) {
+      // This should be the first detection on image imct.
+      img_log[imct].startind = detct;
+      detvec[detct].image = imct;
+      detct++;
+      while(detct<detnum && fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)==0) {
+	// Still on this same image
+	detvec[detct].image = imct;
+	detct++;
+      }
+      // This should be the first detection on the next image
+      img_log[imct].endind = detct;
+    } else if(detct<detnum && detvec[detct].MJD > img_log[imct].MJD+imagetimetol) {
+      // The next detection is after this image in the ordered time sequence.
+      // Therefore, no detections were found on this image
+      img_log[imct].startind = img_log[imct].endind = 0;
+    } else if(detct<detnum && fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)>0) {
+      // The next detection overlaps this image in the ordered time sequence,
+      // but comes after it in the alphabetical listing of obscodes.
+      // Therefore, no detections were found on this image.
+      img_log[imct].startind = img_log[imct].endind = 0;
+    } else if(detct<detnum && (detvec[detct].MJD < img_log[imct].MJD-imagetimetol ||
+			       (fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)<0))) {
+      // The next detection is before this image in the ordered sequence, either
+      // before it in time OR overlapping in time but before it in the alphabetical listing of obscodes.
+      // Therefore, this detection must not appear on any image in the sequence.
+      if(forcerun) {
+	// With forcerun, we allow detections that aren't on any image,
+	// even though the caller really should have made sure this couldn't happen.
+	while(detct<detnum && (detvec[detct].MJD < img_log[imct].MJD-imagetimetol ||
+			       (fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)<0))) {
+	  detvec[detct].image = -1;
+	  detct++;
+	}
+	// Now we must consider the possibility that we've advanced to
+	// a detection that is on the current image.
+	// This is the case where we advanced through a series of
+	// bad detections until we arrived at a good detection.
+	if(detct<detnum && fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)==0) {
+	  // This should be the first detection on image imct.
+	  img_log[imct].startind = detct;
+	  detvec[detct].image = imct;
+	  detct++;
+	  while(detct<detnum && fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)==0) {
+	    // Still on this same image
+	    detvec[detct].image = imct;
+	    detct++;
+	  }
+	  // This should be the first detection on the next image
+	  img_log[imct].endind = detct;
+	  // End special case that we advanced through a series of bad detections
+	  // to arrive at a good detection.
+	}
+      } else {
+	// forcerun is not on, meaning that it's not acceptable
+	// for the image catalog not to span all the detections.
+	cerr << "ERROR in load_image_indices: detection " << detct << " not on any image!\n";
+	return(1);
+      }
+    } else if(detct<detnum) {
+      // Logically excluded case
+      cerr << "ERROR: logically excluded case 1 in load_image_indices\n";
+      cerr << "Detection " << detct << " time, obscode: " << detvec[detct].MJD << " " << detvec[detct].obscode << "\n";
+      cerr << "Image " << imct << " time, obscode: " << img_log[imct].MJD << " " << img_log[imct].obscode << "\n";
+      if(!forcerun) return(1);
+    } else if(detct>=detnum) {
+      // We ran past the end of the detection catalog, apparently without running out of images
+      // All remaining images will have no detections.
+      cerr << "WARNING: The image log continues past the end of the detection catalog\n";
+      img_log[imct].startind = img_log[imct].endind = 0;
+    } else {
+      cerr << "ERROR: logically excluded case 2 in load_image_indices\n";
+      cerr << "Detection " << detct << " time, obscode: " << detvec[detct].MJD << " " << detvec[detct].obscode << "\n";
+      cerr << "Image " << imct << " time, obscode: " << img_log[imct].MJD << " " << img_log[imct].obscode << "\n";
+      if(!forcerun) return(1);
+    }
+  }
+  // Deal with any left-over detections after the last image.
+  if(detct<detnum) {
+    cerr << "ERROR: Ran out of images at detection " << detct << ", short of the last detection at " << detnum << "\n";
+    if(!forcerun) return(1);
+    else {
+      while(detct<detnum) {
+	detvec[detct].image = -1;
+	detct++;
+      }
+    }
+  }
+  return(0);
+}
+
+#define DEBUG 1
+
+//find_pairs: March 24, 2023:  Create pairs, output a vector pairdets of type hldet;
+// a vector indvecs of type vector <long>, with the same length as pairdets,
+// giving the indices of all the detections paired with a given detection;
+// and the vector pairvec of type longpair, giving all the pairs of detections.
+int find_pairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <hldet> &pairdets, vector <vector <long>> &indvecs, vector <longpair> &pairvec, double mintime, double maxtime, double imrad, double maxvel)
+{
+  int imnum = img_log.size();
+  int imct=0;
+  long detct=0;
+  long pdct=0; // count of detections that have been paired
+  long pairct=0; // count of actual pairs
+  xy_index xyind=xy_index(0.0, 0.0, 0);
+  vector <xy_index> axyvec = {};
+  double dist,pa;
+  dist = pa = 0.0l;
+  long dettarg=0;
+  longpair onepair = longpair(0,0);
+  vector <long> ivec1;
+
+  pairvec={};
+  pairdets={};
+  indvecs = {};
+  ivec1={};
+  
+  // Loop over images for image A
+  for(imct=0;imct<imnum;imct++) {
+    int apct=0;
+    int adetct=0;
+    // See if there are any images that might match
+    vector <int> imagematches = {};
+    int imatchcount = 0;
+    int imtarg=imct+1;
+    while(imtarg<imnum && img_log[imtarg].MJD < img_log[imct].MJD + maxtime) {
+      double timediff = img_log[imtarg].MJD-img_log[imct].MJD;
+      if(!isnormal(timediff) || timediff<0.0) {
+	cerr << "WARNING: Negative time difference " << timediff << " encountered between images " << imct << " and " << imtarg << "\n";
+      }
+      // See if the images are close enough on the sky.
+      double imcendist = distradec01(img_log[imct].RA, img_log[imct].Dec, img_log[imtarg].RA, img_log[imtarg].Dec);
+      if(imcendist<2.0*imrad+maxvel*timediff && timediff>=mintime) {
+	if(DEBUG>=1) cout << "  pairs may exist between images " << imct << " and " << imtarg << ": dist = " << imcendist << ", timediff = " << timediff << "\n";
+	imagematches.push_back(imtarg);
+      }
+      imtarg++;
+    }
+    if(DEBUG>=1) cout << "Looking for pairs for image " << imct << ": " << imagematches.size() << " later images are worth searching\n";
+    int imatchnum = imagematches.size();
+    if(imatchnum>0) {
+      // Search is worth doing. Project all the detections
+      // on image A.
+      xyind=xy_index(0.0, 0.0, 0);
+      axyvec = {};
+      dist=pa=0.0;
+      dettarg=0;
+      for(detct=img_log[imct].startind ; detct<img_log[imct].endind ; detct++) {
+	distradec02(img_log[imct].RA, img_log[imct].Dec,detvec[detct].RA,detvec[detct].Dec,&dist,&pa);
+	xyind = xy_index(dist*sin(pa/DEGPRAD),dist*cos(pa/DEGPRAD),detct);
+	axyvec.push_back(xyind);
+	if((!isnormal(xyind.x) && xyind.x!=0) || (!isnormal(xyind.y) && xyind.y!=0)) {
+	  cerr << "nan-producing input: ra1, dec1, ra2, dec2, dist, pa:\n";
+	  cerr << img_log[imct].RA << " " << img_log[imct].Dec << " " << detvec[detct].RA << " " << detvec[detct].Dec << " " << dist << " " << pa << " " << xyind.x << " " << xyind.x << "\n";
+	  //return(6);
+	}
+      }
+      // Loop over images with potential matches (image B's)
+      for(imatchcount=0;imatchcount<imatchnum;imatchcount++)
+      {
+	imtarg = imagematches[imatchcount];
+	double range = (img_log[imtarg].MJD-img_log[imct].MJD)*maxvel;
+	vector <xy_index> bxyvec = {};
+	// Project all detections on image B
+	for(dettarg=img_log[imtarg].startind ; dettarg<img_log[imtarg].endind ; dettarg++) {
+	  distradec02(img_log[imct].RA, img_log[imct].Dec,detvec[dettarg].RA,detvec[dettarg].Dec,&dist,&pa);
+	  xyind = xy_index(dist*sin(pa/DEGPRAD),dist*cos(pa/DEGPRAD),dettarg);
+	  bxyvec.push_back(xyind);
+	}
+	// Create k-d tree of detections on image B (imtarg).
+	int dim=1;
+	xy_index xyi = bxyvec[0];
+	kdpoint root = kdpoint(xyi,-1,-1,dim);
+	kdpoint kdtest = kdpoint(xyi,-1,-1,dim);
+	vector <kdpoint> kdvec ={};
+	long medpt;
+	medpt = medindex(bxyvec,dim);
+	root = kdpoint(bxyvec[medpt],-1,-1,1);
+	kdvec.push_back(root);
+	kdtest=kdvec[0];
+	kdtree01(bxyvec,dim,medpt,0,kdvec);
+	// Loop over detections on image A
+	if(DEBUG>=1) cout << "Looking for pairs between " << axyvec.size() << " detections on image " << imct << " and " << kdvec.size() << " on image " << imtarg << "\n";
+	for(detct=0 ; detct<long(axyvec.size()) ; detct++) {
+	  vector <long> indexvec = {};
+	  if((isnormal(axyvec[detct].x) || axyvec[detct].x==0) && (isnormal(axyvec[detct].y) || axyvec[detct].y==0)) {
+	     kdrange01(kdvec,axyvec[detct].x,axyvec[detct].y,range,indexvec);
+	  } else {
+	    cerr << "WARNING: detection " << detct << " on image " << imct << " not normal: " << axyvec[detct].x << " " << axyvec[detct].y << "\n";
+	  }
+	  int matchnum=indexvec.size();
+	  long matchpt=0;
+	  int matchct=0;
+	  if(matchnum>0) {
+	    // Record image A detection as paired, if not already recorded.
+	    if(detvec[axyvec[detct].index].index<0) {
+	      //This detection has not yet been paired with any other.
+	      detvec[axyvec[detct].index].index *= -1; // Mark as paired by changing to positive sign.
+	      pairdets.push_back(detvec[axyvec[detct].index]); // Load into paired detection vector
+	      ivec1={};
+	      indvecs.push_back(ivec1);  // Load empty index vector
+	      detvec[axyvec[detct].index].index = pdct; // Re-assign index to apply to paired detection vector
+	      pdct++; // Increment count of paired detections
+	      adetct++;
+	      if(pdct!=long(pairdets.size()) || pdct!=long(indvecs.size())) {
+		cerr << "\nERROR: PAIRED DETECTION MISMATCH: " << pdct << " vs " << pairdets.size() << " vs " << indvecs.size() << "\n";
+		return(1);
+	      }
+	    }
+	    // Record image B detections
+	    for(matchct=0;matchct<matchnum;matchct++) {
+	      matchpt = indexvec[matchct];
+	      if(detvec[kdvec[matchpt].point.index].index<0) {
+		//This detection has not yet been paired with any other.
+		detvec[kdvec[matchpt].point.index].index *= -1; // Mark as paired by changing to positive sign
+		pairdets.push_back(detvec[kdvec[matchpt].point.index]); // Load into paired detection vector
+		ivec1={};
+		indvecs.push_back(ivec1); // Load empty index vector
+		detvec[kdvec[matchpt].point.index].index = pdct; // Re-assign index to apply to paired detection vector
+		pdct++; // Increment count of paired detections
+		if(pdct!=long(pairdets.size()) || pdct!=long(indvecs.size())) {
+		  cerr << "\nERROR: PAIRED DETECTION MISMATCH: " << pdct << " vs " << pairdets.size() << " vs " << indvecs.size() << "\n";
+		  return(1);
+		}
+	      }
+	      // Write index values for both components of the
+	      // new pair to the pair vector, regardless of whether
+	      // the index values are pre-existing or newly assigned.
+	      onepair = longpair(detvec[axyvec[detct].index].index,detvec[kdvec[matchpt].point.index].index);
+	      if(DEBUG>=1) cout << "Writing pair " << detvec[axyvec[detct].index].index << ", " << detvec[kdvec[matchpt].point.index].index << "\n";
+	      pairvec.push_back(onepair);
+	      pairct++;
+	      apct++;
+	      // Load index of each detection into the paired index vector of the other
+	      indvecs[detvec[axyvec[detct].index].index].push_back(detvec[kdvec[matchpt].point.index].index);
+	      indvecs[detvec[kdvec[matchpt].point.index].index].push_back(detvec[axyvec[detct].index].index);
+	    }
+	    // Close if-statement checking if image A detection was matched to anything.
+	  }
+	  // Close loop over detections on source image (image A)
+	}
+	// Close loop over image B candidates
+      }
+      // Close if-statement checking if any images could match image A      
+    }
+    if(DEBUG>=1) cout << "Image " << imct << ": found " << adetct << " newly paired detections and a total of " << apct << " pairs.\n";
+    // Close loop over images for image A
+  }
+  if(DEBUG>=1) cout << "Test count of paired detections: " << pdct << " " << pairdets.size() << "\n";
+  if(DEBUG>=1) cout << "Test count of pairs: " << pairct << " " << pairvec.size() << "\n";
+  return(0);
+}
+
+//merge_pairs: March 24, 2023: Given the output from find_pairs,
+//merge pairs into tracklets with more than two points, if possible
+int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs, const vector <longpair> &pairvec, vector <tracklet> &tracklets, vector <longpair> &trk2det, int mintrkpts, double maxgcr, double minarc, double minvel, double maxvel)
+{
+  long detnum = pairdets.size();
+  long detct=0;
+  long i = 0;
+  long_index ppn = long_index(0,0);
+  vector <long_index> pair_partner_num;
+  long pdct=0;
+  int istracklet=0;
+  vector <hldet> ppset = {};
+  vector <vector <long>> ppind = {};
+  xy_index xyind=xy_index(0.0, 0.0, 0);
+  vector <xy_index> axyvec = {};
+  double dist = 0.0l;
+  double pa = 0.0l;
+  tracklet track1 = tracklet(0,0.0l,0.0l,0,0.0l,0.0l,0,0);
+  longpair onepair = longpair(0,0);
+  long j=0;
+  long k=0;
+  int biggest_tracklet = -1;
+  int tracklet_size = 0;
+  point3d_index p3di = point3d_index(0.0l,0.0l,0.0l,0);
+  vector <point3d_index>   track_mrdi_vec;
+  int trkptnum=0;
+  int istimedup=1;
+  vector <double> timevec;
+  vector <double> xvec;
+  vector <double> yvec;
+  vector <long> detindexvec;
+  double slopex,slopey,interceptx,intercepty,worsterr;
+  slopex = slopey = interceptx = intercepty = worsterr = 0.0l;
+  vector <double> fiterr = {};
+  vector <double> fiterr2 = {};
+  int worstpoint=-1;
+  double dtref,dt,dx,dy,angvel;
+  dtref = dt = dx = dy = angvel = 0.0l;
+  double outra1,outdec1,outra2,outdec2;
+  outra1 = outdec1 = outra2 = outdec2 = 0.0l;
+  int rp1,rp2,instep;
+  rp1=rp2=instep=0;
+
+  tracklets={};
+  trk2det={}; // Wipe output vectors.
+  
+  // Load a vector storing the number of pair-partners found for each detection.
+  for(i=0;i<detnum;i++) {
+    ppn = long_index(indvecs[i].size(),i);
+    pair_partner_num.push_back(ppn);
+  }
+  // Sort the new vector by number of pair-partners
+  sort(pair_partner_num.begin(), pair_partner_num.end(), lower_long_index());
+  
+  // Analyze paired detections in order of decreasing number of partners.
+  // At the same time, load the tracklet file and the trk2det file
+  cout << "Constructing tracklets, and loading output vectors\n";
+  
+  for(i=detnum-1; i>=0 ;i--) {
+    pdct=pair_partner_num[i].index; // Decode from pair_partner_num sorted list to actual pairdets index.
+    istracklet=0; // Assume there is no tracklet unless one is confirmed to exist.
+    if(long(indvecs[pdct].size()) > mintrkpts-1) { // Use mintrkpts-1 because the root detection pdct
+                                                     // is itself is a potential point in the tracklet
+      if(DEBUG>=2) {
+	cout << "Working on detection " << i << " = " << pdct << " with " << pair_partner_num[i].lelem << " = " << indvecs[pdct].size() << " pair partners:\n";
+	for(j=0; j<long(indvecs[pdct].size()); j++) {
+	  cout << indvecs[pdct][j] << ", ";
+	}
+	cout << "\n";
+      }
+      // Detection number pdct is paired with more than one
+      // other detection.
+      // Project all of these pairs relative to detection pdct,
+      // storing x,y projected coordinates in axyvec.
+      axyvec={};
+      ppset={};
+      ppind={};
+      for(j=0; j<long(indvecs[pdct].size()); j++) { // Loop over the pair-partners of detection pdct.
+	detct = indvecs[pdct][j]; // detct is the pairdets index of a pair-partner to detection pdct.
+	if(indvecs[detct].size()>0) {
+	  // Detection detct hasn't already been allocated to a tracklet,
+	  // and hence is available for inclusion in a new tracklet anchored by pdct.
+	  // Project detct into an arc-WCS style x,y coords centered on pdct.
+	  distradec02(pairdets[pdct].RA, pairdets[pdct].Dec, pairdets[detct].RA, pairdets[detct].Dec, &dist, &pa);
+	  dist *= 3600.0L; // Convert distance from degrees to arcsec.
+	  xyind = xy_index(dist*sin(pa/DEGPRAD),dist*cos(pa/DEGPRAD),detct);
+	  axyvec.push_back(xyind);
+	  ppset.push_back(pairdets[detct]);
+	  ppind.push_back({}); // We need these vectors mainly just to have some way to store the
+	                       // indices of mutually consistent pair partners on the next step
+	}
+      }
+      if(DEBUG>=2) cout << "Loaded axyvec and ppset vectors OK, with sizes " << axyvec.size() << " and " << ppset.size() << "\n";
+      if(axyvec.size() != ppset.size() || axyvec.size() != ppind.size()) {
+	cerr << "ERROR: vectors of projected and original\n";
+	cerr << "pair partner candidates do not have the same length!\n";
+	cerr << axyvec.size() << ", " << ppset.size() << ", and " << ppind.size() << " must all be the same, and are not!\n";
+	return(3);
+      }
+      // Perform n^2 search on the projected points stored in axyvec
+      // to find the largest subset that lie along a consistent line.
+      for(j=0; j<long(axyvec.size()); j++) {
+	dtref = ppset[j].MJD - pairdets[pdct].MJD; // Time from anchor detection pdct to pair-partner j.
+	if(dtref == 0) {
+	  cerr << "ERROR: paired detections with no time separation!\n";
+	  return(4);
+	}
+	// Make sure corresponding index vector in ppset is empty
+	ppind[j] = {};
+	// Count addition pair partners (besides ppset[j]) that plausibly
+	// lie along the line defined by pdct and ppset[j].
+	if(DEBUG>=2) cout << "Counting consistent pair partners\n";
+	for(k=0; k<long(axyvec.size()); k++) {
+	  if(j!=k) {
+	    dt = ppset[k].MJD - pairdets[pdct].MJD; // Time from anchor detection pdct to pair-partner j.
+	    // Find out if the projected x,y coords scale with time from pdct
+	    // in a consistent way for detections j and k.
+	    dx = axyvec[k].x - axyvec[j].x*(dt/dtref);
+	    dy = axyvec[k].y - axyvec[j].y*(dt/dtref);
+	    dist = sqrt(dx*dx + dy*dy); 
+	    if(DEBUG>=2) cout << "Detection " << axyvec[j].index << ":" << axyvec[k].index << " dist = " << dist << "\n";
+	    if(dist < 2.0*maxgcr) {
+	      // Detections j, k, and pdct all lie along a plausibly
+	      // linear, constant-velocity trajectory on the sky.
+	      ppind[j].push_back(k); // Store detection k as possible tracklet partner for pdct and j.
+	    }
+	  }
+	}
+      }
+      // Now, ppset stores all the possible pair-partners of detection pdct,
+      // and ppind stores, for each one of these, the ppset indices of ADDITIONAL ones
+      // lie on a potentially consistent trajectory with it: that is, are tracklet partners.
+      // Find which detection in ppset has the largest number of possible tracklet partners.
+      biggest_tracklet=-1;
+      tracklet_size=0;
+      for(j=0; j<long(ppset.size()); j++) {
+	if(long(ppind[j].size())+2 > tracklet_size) {
+	  tracklet_size = ppind[j].size()+2; //We add one for pdct, one for j, to get actual tracklet size
+	  biggest_tracklet = j;
+	  if(DEBUG>=2) cout << "bt = " << biggest_tracklet << ", size = " << tracklet_size << "\n";
+	} else if(DEBUG>=2) cout << "not the biggest\n";
+      }
+      if(DEBUG>=2) cout << "Biggest tracklet is " << biggest_tracklet << ", which corresponds to " << axyvec[biggest_tracklet].index << ", with size " << tracklet_size << "\n";
+      istracklet=0; // Assume there is no tracklet until one is confirmed to exist.
+      if(tracklet_size <= mintrkpts) {
+	istracklet=0;
+      } else {
+	// Perform linear fits to x and y vs time.
+	// Load all the points from the biggest potential tracklet.
+	track_mrdi_vec={}; // We need this vector purely so we can do a time-sort.
+	                   // mrdi stands for MJD, RA, Dec, index
+	// Load the reference point
+	p3di = point3d_index(0.0l,0.0l,0.0l,pdct);
+	track_mrdi_vec.push_back(p3di);
+	// Load anchor point corresponding to biggest_tracklet
+	p3di = point3d_index(ppset[biggest_tracklet].MJD - pairdets[pdct].MJD,axyvec[biggest_tracklet].x,axyvec[biggest_tracklet].y,axyvec[biggest_tracklet].index);
+	track_mrdi_vec.push_back(p3di);
+	// Load the other points
+ 	for(j=0; j<long(ppind[biggest_tracklet].size()); j++) {
+	  p3di = point3d_index(ppset[ppind[biggest_tracklet][j]].MJD - pairdets[pdct].MJD,axyvec[ppind[biggest_tracklet][j]].x,axyvec[ppind[biggest_tracklet][j]].y,axyvec[ppind[biggest_tracklet][j]].index);
+	  track_mrdi_vec.push_back(p3di);
+	}
+	// Sort track_mrdi_vec by time.
+	sort(track_mrdi_vec.begin(), track_mrdi_vec.end(), lower_point3d_index_x());
+	// Load time, x, y, and index vectors from sorted track_mrdi_vec.
+	timevec=xvec=yvec={};
+	detindexvec={};
+	for(j=0;j<long(track_mrdi_vec.size());j++)
+	  {
+	    timevec.push_back(track_mrdi_vec[j].x);
+	    xvec.push_back(track_mrdi_vec[j].y);
+	    yvec.push_back(track_mrdi_vec[j].z);
+	    detindexvec.push_back(track_mrdi_vec[j].index);
+	  }
+ 	if(DEBUG>=2) {
+	  cout << "First iteration linear fit vectors:\n";
+	  for(j=0; j<long(timevec.size()); j++) {
+	    cout << detindexvec[j] << " " << timevec[j] << " " << xvec[j] << " " << yvec[j] << "\n";
+	  }
+	}
+
+	// Perform fit to projected x coordinate as a function of time
+	linfituw01(timevec, xvec, slopex, interceptx);
+ 	// Perform fit to projected y coordinate as a function of time
+	linfituw01(timevec, yvec, slopey, intercepty);
+	// Load vector of residuals
+	fiterr = {};
+	for(j=0; j<long(timevec.size()); j++) {
+	  fiterr.push_back(sqrt(DSQUARE(timevec[j]*slopex+interceptx-xvec[j]) + DSQUARE(timevec[j]*slopey+intercepty-yvec[j])));
+	}
+	// Ditch duplicate times, if there are any
+	istimedup=1; // Guilty until proven innocent
+	while(istimedup==1 && long(timevec.size())>=mintrkpts+1) {
+	  istimedup=0;
+	  j=1;
+	  while(j<long(timevec.size()) && istimedup==0) {
+	    if(fabs(timevec[j] - timevec[j-1]) < IMAGETIMETOL/SOLARDAY) {
+	      istimedup=1; // Point j and j-1 are time-duplicates.
+	      // Mark for rejection whichever one has the largest fitting error
+	      if(fiterr[j]>=fiterr[j-1]) worstpoint = j; 
+	      else worstpoint = j-1;
+	    }
+	    j++;
+	  }
+	  if(istimedup==1) {
+	    // Reject the bad point
+	    trkptnum=timevec.size();
+	    for(j=worstpoint; j<trkptnum-1; j++) {
+	      timevec[j] = timevec[j+1];
+	      xvec[j] = xvec[j+1];
+	      yvec[j] = yvec[j+1];
+	      detindexvec[j] = detindexvec[j+1];
+	    }
+	    trkptnum--;
+	    timevec.resize(trkptnum);
+	    xvec.resize(trkptnum);
+	    yvec.resize(trkptnum);
+	    detindexvec.resize(trkptnum);
+	    // Re-do linear fit
+	    // Perform fit to projected x coordinate as a function of time
+	    linfituw01(timevec, xvec, slopex, interceptx);
+	    // Perform fit to projected y coordinate as a function of time
+	    linfituw01(timevec, yvec, slopey, intercepty);
+	    // Load vector of residuals
+	    fiterr = {};
+	    for(j=0; j<long(timevec.size()); j++) {
+	      fiterr.push_back(sqrt(DSQUARE(timevec[j]*slopex+interceptx-xvec[j]) + DSQUARE(timevec[j]*slopey+intercepty-yvec[j])));
+	    }
+	  }
+	}
+	// Find worst error.  
+	worsterr = 0.0l;
+	for(j=0; j<long(timevec.size()); j++) {
+	  if(fiterr[j]>worsterr) {
+	    worsterr = fiterr[j];
+	    worstpoint = j;
+	  }
+	}
+	// Reject successive points until either there are only three left
+	// or the worst error drops below maxgcr.
+	while(worsterr>maxgcr && timevec.size()>3 && long(timevec.size())>=mintrkpts) {
+	  // Reject the worst point
+	  trkptnum=timevec.size();
+	  for(j=worstpoint; j<trkptnum-1; j++) {
+	    timevec[j] = timevec[j+1];
+	    xvec[j] = xvec[j+1];
+	    yvec[j] = yvec[j+1];
+	    detindexvec[j] = detindexvec[j+1];
+	  }
+	  trkptnum--;
+	  timevec.resize(trkptnum);
+	  xvec.resize(trkptnum);
+	  yvec.resize(trkptnum);
+	  detindexvec.resize(trkptnum);	  
+	  // Perform fit to projected x coordinate as a function of time
+	  linfituw01(timevec, xvec, slopex, interceptx);
+	  // Perform fit to projected y coordinate as a function of time
+	  linfituw01(timevec, yvec, slopey, intercepty);
+	  // Load vector of residuals
+	  fiterr = {};
+	  for(j=0; j<long(timevec.size()); j++) {
+	    fiterr.push_back(sqrt(DSQUARE(timevec[j]*slopex+interceptx-xvec[j]) + DSQUARE(timevec[j]*slopey+intercepty-yvec[j])));
+	  }
+	  // Find worst error.  
+	  worsterr = 0.0l;
+	  for(j=0; j<long(timevec.size()); j++) {
+	    if(fiterr[j]>worsterr) {
+	      worsterr = fiterr[j];
+	      worstpoint = j;
+	    }
+	  }
+	}
+	if(worsterr<=maxgcr && timevec.size()>=3 && long(timevec.size())>=mintrkpts) {
+	  // We succeeded in finding a tracklet with no time-duplicates, and
+	  // no outliers beyond maxgcr. Prepare to write it to the pair file.
+	  // Select points that will represent this tracklet.
+	  instep = (timevec.size()-1)/4;
+	  rp1 = instep;
+	  rp2 = timevec.size()-1-instep;
+	  if(rp1==rp2) {
+	    cerr << "ERROR: both representative points for a tracklet are the same!\n";
+	    cerr << "size, instep, rp1, rp2: " << timevec.size() << " " << instep << " " << rp1 << " " << rp2 << "\n";
+	    return(4);
+	  }
+	  // Calculate angular velocity in deg/day. The slope values
+	  // correspond to velocities in arcsec/day.
+	  angvel = sqrt(slopex*slopex + slopey*slopey)/3600.0l;
+	  
+	  // Determine improved RA, Dec based on tracklet fit for the representative points
+	  // Calculated projected x, y at rp1
+	  dx = timevec[rp1]*slopex + interceptx;
+	  dy = timevec[rp1]*slopey + intercepty;
+	  // Calculate equivalent celestial position angle.
+	  if(dx==0l && dy>=0l) pa = 0.0l;
+	  else if(dx==0l && dy<0l) pa = M_PI;
+	  else if(dx>0l) pa = M_PI/2.0l - atan(dy/dx);
+	  else if(dx<0l) pa = 3.0l*M_PI/2.0l - atan(dy/dx);
+	  else {
+	    cerr << "ERROR: logical impossibility while trying to solve for PA\n";
+	    cerr << "dx = " << dx << " dy = " << dy << "\n";
+	  }
+	  dist = sqrt(dx*dx + dy*dy)/3600.0l; // renders distance in degrees, not arcsec.
+	  pa*=DEGPRAD; // position angle in degrees, not radians.
+	  arc2cel01(pairdets[pdct].RA, pairdets[pdct].Dec, dist, pa, outra1, outdec1);
+	  if(!isnormal(outra1)) {
+	    cerr << "NAN WARNING: dx, dy, dist, pa: " << dx << " " << dy << " " << dist << " " << pa << "\n";
+	  }
+	  // Calculated projected x, y at rp2
+	  dx = timevec[rp2]*slopex + interceptx;
+	  dy = timevec[rp2]*slopey + intercepty;
+	  // Calculate equivalent celestial position angle.
+	  if(dx==0l && dy>=0l) pa = 0.0l;
+	  else if(dx==0l && dy<0l) pa = M_PI;
+	  else if(dx>0l) pa = M_PI/2.0l - atan(dy/dx);
+	  else if(dx<0l) pa = 3.0l*M_PI/2.0l - atan(dy/dx);
+	  else {
+	    cerr << "ERROR: logical impossibility while trying to solve for PA\n";
+	    cerr << "dx = " << dx << " dy = " << dy << "\n";
+	  }
+	  dist = sqrt(dx*dx + dy*dy)/3600.0l; // renders distance in degrees, not arcsec.
+	  pa*=DEGPRAD; // position angle in degrees, not radians.
+	  arc2cel01(pairdets[pdct].RA, pairdets[pdct].Dec, dist, pa, outra2, outdec2);
+	  // Calculate total angular arc
+	  distradec02(outra1, outdec1, outra2, outdec2, &dist, &pa);
+	  dist *= 3600.0l;
+	  if(dist>=minarc && angvel>=minvel && angvel<=maxvel) {
+	    // Write out representative pair, followed by RA, Dec and the total number of constituent points
+	    // representative pair
+	    track1 = tracklet(pairdets[detindexvec[rp1]].image,outra1,outdec1,pairdets[detindexvec[rp2]].image,outra2,outdec2,detindexvec.size(),tracklets.size());
+	    tracklets.push_back(track1);
+	    for(j=0; j<long(detindexvec.size()); j++) {
+	      onepair = longpair(tracklets[tracklets.size()-1].trk_ID,detindexvec[j]);
+	      indvecs[detindexvec[j]] = {};
+	      trk2det.push_back(onepair);
+	    }
+	    istracklet=1;
+	    // Close if-statement confirming that a bona fide,
+	    // aligned tracklet was found and written to the output file.
+	  } else {
+	    istracklet=0;
+	    cout << "A tracklet was rejected: arc = " << setprecision(3) << fixed << dist << " < " << minarc << " or angvel = " << setprecision(5) << fixed << angvel << " not in range " << setprecision(3) << fixed << minvel << "-" << maxvel << "\n";
+	  }
+	} else istracklet=0;
+	// Close else-statement confirming there was a candidate for
+	// being an aligned tracklet.
+      }
+      // Close if-statement checking that detection i has more than
+      // one pair-partner, and hence COULD be part of a tracklet
+    } else istracklet=0;
+    if((istracklet==0 || long(indvecs[pdct].size())>0) && mintrkpts==2) {
+      // Either there was no tracklet (istracklet==0) or there was a tracklet,
+      // but the original root point pdct got rejected from it.
+      // In either case, it's necessary to write out the (surviving) pairs
+      // associated with detection pdct.
+      for(j=0; j<long(indvecs[pdct].size()); j++) {
+	k=indvecs[pdct][j];
+	// Calculate angular arc and angular velocity
+	distradec02(pairdets[pdct].RA,pairdets[pdct].Dec,pairdets[k].RA,pairdets[k].Dec, &dist, &pa);
+	angvel = dist/fabs(pairdets[pdct].MJD-pairdets[k].MJD); // Degrees per day
+	dist *= 3600.0l; // Arcseconds
+	if(indvecs[k].size()>0 && pairdets[k].MJD>pairdets[pdct].MJD && angvel>=minvel && dist>=minarc && angvel<=maxvel) {
+	  track1 = tracklet(pairdets[pdct].image,pairdets[pdct].RA,pairdets[pdct].Dec,pairdets[k].image,pairdets[k].RA,pairdets[k].Dec,2,tracklets.size());
+	  tracklets.push_back(track1);
+	  onepair = longpair(tracklets.size()-1,pdct);
+	  trk2det.push_back(onepair);
+	  onepair = longpair(tracklets.size()-1,k);
+	  trk2det.push_back(onepair);
+	} else if(angvel<minvel || dist<minarc) {
+	  cout << "A pair was rejected: arc = " << setprecision(3) << fixed << dist << " < " << minarc << " or angvel = " << setprecision(5) << fixed << angvel << " not in range " << setprecision(3) << fixed << minvel << "-" << maxvel << "\n";
+	}
+      }
+    }
+    // Close loop over all detections
+  }
+  return(0);
+}
+
+#define INTEGERIZING_SCALEFAC 100.0l // We divide state vectors by this value to integerize
+                                     // them. Given a standard integer with a range
+                                     // of +/- 2^31 = 2.15e9, this gives the state vectors
+                                     // a range of +/- 2.15e11 km = 1400 AU, which is
+                                     // comfortably larger than the solar system.
+
+int trk2statevec(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar)
+{
+  allstatevecs={};
+  long imnum = image_log.size();
+  long imct=0;
+  long pairnum = tracklets.size();
+  long pairct=0;
+  int badpoint=0;
+  int status1=0;
+  int status2=0;
+  int num_dist_solutions=0;
+  int solnct=0;
+  double mjdavg=0l;
+  vector <double> heliodistvec;
+  double delta1 = 0.0l;
+  double RA,Dec;
+  long i1,i2;
+  i1=i2=0;
+  point6dx2 statevec1 = point6dx2(0l,0l,0l,0l,0l,0l,0,0);
+  point6ix2 stateveci = point6ix2(0,0,0,0,0,0,0,0);
+  point3d observerpos1 = point3d(0l,0l,0l);
+  point3d observerpos2 = point3d(0l,0l,0l);
+  point3d targpos1 = point3d(0l,0l,0l);
+  point3d targpos2 = point3d(0l,0l,0l);
+  point3d targvel1 = point3d(0l,0l,0l);
+  point3d targvel2 = point3d(0l,0l,0l);
+  point3d unitbary = point3d(0l,0l,0l);
+  vector <point3d> targposvec1;
+  vector <point3d> targposvec2;
+  int glob_warning=0;
+  vector <double> deltavec1;
+  vector <double> deltavec2;
+  double absvelocity=0l;
+  double impactpar=0l;
+  double timediff=0l;
+ 
+  // Calculate approximate heliocentric distances from the
+  // input quadratic approximation.
+  heliodistvec={};
+  for(imct=0;imct<imnum;imct++) {
+    delta1 = image_log[imct].MJD - mjdref;
+      heliodistvec.push_back(heliodist + heliovel*delta1 + 0.5*helioacc*delta1*delta1);
+      if(heliodistvec[imct]<=0.0l) {
+	badpoint=1;
+	return(1);
+      }
+  }
+  if(badpoint==0 && long(heliodistvec.size())!=imnum) {
+    cerr << "ERROR: number of heliocentric distance values does\n";
+    cerr << "not match the number of input images!\n";
+    return(2);
+  }
+  for(pairct=0; pairct<pairnum; pairct++) {
+    badpoint=0;
+    // Obtain indices to the image_log and heliocentric distance vectors.
+    i1=tracklets[pairct].Img1;
+    i2=tracklets[pairct].Img2;
+    // Project the first point
+    RA = tracklets[pairct].RA1;
+    Dec = tracklets[pairct].Dec1;
+    celestial_to_stateunit(RA,Dec,unitbary);
+    observerpos1 = point3d(image_log[i1].X,image_log[i1].Y,image_log[i1].Z);
+    targposvec1={};
+    deltavec1={};
+    status1 = helioproj02(unitbary,observerpos1, heliodistvec[i1], deltavec1, targposvec1);
+    RA = tracklets[pairct].RA2;
+    Dec = tracklets[pairct].Dec2;
+    celestial_to_stateunit(RA,Dec,unitbary);
+    observerpos2 = point3d(image_log[i2].X,image_log[i2].Y,image_log[i2].Z);
+    targposvec2={};
+    deltavec2={};
+    status2 = helioproj02(unitbary, observerpos2, heliodistvec[i2], deltavec2, targposvec2);
+    if(status1 > 0 && status2 > 0 && badpoint==0) {
+      // Calculate time difference between the observations
+      timediff = (image_log[i2].MJD - image_log[i1].MJD)*SOLARDAY;
+      // Did helioproj find two solutions in both cases, or only one?
+      num_dist_solutions = status1;
+      if(num_dist_solutions > status2) num_dist_solutions = status2;
+      // Loop over solutions (num_dist_solutions can only be 1 or 2).
+      for(solnct=0; solnct<num_dist_solutions; solnct++) {
+	// Begin new stuff added to eliminate 'globs'
+	// These are spurious linkages of unreasonably large numbers (typically tens of thousands)
+	// of detections that arise when the hypothetical heliocentric distance at a time when
+	// many observations are acquired is extremely close to, but slightly greater than,
+	// the heliocentric distance of the observer. Then detections over a large area of sky
+	// wind up with projected 3-D positions in an extremely small volume -- and furthermore,
+	// they all have similar velocities because the very small geocentric distance causes
+	// the inferred velocities to be dominated by the observer's motion and the heliocentric
+	// hypothesis, with only a negligible contribution from the on-sky angular velocity.
+	glob_warning=0;
+	if(deltavec1[solnct]<mingeoobs*AU_KM && deltavec2[solnct]<mingeoobs*AU_KM) {
+	  // New-start
+	  // Load target positions
+	  targpos1 = targposvec1[solnct];
+	  targpos2 = targposvec2[solnct];
+	  // Calculate positions relative to observer
+	  targpos1.x -= observerpos1.x;
+	  targpos1.y -= observerpos1.y;
+	  targpos1.z -= observerpos1.z;
+	    
+	  targpos2.x -= observerpos2.x;
+	  targpos2.y -= observerpos2.y;
+	  targpos2.z -= observerpos2.z;
+	    
+	  // Calculate velocity relative to observer
+	  targvel1.x = (targpos2.x - targpos1.x)/timediff;
+	  targvel1.y = (targpos2.y - targpos1.y)/timediff;
+	  targvel1.z = (targpos2.z - targpos1.z)/timediff;
+   
+	  // Calculate impact parameter (past or future).
+	  absvelocity = vecabs3d(targvel1);
+	  impactpar = dotprod3d(targpos1,targvel1)/absvelocity;
+	  // Effectively, we've projected targpos1 onto the velocity
+	  // vector, and impactpar temporarily holds the magnitude of this projection.
+	  // Subtract off the projection of the distance onto the velocity unit vector
+	  targpos1.x -= impactpar*targvel1.x/absvelocity;
+	  targpos1.y -= impactpar*targvel1.y/absvelocity;
+	  targpos1.z -= impactpar*targvel1.z/absvelocity;
+	  // Now targpos1 is the impact parameter vector at projected closest approach.
+	  impactpar  = vecabs3d(targpos1); // Now impactpar is really the impact parameter
+	  if(impactpar<=minimpactpar) {
+	    // The hypothesis implies the object already passed with minimpactpar km of the Earth
+	    // in the likely case that minimpactpar has been set to imply an actual impact,
+	    // it's not our problem anymore.
+	    glob_warning=1;
+	  }
+	}
+	if(!glob_warning) {
+	  targpos1 = targposvec1[solnct];
+	  targpos2 = targposvec2[solnct];
+	  
+	  targvel1.x = (targpos2.x - targpos1.x)/timediff;
+	  targvel1.y = (targpos2.y - targpos1.y)/timediff;
+	  targvel1.z = (targpos2.z - targpos1.z)/timediff;
+
+	  targpos1.x = 0.5L*targpos2.x + 0.5L*targpos1.x;
+	  targpos1.y = 0.5L*targpos2.y + 0.5L*targpos1.y;
+	  targpos1.z = 0.5L*targpos2.z + 0.5L*targpos1.z;
+      
+	  // Integrate orbit to the reference time.
+	  mjdavg = 0.5l*image_log[i1].MJD + 0.5l*image_log[i2].MJD;
+	  status1 = Keplerintd(GMSUN_KM3_SEC2,mjdavg,targpos1,targvel1,mjdref,targpos2,targvel2);
+	  if(status1 == 0 && badpoint==0) {
+	    statevec1 = point6dx2(targpos2.x,targpos2.y,targpos2.z,chartimescale*targvel2.x,chartimescale*targvel2.y,chartimescale*targvel2.z,pairct,i1);
+	    // Note that the multiplication by chartimescale converts velocities in km/sec
+	    // to units of km, for apples-to-apples comparison with the positions.
+	    stateveci = conv_6d_to_6i(statevec1,INTEGERIZING_SCALEFAC);
+	    allstatevecs.push_back(stateveci);
+	  } else {
+	    // Kepler integration encountered unphysical situation.
+	    continue;
+	  }
+	}
+      }
+    } else {
+      badpoint=1;
+      // Heliocentric projection found no physical solution.
+      continue;
+    }
+  }
+  return(0);
+}
+
+#define BINSEARCHMAX 100
+// tracklet_lookup: Given a vector of type longpair that is a catalog
+// of the form trk2det, find and return all of the entries corresponding
+// to tracklet number trknum. The form of the input catalog is that it
+// is monotonically sorted by the first index (e.g. tracklet count), but
+// with the number of entries of the same tracklet count -- and hence,
+// the vector index where a given tracklet trknum will start -- not known ahead of time. 
+vector <long> tracklet_lookup(const vector <longpair> &trk2det, long trknum)
+{
+  vector <long> outvec;
+  long catnum = trk2det.size();
+  long i=catnum/2;
+  long ilo=0;
+  long ihi=catnum-1;
+  int itnum=0;
+  
+  while(itnum<BINSEARCHMAX && trk2det[i].i1 != trknum) {
+    if(trk2det[i].i1 < trknum) {
+      // Guess is too low. Make it the new lower bound
+      ilo = i;
+      // Reset to midway between the current low and high bounds
+      i = (ilo+ihi)/2;
+      itnum++;
+      if(i<0) i=0;
+      else if(i>=catnum) i=catnum-1;
+    } else if(trk2det[i].i1 > trknum) {
+      // Guess is too high. Make it the new upper bound
+      ihi = i;
+      // Reset to midway between the current low and high bounds
+      i = (ilo+ihi)/2;
+      itnum++;
+      if(i<0) i=0;
+      else if(i>=catnum) i=catnum-1;
+    } 
+  }
+  if(trk2det[i].i1 != trknum) {
+    cerr << "ERROR: lookup failed for tracklet number " << trknum <<"\n";
+    outvec={};
+    return(outvec);
+  }
+  // If we get here, we must have found the tracklet. Move upward to find where it begins.
+  while(i>=0 && trk2det[i].i1 == trknum) i--;
+  // Now point i+1 must be the start of the tracklet
+  i+=1;
+  outvec={};
+  while(i<catnum && trk2det[i].i1 == trknum) {
+    outvec.push_back(trk2det[i].i2);
+  }
+  return(outvec);
+}
+
+// earthpos01: March 28, 2023: wrapper to get an old-style 3D
+// position for the Earth from a vector of the new EarthState struct.
+point3d earthpos01(const vector <EarthState> &earthpos, double mjd)
+{
+  point3d earthnow = point3d(0,0,0);
+  vector <double> posmjd;
+  vector <point3d> planetpos;
+  int status = 0;
+  int polyorder=5;
+  
+  posmjd={};
+  planetpos={};
+  for(i=0; i<earthnum; i++) {
+    posmjd.push_back(earthpos[i].MJD);
+    earthnow = point3d(earthpos[i].x, earthpos[i].y, earthpos[i].z);
+    planetpos.push_back(earthnow);
+  }  
+  status = planetpos01(mjd, polyorder, posmjd, planetpos, earthnow);
+  return(earthnow);
+}
+
+#define REF_GEODIST 1.0 // Value of geocentric distance to which the user-defined
+                             // clustering radius is normalized (AU). In general, the
+                             // clustering radius is scaled linearly with geocentric distance.
+#define NIGHTSTEP 0.3 // Minimum interval in days between successive points
+                           // in a tracklet, to enable them to be counted as being
+                           // on separate nights.
+
+int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const point3d &Earthrefpos, double heliodist, double heliovel, double helioacc, vector <hlclust> &outclust, vector <longpair> &clust2det, double mingeodist, double geologstep, double maxgeodist, int mintimespan, int minobsnights, int verbose)
+{
+  int geobinct = 0;
+  long i=0;
+  long statevecnum = allstatevecs.size();
+  double georadcen = mingeodist*intpowD(geologstep,geobinct);
+  double georadmin=0l;
+  double georadmax=0l;
+  vector <point6ix2> binstatevecs;
+  point6dx2 statevec1 = point6dx2(0l,0l,0l,0l,0l,0l,0,0);
+  point6ix2 stateveci = point6ix2(0,0,0,0,0,0,0,0);
+  double geodist=0l;
+  long kdroot=0;
+  long splitpoint=0;
+  KD_point6ix2 kdpoint = KD_point6ix2(stateveci,-1,-1,1,0);
+  vector <KD_point6ix2> kdvec;
+  vector <KD6i_clust> kdclust;
+  vector <long> pointind;
+  vector <long> pointjunk;
+  vector <double> clustmjd;
+  vector <double> mjdstep;
+  double timespan=0;
+  int numdaysteps = 0;
+  int obsnights = 0;
+  longpair c2d = longpair(0,0);
+  hlclust onecluster = hlclust(0, 0.0l, 0.0l, 0.0l, 0, 0.0l, 0, 0, 0.0l, "NULL", 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0);
+  double posRMS = 0.0l;
+  double velRMS = 0.0l;
+  double totRMS = 0.0l;
+  double astromRMS = 0.0l;
+  int pairnum = 0;
+  int uniquepoints = 0;
+  double posX, posY, posZ, velX, velY, velZ;
+  posX = posY = posZ = velX = velY = velZ = 0.0l;
+  double orbit_a, orbit_e, orbit_MJD, orbitX, orbitY, orbitZ, orbitVX, orbitVY, orbitVZ;
+  orbit_a = orbit_e = orbit_MJD = orbitX = orbitY = orbitZ = orbitVX = orbitVY = orbitVZ = 0.0l;
+  long orbit_eval_count = 0;
+
+  // Loop over geocentric bins, selecting the subset of state-vectors
+  // in each bin, and running DBSCAN only on those, with clustering radius
+  // adjusted accordingly.
+  while(georadcen<=maxgeodist) {
+    georadcen = mingeodist*intpowD(geologstep,geobinct);
+    georadmin = georadcen/geologstep;
+    georadmax = georadcen*geologstep;
+    // Load new array of state vectors, limited to those in the current geocentric bin
+    binstatevecs={};
+    for(i=0; i<statevecnum; i++) {
+      // Reverse integerization of the state vector.
+      // This is only possible to a crude approximation, of course.
+      statevec1 = conv_6i_to_6d(allstatevecs[i],INTEGERIZING_SCALEFAC);
+      // Calculate geocentric distance in AU
+      geodist = sqrt(DSQUARE(statevec1.x-Earthrefpos.x) + DSQUARE(statevec1.y-Earthrefpos.y) + DSQUARE(statevec1.z-Earthrefpos.z))/AU_KM;
+      if(geodist >= georadmin && geodist <= georadmax) {
+	// This state vector is in the geocentric radius bin we are currently considering.
+	// Add it to binstatevecs.
+	binstatevecs.push_back(allstatevecs[i]);
+      }
+    }
+    if(verbose>=1) cout << "Found " << binstatevecs.size() << " state vectors in geocentric bin from " << georadmin << " to " << georadmax << " AU\n";
+    if(binstatevecs.size()<=1) {
+      geobinct++;
+      continue; // No clusters possible, skip to the next step.
+    }
+      
+    kdvec={};
+    kdroot = splitpoint = 0;
+    splitpoint=medind_6ix2(binstatevecs,1);
+    kdpoint = KD_point6ix2(binstatevecs[splitpoint],-1,-1,1,0);
+    kdvec.push_back(kdpoint);
+    kdtree_6i01(binstatevecs,1,splitpoint,kdroot,kdvec);
+    
+    if(verbose>=1) cout << "Created a KD tree with " << kdvec.size() << " branches\n";
+
+    kdclust={};
+    int clusternum = DBSCAN_6i01(kdvec, cluster_radius*(georadcen/REF_GEODIST)/INTEGERIZING_SCALEFAC, npt, INTEGERIZING_SCALEFAC, kdclust, verbose);
+    if(verbose>=1) cout << "DBSCAN_6i01 finished, with " << clusternum << " = " << kdclust.size() << " clusters found\n";
+    for(clusterct=0; clusterct<long(outclusters.size()); clusterct++) {
+      // Scale cluster RMS down to reference geocentric distance
+      if(DEBUG_A >= 1) cout << "scaling kdclust rms for cluster " << clusterct << " out of " << kdclust.size() << "\n";
+      fflush(stdout);
+      for(i=0;i<9;i++) {
+	if(DEBUG >= 1) cout << "scaling rmsvec point " << i << " out of " << kdclust[clusterct].rmsvec.size() << "\n";
+	if(DEBUG >= 1) cout << "RMS = " << kdclust[clusterct].rmsvec[i];
+	kdclust[clusterct].rmsvec[i] *= REF_GEODIST/georadcen;
+	if(DEBUG >= 1) cout << ", scales to " << kdclust[clusterct].rmsvec[i] << "\n";
+      }
+      // Note that RMS is scaled down for more distant clusters, to
+      // avoid bias against them in post-processing.
+	
+      // Map cluster to individual detections.
+      // create vector of unique detection indices.
+      if(DEBUG_A >= 1) cout << "Loading pointind for " << kdclust[clusterct].numpoints << " of " << clusterct <<  " out of " << kdclust.size() << "\n";
+	fflush(stdout);
+	pointind = {};
+	for(i=0;i<kdclust[clusterct].numpoints;i++) {
+	  pairct=kdvec[kdclust[clusterct].clustind[i]].point.i1;
+	  pointjunk = {};
+	  pointjunk = tracklet_lookup(trk2det, pairct);
+	  for(j=0; j<long(pointjunk.size()); j++) {
+	    pointind.push_back(pointjunk[j]);
+	  }
+	}
+	// Sort vector of detection indices
+	if(DEBUG_A >= 1) cout << "About to sort pointind\n";
+	fflush(stdout);
+	sort(pointind.begin(), pointind.end());
+	if(DEBUG_A >= 1) cout << "Done sorting pointind\n";
+	fflush(stdout);
+	// Cull out duplicate entries
+	pointjunk = pointind;
+	pointind={};
+	pointind.push_back(pointjunk[0]);
+	for(i=1; i<long(pointjunk.size()); i++) {
+	  if(pointjunk[i]!=pointjunk[i-1]) pointind.push_back(pointjunk[i]);
+	}
+	if(DEBUG_A >= 1) cout << "Done culling pointind\n";
+	fflush(stdout);
+	uniquepoints = pointind.size();
+
+	// Load vector of detection MJD's
+	clustmjd = {};
+	for(i=0; i<long(pointind.size()); i++) {
+	  clustmjd.push_back(detvec[pointind[i]].MJD);
+	}
+	if(DEBUG_A >= 1) cout << "Done loading mjds\n";
+	fflush(stdout);
+	// Sort vector of MJD's
+	sort(clustmjd.begin(), clustmjd.end());
+	if(DEBUG_A >= 1) cout << "Done sorting mjds\n";
+	fflush(stdout);
+	timespan = clustmjd[clustmjd.size()-1] - clustmjd[0];
+	if(DEBUG_A >= 1) cout << "Timespan = " << timespan << "\n";
+	fflush(stdout);
+	// Load vector of MJD steps
+	mjdstep={};
+	for(i=1; i<long(clustmjd.size()); i++) {
+	  mjdstep.push_back(clustmjd[i]-clustmjd[i-1]);
+	}
+	if(DEBUG_A >= 1) cout << "Done loading vector of steps\n";
+	fflush(stdout);
+	// Count steps large enough to suggest a daytime period between nights.
+	numdaysteps=0;	
+	for(i=0; i<long(mjdstep.size()); i++) {
+	  if(mjdstep[i]>NIGHTSTEP) numdaysteps++;
+	}
+	if(DEBUG_A >= 1) cout << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
+	obsnights = mindaysteps+1;
+	// Does cluster pass the criteria for a linked detection?
+	if(timespan >= mintimespan && obsnights >= minobsnights) {
+	  realclusternum++;
+	  gridpoint_clusternum++;
+	  if(DEBUG_A >= 1) cout << "Loading good cluster " << realclusternum << " with timespan " << timespan << " and numdaysteps " << numdaysteps << "\n";
+	  fflush(stdout);
+	  numobsnights = numdaysteps+1;
+	  if(DEBUG_A >= 1) cout << "Cluster passes discovery criteria: will be designated as cluster " << realclusternum << "\n";
+	  // Check whether cluster is composed purely of detections from
+	  // a single simulated object (i.e., would be a real discovery) or is a mixture
+	  // of detections from two or more different simulated objects (i.e., spurious).
+	  rating="PURE";
+	  for(i=0; i<long(pointind.size()); i++) {
+	    if(i>0 && stringnmatch01(detvec[pointind[i]].idstring,detvec[pointind[i-1]].idstring,SHORTSTRINGLEN)!=0) rating="MIXED";
+	  }
+	  if(DEBUG_A >= 1) cout << "Rating is found to be " << rating << "\n";
+	  fflush(stdout);
+	  // Write all individual detections in this cluster to the clust2det array
+	  for(i=0; i<long(pointind.size()); i++) {
+	    c2d = longpair(realclusternum,pointind[i]);
+	    clust2det.push_back(c2d);
+	  }
+
+	  // Calculate values for the statistics in the output array (class hlclust) that have
+	  // not been caculated already.
+	  clustmetric = double(pointind.size())*double(numobsnights)*timespan/kdclust[clusterct].rmsvec[8];
+	  // Note contents of rmsvec: [0] xrms, [1] yrms, [2] zrms, [3] vxrms, [4] vyrms, [5] vzrms,
+	  // [6] overall position rms, [7] overall velocity rms, [8] overall rms
+	  posRMS = kdclust[clusterct].rmsvec[6];
+	  velRMS = kdclust[clusterct].rmsvec[7];
+	  totRMS = kdclust[clusterct].rmsvec[8];
+	  pairnum = kdclust[clusterct].numpoints; // This is the original total number of pairs/tracklets assigned
+	                                          // to this cluster, which might have a lot of overlap in terms of 
+	                                          // individual detections (of which the non-overlapping count has
+	                                          // already been saved in 'uniquepoints').
+	  // Now save the values of the mean state vectors at the reference time.
+	  posX = kdclust[clusterct].meanvec[0];
+	  posY = kdclust[clusterct].meanvec[1];
+	  posZ = kdclust[clusterct].meanvec[2];
+	  velX = kdclust[clusterct].meanvec[3]/chartimescale;
+	  velY = kdclust[clusterct].meanvec[4]/chartimescale;
+	  velZ = kdclust[clusterct].meanvec[5]/chartimescale;
+	  // Some of the statistics in the hlclust class relate to orbit-fitting,
+	  // and are meant for later use. For now, set them all to zero.
+	  astromRMS = orbit_a = orbit_e = 0.0l;
+	  orbit_MJD = orbitX = orbitY = orbitZ = orbitVX = orbitVY = orbitVZ = 0.0l;
+	  orbit_eval_count = 0;
+	  // Write overall cluster statistics to the outclust array.	
+	  onecluster = hlclust(realclusternum, posRMS, velRMS, totRMS, astromRMS, pairnum, timespan, uniquepoints, obsnights, metric, rating, heliodist/AU_KM, heliovel/SOLARDAY, helioacc*1000.0/SOLARDAY/SOLARDAY, posX, posY, posZ, velX, velY, velZ, orbit_a, orbit_e, orbit_MJD, orbitX, orbitY, orbitZ, orbitVX, orbitVY, orbitVZ, orbit_eval_count);
+	}
+    }
+      // Move on to the next bin in geocentric distance
+      geobinct++;
+    }
+    if(verbose>=0) cout << "Identified " << gridpoint_clusternum << " candidate linkages\n";
+}
+    
+#undef REF_GEODIST
+#undef NIGHTSTEP
+#undef BINSEARCHMAX
+#undef INTEGERIZING_SCALEFAC
+#undef DEBUG
