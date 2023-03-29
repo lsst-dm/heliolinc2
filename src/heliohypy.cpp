@@ -193,6 +193,7 @@ py::array observer_coords(double detmjd, double lon, double obscos, double obssi
 
 py::array observer_vel(double detmjd, double lon, double obscos, double obssine, py::array_t<EarthState> earthin)
 {
+  
   std::vector <EarthState> earthpos = ndarray_to_vec(earthin);
   int polyorder=5;
   std::vector <double> posmjd;
