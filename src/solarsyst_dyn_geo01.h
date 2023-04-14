@@ -75,10 +75,16 @@ using namespace std;
                          // method solution of the trancendental Kepler Equation.
 #define KEPTRANSTOL 1e-15L // Maximum error for an acceptable solution of the
                            // trancendental Kepler Equation.
+#define KEPTRANSTOL2 (double(1e-10)) // Maximum error for an acceptable solution of the
+                            // trancendental Kepler Equation.
 #define KEP2PBVPTOL 1e-12L // Maximum error for an acceptable solution of the
+                           // Kepler two-point boundary value problem.
+#define KEP2PBVPTOL2 (double(1e-8l)) // Maximum error for an acceptable solution of the
                            // Kepler two-point boundary value problem.
 #define LARGERR 1e30L // Large number supposed to be a safe initialization
                       // for most minimum-finding problems.
+#define LARGERR2 (double(1e30l)) // Large number supposed to be a safe initialization
+                                // for most minimum-finding problems.
 #define GMSUN_KM3_SEC2 132712440041.279419L // GM for the Sun: that is, the Universal
                                             // Gravitational Constant times the solar mass,
                                             // in units of km^3/sec^2. 
@@ -232,8 +238,10 @@ public:
   char idstring[SHORTSTRINGLEN];  // E.g., diaSourceID
   char band[MINSTRINGLEN];        // photometric band
   char obscode[MINSTRINGLEN];     // Observatory code
+  long known_obj;                 // Identifier for a known object, or prob. of being a known object (e.g. ATLAS Pkn)
+  long det_qual;                  // Detection quality -- e.g., a metric for the likelihood that this detection is real.
   long index;                     // Line count in original input structure
-  hldet(double mjd, double ra, double dec, float mag, float trail_len, float trail_PA, float sigmag, float sig_across, float sig_along, int image, const string &idstring, const string &band, const string &obscode, long index) :MJD(mjd), RA(ra), Dec(dec), mag(mag), trail_len(trail_len), trail_PA(trail_PA), sigmag(sigmag), sig_across(sig_across), sig_along(sig_along), index(index) {
+  hldet(double mjd, double ra, double dec, float mag, float trail_len, float trail_PA, float sigmag, float sig_across, float sig_along, int image, const string &idstring, const string &band, const string &obscode, long known_obj, long det_qual, long index) :MJD(mjd), RA(ra), Dec(dec), mag(mag), trail_len(trail_len), trail_PA(trail_PA), sigmag(sigmag), sig_across(sig_across), sig_along(sig_along), image(image), known_obj(known_obj), det_qual(det_qual), index(index) {
     // Copy input value of idstring, making sure it's not too long
     assert(idstring.size() < sizeof(this->idstring));
     std::strncpy(this->idstring, idstring.c_str(), sizeof(this->idstring));
@@ -288,6 +296,7 @@ struct MakeTrackletsConfig {
   double imagerad = 2.0;        // radius from image center to most distant corner (deg)
   double maxgcr = 0.5;          // Default maximum Great Circle Residual allowed for a valid tracklet
   int forcerun = 0; // Pushes through all but the immediately fatal errors.
+  int verbose = 0;  // Prints monitoring output
 };
 
 struct HeliolincConfig {
@@ -313,6 +322,25 @@ struct HeliolincConfig {
                                //   spurious linkages -- when probing heliocentric hypothesis
                                //   that have the potential to imply near-zero distance from Earth
                                //   for some observations.
+  int verbose=0;
+};
+
+struct LinkRefineConfig {
+  double MJDref = 0.0l;        // MJD of reference time. Must be specified at runtime:
+                               //   no sensible default is possible, because the reference
+                               //   time MUST be near the center of the time spanned by
+                               //   the input detection catalog.
+  int simptype = 0;            // Defines how Herget_simplex_int constructs the starting simplex
+                               //   in the 2-D paramter space of geocentric distance at first detection
+                               //   (geodist1) and geocentric distance at last detection (geodist2)
+                               //   simptype=0 uses multiplicative scaling to create an approximately equilateral triangle:
+                               //   simptype=1 creates a simplex elongated along the direction defined by geodist1=geodist2
+                               //   simptype=2 uses subtraction to create a precisely equilateral triangle
+  int ptpow = 1;               // Power to which we raise the number of unique detections, when calculating the cluster quality metric.
+  int nightpow = 1;            // Power to which we raise the number of distinct observing nights, when calculating the cluster quality metric.
+  int timepow = 0;             // Power to which we raise the total temporal span of the linkage, when calculating the cluster quality metric.
+  int rmspow = 2;              // Power to which we raise the RMS astrometric residual when calculating the cluster quality metric.
+  double maxrms = 1.0e5;       // Maximum scaled RMS in km for a viable cluster
   int verbose=0;
 };
 
@@ -386,7 +414,7 @@ public:
   double orbitVY;
   double orbitVZ;
   long orbit_eval_count;
-  hlclust(long clusternum, double posRMS, double velRMS, double totRMS, double astromRMS, int pairnum, double timespan, int uniquepoints, int obsnights, double metric, const string &rating, double heliohyp0, double heliohyp1, double heliohyp2, double posX, double posY, double posZ, double velX, double velY, double velZ, double orbit_a, double orbit_e, double orbit_MJD, double orbitX, double orbitY, double orbitZ, double orbitVX, double orbitVY, double orbitVZ, long orbit_eval_count) :clusternum(clusternum), posRMS(posRMS), velRMS(posRMS), totRMS(totRMS), astromRMS(astromRMS), pairnum(pairnum), timespan(timespan), uniquepoints(uniquepoints), obsnights(obsnights), metric(metric), heliohyp0(heliohyp0), heliohyp1(heliohyp1), heliohyp2(heliohyp2), posX(posX), posY(posY), posZ(posZ), velX(velX), velY(velY), velZ(velZ), orbit_a(orbit_a), orbit_e(orbit_e), orbit_MJD(orbit_MJD), orbitX(orbitX), orbitY(orbitY), orbitZ(orbitZ), orbitVX(orbitVX), orbitVY(orbitVY), orbitVZ(orbitVZ), orbit_eval_count(orbit_eval_count) { 
+  hlclust(long clusternum, double posRMS, double velRMS, double totRMS, double astromRMS, int pairnum, double timespan, int uniquepoints, int obsnights, double metric, const string &rating, double heliohyp0, double heliohyp1, double heliohyp2, double posX, double posY, double posZ, double velX, double velY, double velZ, double orbit_a, double orbit_e, double orbit_MJD, double orbitX, double orbitY, double orbitZ, double orbitVX, double orbitVY, double orbitVZ, long orbit_eval_count) :clusternum(clusternum), posRMS(posRMS), velRMS(velRMS), totRMS(totRMS), astromRMS(astromRMS), pairnum(pairnum), timespan(timespan), uniquepoints(uniquepoints), obsnights(obsnights), metric(metric), heliohyp0(heliohyp0), heliohyp1(heliohyp1), heliohyp2(heliohyp2), posX(posX), posY(posY), posZ(posZ), velX(velX), velY(velY), velZ(velZ), orbit_a(orbit_a), orbit_e(orbit_e), orbit_MJD(orbit_MJD), orbitX(orbitX), orbitY(orbitY), orbitZ(orbitZ), orbitVX(orbitVX), orbitVY(orbitVY), orbitVZ(orbitVZ), orbit_eval_count(orbit_eval_count) { 
     // Copy input value of rating, making sure it's not too long
     assert(rating.size() < sizeof(this->rating));
     std::strncpy(this->rating, rating.c_str(), sizeof(this->rating));
@@ -506,6 +534,13 @@ public:
 class early_det_obsmag_indvec{
 public:
   inline bool operator() (const det_obsmag_indvec& o1, const det_obsmag_indvec& o2) {
+    return(o1.MJD < o2.MJD || (o1.MJD==o2.MJD && stringnmatch01(o1.obscode,o2.obscode,3)==-1) || (o1.MJD==o2.MJD && stringnmatch01(o1.obscode,o2.obscode,3)==0 && o1.RA<o2.RA));
+  }
+};
+
+class early_hldet{
+public:
+  inline bool operator() (const hldet& o1, const hldet& o2) {
     return(o1.MJD < o2.MJD || (o1.MJD==o2.MJD && stringnmatch01(o1.obscode,o2.obscode,3)==-1) || (o1.MJD==o2.MJD && stringnmatch01(o1.obscode,o2.obscode,3)==0 && o1.RA<o2.RA));
   }
 };
@@ -1216,7 +1251,7 @@ struct EarthState {
             : MJD(MJD), x(x), y(y), z(z), vx(vx), vy(vy), vz(vz) {}
 };
 
-void make_ivec(int nx, vector <int> &ivec);
+void make_ivec(long nx, vector <int> &ivec);
 void make_imat(int nx, int ny, vector <vector <int>> &imat);
 void make_lvec(int nx, vector <long> &lvec);
 void make_lmat(int nx, int ny, vector <vector <long>> &lmat);
@@ -1304,9 +1339,9 @@ int helioproj02(point3d unitbary, point3d obsbary, double heliodist, vector <dou
 int accelcalc01LD(int planetnum, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, const point3LD &targpos, point3LD &accel);
 int integrate_orbit_constac(int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel);
 long double kep_transcendental(long double q, long double e, long double tol);
+double kep_transcendental(double q, double e, double tol);
 int Keplerint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
-double kep_transcendentald(double q, double e, double tol);
-int Keplerintd(const double MGsun, const double mjdstart, const point3d &startpos, const point3d &startvel, const double mjdend, point3d &endpos, point3d &endvel);
+int Keplerint(const double MGsun, const double mjdstart, const point3d &startpos, const point3d &startvel, const double mjdend, point3d &endpos, point3d &endvel);
 int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD &outpos,  point3LD &outvel);
 long double hyp_transcendental(long double q, long double e, long double tol);
 int Hyper_Kepint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
@@ -1354,16 +1389,24 @@ long double Twopoint_KepQ(long double theta);
 int Twopoint_Kepler_vel(const long double MGsun, const point3LD startpoint, const point3LD endpoint, const long double timediff, point3LD &startvel, int itmax);
 int Keplerint_multipoint01(const long double MGsun, const long double mjdstart, const vector <long double> &obsMJD, const point3LD &startpos, const point3LD &startvel, vector <point3LD> &obspos, vector <point3LD> &obsvel);
 int Keplerint_multipoint02(const long double MGsun, const long double mjdstart, const vector <long double> &obsMJD, const point3LD &startpos, const point3LD &startvel, vector <point3LD> &obspos, vector <point3LD> &obsvel, long double *semimajor_axis, long double *eccen, long double *angperi);
+int Keplerint_multipoint02(const double MGsun, const double mjdstart, const vector <double> &obsMJD, const point3d &startpos, const point3d &startvel, vector <point3d> &obspos, vector <point3d> &obsvel, double *semimajor_axis, double *eccen, double *angperi);
 long double orbitchi01(const point3LD &objectpos, const point3LD &objectvel, const long double mjdstart, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid);
 long double orbitchi02(const point3LD &objectpos, const point3LD &objectvel, const long double mjdstart, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, long double *semimajor_axis, long double *eccen, long double *angperi);
+double orbitchi02(const point3d &objectpos, const point3d &objectvel, const double mjdstart, const vector <point3d> &observerpos, const vector <double> &obsMJD, const vector <double> &obsRA, const vector <double> &obsDec, const vector <double> &sigastrom, vector <double> &fitRA, vector <double> &fitDec, vector <double> &resid, double *semimajor_axis, double *eccen, double *angperi);
 long double TwopointF(long double a, long double k, long double lambda1, long double lambda2, long double deltat, long double Xsign, long double Ysign);
+double TwopointF(double a, double k, double lambda1, double lambda2, double deltat, double Xsign, double Ysign);
 long double TwopointFprime(long double a, long double k, long double lambda1, long double lambda2, long double deltat, long double Xsign, long double Ysign);
+double TwopointFprime(double a, double k, double lambda1, double lambda2, double deltat, double Xsign, double Ysign);
 int eccen_calc_fast(long double a, point3LD rvec1, point3LD rvec2, long double *e, long double *theta, long double Xsign, long double Ysign);
 point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, const point3LD endpos, const long double timediff, long double Y, long double *a, int itmax, int verbose);
+point3d Twopoint_Kepler_v1(const double GMsun, const point3d startpos, const point3d endpos, const double timediff, const double Ysign, double *a, int itmax, int verbose);
 point3LD geodist_to_3Dpos01(long double RA, long double Dec, point3LD observerpos, long double geodist);
+point3d geodist_to_3dpos01(double RA, double Dec, point3d observerpos, double geodist);
 int Herget_unboundcheck01(long double geodist1, long double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec);
 long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit, int verbose);
+double Hergetchi01(double geodist1, double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3d> &observerpos, const vector <double> &obsMJD, const vector <double> &obsRA, const vector <double> &obsDec, const vector <double> &sigastrom, vector <double> &fitRA, vector <double> &fitDec, vector <double> &resid, vector <double> &orbit, int verbose);
 int Herget_simplex_int(long double geodist1, long double geodist2, long double simpscale, long double simplex[3][2], int simptype);
+int Herget_simplex_int(double geodist1, double geodist2, double simpscale, double simplex[3][2], int simptype);
 long double Hergetfit01(long double geodist1, long double geodist2, long double simplex_scale, int simptype, long double ftol, int point1, int point2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit, int verbose);
 long medind_3d_index(const vector <point3d_index> &pointvec, int dim);
 int split3d_index(const vector <point3d_index> &pointvec, int dim, long splitpoint, vector <point3d_index> &left, vector <point3d_index> &right);
@@ -1384,7 +1427,12 @@ double avg_extrema(const vector <double> &x);
 int read_image_file(string inimfile, vector <img_log03> &img_log);
 int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indvec> &detvec);
 int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double imagetimetol, int forcerun);
-int find_pairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <hldet> &pairdets, vector <vector <long>> &indvecs, vector <longpair> &pairvec, double mintime, double maxtime, double imrad, double maxvel);
-int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs, const vector <longpair> &pairvec, vector <tracklet> &tracklets, vector <longpair> &trk2det, int mintrkpts, double maxgcr, double minarc, double minvel, double maxvel);
+int find_pairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <hldet> &pairdets, vector <vector <long>> &indvecs, vector <longpair> &pairvec, double mintime, double maxtime, double imrad, double maxvel, int verbose);
+int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs, const vector <longpair> &pairvec, vector <tracklet> &tracklets, vector <longpair> &trk2det, int mintrkpts, double maxgcr, double minarc, double minvel, double maxvel, int verbose);
+int make_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrackletsConfig config, vector <hldet> &pairdets,vector <tracklet> &tracklets, vector <longpair> &trk2det);
 int trk2statevec(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar);
 vector <long> tracklet_lookup(const vector <longpair> &trk2det, long trknum);
+point3d earthpos01(const vector <EarthState> &earthpos, double mjd);
+int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const point3d &Earthrefpos, double heliodist, double heliovel, double helioacc, double chartimescale, vector <hlclust> &outclust, vector <longpair> &clust2det, long &realclusternum, double cluster_radius, double dbscan_npt, double mingeodist, double geologstep, double maxgeodist, int mintimespan, int minobsnights, int verbose);
+int heliolinc_alg(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
+int link_refine_Herget(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
