@@ -238,19 +238,11 @@ int main(int argc, char *argv[])
   string rmsfile="hlout.summary";
   string lnfromfile;
   long double MJD,RA,Dec;
-  int reachedeof=0;
   long double mjdref=0L;
-  long double ldval = 0L;
   string stest;
-  long double obslon, plxcos, plxsin;
-  obslon = plxcos = plxsin = 0L;
   string planetfile;
-  int planetnum=0;
-  int planetct=0;
-  int polyorder=1;
-  int i=0;
-  int j=0;
-  int c='0';
+  long i=0;
+  long j=0;
   long ipt=0;
   int status=0;
   vector <point3LD> Earthpos;
@@ -273,30 +265,18 @@ int main(int argc, char *argv[])
   vector <long double> heliodist;
   vector <long double> heliovel;
   vector <long double> helioacc;
-  long double mjdstart=0.0;
-  long double mjdend=0.0;
   long double mjdavg=0.0;
-  long runnum,runct;
-  runnum = runct=1;
   vector <long double> heliodistvec;
   vector <long double> rmsvec;
-  long double dist=0.0;
-  long double pa=0.0;
   long double timediff=0.0;
   int status1=0; int status2=0;
-  long double delta1,delta2;
+  long double delta1;
   vector <long double> deltavec1;
   vector <long double> deltavec2;
-  long double heliodistB=0.0L;
-  long double heliovelB=0.0L;
-  long double helioaccB=0.0L;
-  long double wrms = LARGERR;
-  long double wrmsB = LARGERR;
   int accelnum=0;
   int num_dist_solutions=0;
   int solnct=0;
   int accelct=0;
-  int valid_accel_num=0;
   int badpoint=0;
   long double X=0.0L;
   long double Y=0.0L;
@@ -699,7 +679,7 @@ int main(int argc, char *argv[])
    return(1);
   } else {
     accelnum = helioacc.size();
-    if(heliovel.size() != accelnum || heliodist.size() != accelnum) {
+    if(long(heliovel.size()) != accelnum || long(heliodist.size()) != accelnum) {
       cerr << "ERROR: size mismatch " << accelnum << " " << heliovel.size() << " " << heliodist.size() << "in vectors read by read_accel_fileLD\n";
       return(1);
     }
@@ -855,7 +835,6 @@ int main(int argc, char *argv[])
   cout << "Writing to " << outfile << "\n";
   cout << "Read " << detvec.size() << " detections and " << pairvec.size() << " pairs.\n";
 
-  valid_accel_num=0;  
   realclusternum=0;
   for(accelct=0;accelct<accelnum;accelct++) {
     gridpoint_clusternum=0;
@@ -867,7 +846,7 @@ int main(int argc, char *argv[])
       cout.precision(17);
     }
     heliodistvec={};
-    for(i=0;i<detvec.size();i++)
+    for(i=0;i<long(detvec.size());i++)
       {
 	delta1 = detvec[i].MJD - mjdref;
 	heliodistvec.push_back(heliodist[accelct] + heliovel[accelct]*delta1 + 0.5*helioacc[accelct]*delta1*delta1);
@@ -883,7 +862,7 @@ int main(int argc, char *argv[])
       return(1);
     }
     allstatevecs={};
-    for(pairct=0; pairct<pairvec.size(); pairct++) {
+    for(pairct=0; pairct<long(pairvec.size()); pairct++) {
       badpoint=0;
       // Obtain indices to the detection and heliocentric distance vectors.
       i1=pairvec[pairct][0];
@@ -1007,7 +986,7 @@ int main(int argc, char *argv[])
       georadmax = georadcen*geologstep;
       // Load new array of state vectors, limited to those in the current geocentric bin
       binstatevecs={};
-      for(i=0;i<allstatevecs.size();i++)
+      for(i=0;i<long(allstatevecs.size());i++)
 	{
 	  // Reverse integerization of the state vector.
 	  // This is only possible to a crude approximation, of course.
@@ -1039,7 +1018,7 @@ int main(int argc, char *argv[])
       outclusters={};
       int clusternum = DBSCAN_6i01(kdvec, cluster_radius*(georadcen/CRAD_REF_GEODIST)/INTEGERIZING_SCALE, npt, INTEGERIZING_SCALE, outclusters, verbose);
       if(verbose>=1) cout << "DBSCAN_6i01 finished, with " << clusternum << " = " << outclusters.size() << " clusters found\n";
-      for(clusterct=0; clusterct<outclusters.size(); clusterct++) {
+      for(clusterct=0; clusterct<long(outclusters.size()); clusterct++) {
 	// Scale cluster RMS down to reference geocentric distance
 	if(DEBUG_A >= 1) cout << "scaling outclusters rms for cluster " << clusterct << " out of " << outclusters.size() << "\n";
 	fflush(stdout);
@@ -1059,7 +1038,7 @@ int main(int argc, char *argv[])
 	pointind={};
 	for(i=0;i<outclusters[clusterct].numpoints;i++) {
 	  pairct=kdvec[outclusters[clusterct].clustind[i]].point.i1;
-	  for(j=0; j<pairvec[pairct].size(); j++) {
+	  for(j=0; j<long(pairvec[pairct].size()); j++) {
 	    pointind.push_back(pairvec[pairct][j]);
 	  }
 	}
@@ -1073,7 +1052,7 @@ int main(int argc, char *argv[])
 	pointjunk = pointind;
 	pointind={};
 	pointind.push_back(pointjunk[0]);
-	for(i=1; i<pointjunk.size(); i++) {
+	for(i=1; i<long(pointjunk.size()); i++) {
 	  if(pointjunk[i]!=pointjunk[i-1]) pointind.push_back(pointjunk[i]);
 	}
 	if(DEBUG_A >= 1) cout << "Done culling pointind\n";
@@ -1081,7 +1060,7 @@ int main(int argc, char *argv[])
 
 	// Load vector of detection MJD's
 	clustmjd = {};
-	for(i=0; i<pointind.size(); i++) {
+	for(i=0; i<long(pointind.size()); i++) {
 	  clustmjd.push_back(detvec[pointind[i]].MJD);
 	}
 	if(DEBUG_A >= 1) cout << "Done loading mjds\n";
@@ -1095,14 +1074,14 @@ int main(int argc, char *argv[])
 	fflush(stdout);
 	// Load vector of MJD steps
 	mjdstep={};
-	for(i=1; i<clustmjd.size(); i++) {
+	for(i=1; i<long(clustmjd.size()); i++) {
 	  mjdstep.push_back(clustmjd[i]-clustmjd[i-1]);
 	}
 	if(DEBUG_A >= 1) cout << "Done loading vector of steps\n";
 	fflush(stdout);
 	// Count steps large enough to suggest a daytime period between nights.
 	numdaysteps=0;	
-	for(i=0; i<mjdstep.size(); i++) {
+	for(i=0; i<long(mjdstep.size()); i++) {
 	  if(mjdstep[i]>INTRANIGHTSTEP) numdaysteps++;
 	}
 	if(DEBUG_A >= 1) cout << "Unique pts: " << pointind.size() << " span: " << timespan << " daysteps: " << numdaysteps << "\n";
@@ -1118,13 +1097,13 @@ int main(int argc, char *argv[])
 	  // a single simulated object (i.e., would be a real discovery) or is a mixture
 	  // of detections from two or more different simulated objects (i.e., spurious).
 	  rating="PURE";
-	  for(i=0; i<pointind.size(); i++) {
+	  for(i=0; i<long(pointind.size()); i++) {
 	    if(i>0 && stringnmatch01(detvec[pointind[i]].idstring,detvec[pointind[i-1]].idstring,SHORTSTRINGLEN)!=0) rating="MIXED";
 	  }
 	  if(DEBUG_A >= 1) cout << "Rating is found to be " << rating << "\n";
 	  fflush(stdout);
 	  // Write all individual detections in this cluster to the output cluster file
-	  for(i=0; i<pointind.size(); i++) {
+	  for(i=0; i<long(pointind.size()); i++) {
 	    if(DEBUG_A >= 1) cout << "Writing point " << i << " out of " << pointind.size() << " to cluster file\n";
 	    fflush(stdout);
 	    outstream2  << fixed << setprecision(6) << intzero01i(i,4) << "," << detvec[pointind[i]].MJD << "," << detvec[pointind[i]].RA << "," << detvec[pointind[i]].Dec << "," << detvec[pointind[i]].idstring << ",";

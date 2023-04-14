@@ -37,6 +37,8 @@ hldet = np.dtype(list(dict(
     idstring=SSHORT,
     band=SMIN,
     obscode=SMIN,
+    known_obj=int,
+    det_qual=int,
     index=int,
 ).items()))
 
@@ -98,7 +100,28 @@ hlclust = np.dtype(list(dict(
     orbitVX=float,
     orbitVY=float,
     orbitVZ=float,
-    orbit_eval_count=int;
+    orbit_eval_count=int,
+).items()))
+
+atlasdet = np.dtype(list(dict(
+    idstring=SSHORT,
+    MJD=float,
+    RA=float,
+    Dec=float,
+    mag=float,
+    dmag=float,
+    band=SMIN,
+    obscode=SMIN,
+    x=float,
+    y=float,
+    major=float,
+    minor=float,
+    phi=float,
+    det=int,
+    chiN=float,
+    Ptr=int,
+    Pkn=int,
+    Dup=int,
 ).items()))
 
 
@@ -221,7 +244,7 @@ def load_earth_ephemerides(fn, **kwargs):
 def image_add_observerpos(image, obsarr, earthpos, **kwargs):
     """ Given an input image file, calculate the observer's heliocentric position and velocity at the time of every image """
     
-    b=np.array([],dtype=hlimage)
+    b=np.empty((len(image),),dtype=hlimage) #new
     for i in range(len(image)) :
         observatory=0
         for j in range(len(obsarr)) :
@@ -232,19 +255,17 @@ def image_add_observerpos(image, obsarr, earthpos, **kwargs):
         psin = float(observatory[3])
         obsx = heliohypy.observer_vel(mjd,Long,pcos,psin,earthpos)
         a1 = 1
-        a = np.array([a1],dtype=hlimage)
-        a['MJD'][0] = image[i][0]
-        a['RA'][0] = image[i][1]
-        a['Dec'][0] = image[i][2]
-        a['obscode'][0] = image[i][3]
-        a['X'][0] = obsx[0]
-        a['Y'][0] = obsx[1]
-        a['Z'][0] = obsx[2]
-        a['VX'][0] = obsx[3]
-        a['VY'][0] = obsx[4]
-        a['VZ'][0] = obsx[5]
-        a['startind'][0]=0;
-        a['endind'][0]=0;
-        b=np.append(b,a)
+        b['MJD'][i] = image[i][0] #new
+        b['RA'][i] = image[i][1]
+        b['Dec'][i] = image[i][2]
+        b['obscode'][i] = image[i][3]
+        b['X'][i] = obsx[0]
+        b['Y'][i] = obsx[1]
+        b['Z'][i] = obsx[2]
+        b['VX'][i] = obsx[3]
+        b['VY'][i] = obsx[4]
+        b['VZ'][i] = obsx[5]
+        b['startind'][i]=0;
+        b['endind'][i]=0;
 
     return(b)

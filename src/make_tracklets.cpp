@@ -101,6 +101,7 @@
 #define MAX_GCR 0.5 // Default maximum Great Circle Residual allowed for a valid tracklet
 #define DEBUG 0
 #define DEBUGA 0
+#define DEBUGB 1
 
       
 static void show_usage()
@@ -132,35 +133,20 @@ int main(int argc, char *argv[])
   vector <point3LD> observer_heliopos;
   vector <long double> EarthMJD;
   point3LD outpos = point3LD(0,0,0);
-  double tdelt = 0;
-  char idstring[SHORTSTRINGLEN];
-  char band[MINSTRINGLEN];
-  char obscode[MINSTRINGLEN];
   string lnfromfile;
   int status = 0;
   int forcerun = 0; // Pushes through all but the immediately fatal errors.
-  int i = 0;
-  int j = 0;
-  int k = 0;
+  long i = 0;
+  long j = 0;
+  long k = 0;
   int imct=0;
-  int imctp=0;
-  int imnum=0;
-  long detnum=0;
-  long num_dets=0;
   long detct=0;
-  int reachedeof = 0;
-  char c='0';
-  long double MJD,RA,Dec;
-  MJD = RA = Dec = 0.0L;
-  double mag = 0l;
   double maxvel = MAXVEL; // Max angular velocity in deg/day
   double minvel = 0.0l; // Min angular velocity in deg/day
   double minarc = 0.0l; // Min total angular arc in arcseconds
   double angvel = 0.0l;
   double maxtime = MAXTIME; // Max time interval a tracklet could span,
                             // in days.
-  double maxdist = MAXVEL*MAXTIME; // Max angular distance a tracklet
-                                   // could span, in degrees.
   double imrad = IMAGERAD; // radius from image center to most distant corner (deg).
   string indetfile;
   string inimfile;
@@ -173,7 +159,6 @@ int main(int argc, char *argv[])
   double obslon = 289.26345L;
   double plxcos = 0.865020L;
   double plxsin = -0.500901L;
-  long lct=0;
   long_index ppn = long_index(0,0);
   vector <long_index> pair_partner_num={};
   vector <long_index> tracklet_check={};
@@ -538,7 +523,6 @@ int main(int argc, char *argv[])
   else cout << "Defaulting to minimum tracklet length = " << minarc << " arcsec.\n";
   if(maxgcr_default == 0) cout << "Maximum tracklet Great Circle residual = " << maxgcr << " arcsec.\n";
   else cout << "Defulting to maximum tracklet Great Circle residual = " << maxgcr << " arcsec.\n";
-  maxdist = maxtime*maxvel;
   
   // Read the column formatting file, if any
   if(colformatfile.size()>0)
@@ -599,7 +583,7 @@ int main(int argc, char *argv[])
   }
   cout << "Read " << observatory_list.size() << " lines from observatory code file " << obscodefile << "\n";
   if(DEBUG>=2) {
-    for(i=0;i<observatory_list.size();i++) {
+    for(i=0;i<long(observatory_list.size());i++) {
       cout << observatory_list[i].obscode << " " << observatory_list[i].obslon << " " << observatory_list[i].plxcos << " " << observatory_list[i].plxsin << "\n";
     }
   }
@@ -620,10 +604,14 @@ int main(int argc, char *argv[])
     cerr << "Warning: unknown file read problem\n";
     return(3);
   }
+
+  if(DEBUGB==1) cout << "Preparing to time-sort the detection vector\n";
   
   // time-sort the detection vector
   sort(detvec.begin(), detvec.end(), early_det_obsmag_indvec());
   
+  if(DEBUGB==1) cout << "Time-sorted the detection vector\n";
+
   // Get image information, if there is an image file
   if(inimfile.size()>0) {
     status = read_image_file(inimfile, img_log);
@@ -634,7 +622,9 @@ int main(int argc, char *argv[])
       img_log={};
     }
   }
+  if(DEBUGB==1) cout << "Preparing to load the image table\n";
   status = load_image_table(img_log, detvec);
+  if(DEBUGB==1) cout << "Loaded the image table\n";
 
   EarthMJD={};
   Earthpos={};
@@ -645,7 +635,7 @@ int main(int argc, char *argv[])
   if(DEBUG>=2) {
     // Test: print out time-sorted detection table.
     outstream1.open("testjunk01.txt");
-    for(i=0;i<detvec.size();i++) {
+    for(i=0;i<long(detvec.size());i++) {
       outstream1 << fixed << setprecision(6) << detvec[i].MJD << " " << detvec[i].RA << " " << detvec[i].Dec <<  " " << detvec[i].mag << " " << detvec[i].band <<  " " << detvec[i].obscode << "\n";
     }
     outstream1.close();
@@ -655,7 +645,7 @@ int main(int argc, char *argv[])
     {
       // Write and print image log table
       outstream1.open(outimfile);
-      for(imct=0;imct<img_log.size();imct++)
+      for(imct=0;imct<long(img_log.size());imct++)
 	{
 	  //	  cout << fixed << setprecision(6) << img_log[imct].MJD << " " << img_log[imct].RA;
 	  //	  cout << " " << img_log[imct].Dec << " " << img_log[imct].startind << " " << img_log[imct].endind << " ";
@@ -668,7 +658,7 @@ int main(int argc, char *argv[])
     }
   // Calculate observer's heliocentric position at the time of each image.
   observer_heliopos={};
-  for(imct=0;imct<img_log.size();imct++)
+  for(imct=0;imct<long(img_log.size());imct++)
     {
       // Look up observatory coordinates for this image.
       status = obscode_lookup(observatory_list,img_log[imct].obscode,obslon,plxcos,plxsin);
@@ -682,7 +672,7 @@ int main(int argc, char *argv[])
       observer_heliopos.push_back(outpos);
     }
   // assign observer heliocentric position to each detection.
-  for(imct=0;imct<img_log.size();imct++) {
+  for(imct=0;imct<long(img_log.size());imct++) {
     for(i=img_log[imct].startind;i<img_log[imct].endind;i++) {
       detvec[i].x = observer_heliopos[imct].x;
       detvec[i].y = observer_heliopos[imct].y;
@@ -700,14 +690,14 @@ int main(int argc, char *argv[])
   long pdct=0; // count of detections that have been paired
   long pairct=0; // count of actual pairs
   // Loop over images for image A
-  for(imct=0;imct<img_log.size();imct++) {
+  for(imct=0;imct<long(img_log.size());imct++) {
     int apct=0;
     int adetct=0;
     // See if there are any images that might match
     vector <int> imagematches = {};
     int imatchcount = 0;
     int imtarg=imct+1;
-    while(imtarg<img_log.size() && img_log[imtarg].MJD < img_log[imct].MJD + maxtime) {
+    while(imtarg<long(img_log.size()) && img_log[imtarg].MJD < img_log[imct].MJD + maxtime) {
       // See if the images are close enough on the sky.
       double timediff = img_log[imtarg].MJD-img_log[imct].MJD;
       if(!isnormal(timediff) || timediff<0.0) {
@@ -739,7 +729,7 @@ int main(int argc, char *argv[])
 	}
       }
       // Loop over images with potential matches (image B's)
-      for(imatchcount=0;imatchcount<imagematches.size();imatchcount++)
+      for(imatchcount=0;imatchcount<long(imagematches.size());imatchcount++)
       {
 	imtarg = imagematches[imatchcount];
 	double range = (img_log[imtarg].MJD-img_log[imct].MJD)*maxvel;
@@ -754,8 +744,6 @@ int main(int argc, char *argv[])
 	int dim=1;
 	xy_index xyi = bxyvec[0];
 	kdpoint root = kdpoint(xyi,-1,-1,dim);
-	kdpoint lp1 = kdpoint(xyi,-1,-1,dim);
-	kdpoint rp1 = kdpoint(xyi,-1,-1,dim);
 	kdpoint kdtest = kdpoint(xyi,-1,-1,dim);
 	vector <kdpoint> kdvec ={};
 	long medpt;
@@ -766,14 +754,14 @@ int main(int argc, char *argv[])
 	kdtree01(bxyvec,dim,medpt,0,kdvec);
 	// Loop over detections on image A
 	if(DEBUG>=1) cout << "Looking for pairs between " << axyvec.size() << " detections on image " << imct << " and " << kdvec.size() << " on image " << imtarg << "\n";
-	for(detct=0 ; detct<axyvec.size() ; detct++) {
+	for(detct=0 ; detct<long(axyvec.size()) ; detct++) {
 	  vector <long> indexvec = {};
 	  if((isnormal(axyvec[detct].x) || axyvec[detct].x==0) && (isnormal(axyvec[detct].y) || axyvec[detct].y==0)) {
 	     kdrange01(kdvec,axyvec[detct].x,axyvec[detct].y,range,indexvec);
 	  } else {
 	    cerr << "WARNING: detection " << detct << " on image " << imct << " not normal: " << axyvec[detct].x << " " << axyvec[detct].y << "\n";
 	  }
-	  int matchnum=indexvec.size();
+	  long matchnum=indexvec.size();
 	  long matchpt=0;
 	  int matchct=0;
 	  if(matchnum>0) {
@@ -786,7 +774,7 @@ int main(int argc, char *argv[])
 	      detvec[axyvec[detct].index].index = pdct; // Re-assign index to apply to paired detection vector
 	      pdct++; // Increment count of paired detections
 	      adetct++;
-	      if(pdct!=pairdets.size()) cerr << "\nWARNING: PAIRED DETECTION MISMATCH: " << pdct << " vs " << pairdets.size() << "\n\n";
+	      if(pdct!=long(pairdets.size())) cerr << "\nWARNING: PAIRED DETECTION MISMATCH: " << pdct << " vs " << pairdets.size() << "\n\n";
 	    }
 	    // Record image B detections
 	    for(matchct=0;matchct<matchnum;matchct++) {
@@ -798,7 +786,7 @@ int main(int argc, char *argv[])
 		pairdets[pdct].indvec={}; // Make sure index vector is currently empty.
 		detvec[kdvec[matchpt].point.index].index = pdct; // Re-assign index to apply to paired detection vector
 		pdct++; // Increment count of paired detections
-		if(pdct!=pairdets.size()) cerr << "\nWARNING: PAIRED DETECTION MISMATCH: " << pdct << " vs " << pairdets.size() << "\n\n";
+		if(pdct!=long(pairdets.size())) cerr << "\nWARNING: PAIRED DETECTION MISMATCH: " << pdct << " vs " << pairdets.size() << "\n\n";
 	      }
 	      // Write index values for both components of the
 	      // new pair to the pair vector, regardless of whether
@@ -830,7 +818,7 @@ int main(int argc, char *argv[])
   cout << "Writing paired detections file\n";
   outstream1.open(pairdetfile);
   outstream1 << "#MJD,RA,Dec,observerX,observerY,observerZ,stringID,mag,band,obscode,origindex\n";
-  for(i=0;i<pairdets.size();i++) {
+  for(i=0;i<long(pairdets.size());i++) {
     outstream1 << fixed << setprecision(7) << pairdets[i].MJD << "," << pairdets[i].RA << "," << pairdets[i].Dec << ",";
     outstream1 << fixed << setprecision(3) << pairdets[i].x << "," << pairdets[i].y << "," << pairdets[i].z << ",";
     outstream1 << fixed << setprecision(3) << pairdets[i].idstring << "," << pairdets[i].mag << "," << pairdets[i].band << ",";
@@ -839,7 +827,7 @@ int main(int argc, char *argv[])
   outstream1.close();
 
   // Load a vector storing the number of pair-partners found for each detection.
-  for(i=0;i<pairdets.size();i++) {
+  for(i=0;i<long(pairdets.size());i++) {
     ppn = long_index(pairdets[i].indvec.size(),i);
     pair_partner_num.push_back(ppn);
   }
@@ -858,11 +846,11 @@ int main(int argc, char *argv[])
   for(i=pairdets.size()-1; i>=0 ;i--) {
     pdct=pair_partner_num[i].index;
     istracklet=0; // Assume there is no tracklet unless one is confirmed to exist.
-    if(pairdets[pdct].indvec.size() > mintrkpts-1) { // Use mintrkpts-1 because the root detection pdct
+    if(long(pairdets[pdct].indvec.size()) > mintrkpts-1) { // Use mintrkpts-1 because the root detection pdct
                                                      // is itself is a potential point in the tracklet
       if(DEBUG>=2) {
 	cout << "Working on detection " << i << " = " << pdct << " with " << pair_partner_num[i].lelem << " = " << pairdets[pdct].indvec.size() << " pair partners:\n";
-	for(j=0; j<pairdets[pdct].indvec.size(); j++) {
+	for(j=0; j<long(pairdets[pdct].indvec.size()); j++) {
 	  cout << pairdets[pdct].indvec[j] << ", ";
 	}
 	cout << "\n";
@@ -873,7 +861,7 @@ int main(int argc, char *argv[])
       // storing x,y projected coordinates in axyvec.
       axyvec={};
       ppset={};
-      for(j=0; j<pairdets[pdct].indvec.size(); j++) {
+      for(j=0; j<long(pairdets[pdct].indvec.size()); j++) {
 	detct = pairdets[pdct].indvec[j];
 	if(pairdets[detct].indvec.size()>0) {
 	  // Detection detct hasn't already been allocated to a tracklet.
@@ -897,7 +885,7 @@ int main(int argc, char *argv[])
       // Perform n^2 search to find the largest cluster of consistent points.
       // Load all the pair-partners for detection pdct into a vector
       // (this is mainly just to be able to use the index vectors)
-      for(j=0; j<axyvec.size(); j++) {
+      for(j=0; j<long(axyvec.size()); j++) {
 	dtref = ppset[j].MJD - pairdets[pdct].MJD;
 	if(dtref == 0) {
 	  cerr << "ERROR: paired detections with no time separation!\n";
@@ -907,7 +895,7 @@ int main(int argc, char *argv[])
 	ppset[j].indvec = {};
 	// Count consistent pair partners
 	if(DEBUG>=2) cout << "Counting consistent pair partners\n";
-	for(k=0; k<axyvec.size(); k++) {
+	for(k=0; k<long(axyvec.size()); k++) {
 	  if(j!=k) {
 	    dt = ppset[k].MJD - pairdets[pdct].MJD;
 	    dx = axyvec[k].x - axyvec[j].x*(dt/dtref);
@@ -925,9 +913,9 @@ int main(int argc, char *argv[])
       biggest_tracklet=-1;
       tracklet_size=0;
       if(DEBUG>=2) cout << "size = " << ppset.size() << "\n";
-      for(j=0; j<ppset.size(); j++) {
+      for(j=0; j<long(ppset.size()); j++) {
 	if(DEBUG>=2) cout << j << ":" << ppset.size()-1 << " size = " << ppset[j].indvec.size() << " ";
-	if(ppset[j].indvec.size()+2 > tracklet_size) {
+	if(long(ppset[j].indvec.size())+2 > tracklet_size) {
 	  tracklet_size = ppset[j].indvec.size()+2; //We add one for pdct, one for j, to get actual tracklet size
 	  biggest_tracklet = j;
 	  if(DEBUG>=2) cout << "bt = " << biggest_tracklet << ", size = " << tracklet_size << "\n";
@@ -949,7 +937,7 @@ int main(int argc, char *argv[])
 	p3di = point3d_index(ppset[biggest_tracklet].MJD - pairdets[pdct].MJD,axyvec[biggest_tracklet].x,axyvec[biggest_tracklet].y,axyvec[biggest_tracklet].index);
 	track_mrdi_vec.push_back(p3di);
 	// Load the other points
- 	for(j=0; j<ppset[biggest_tracklet].indvec.size(); j++) {
+ 	for(j=0; j<long(ppset[biggest_tracklet].indvec.size()); j++) {
 	  p3di = point3d_index(ppset[ppset[biggest_tracklet].indvec[j]].MJD - pairdets[pdct].MJD,axyvec[ppset[biggest_tracklet].indvec[j]].x,axyvec[ppset[biggest_tracklet].indvec[j]].y,axyvec[ppset[biggest_tracklet].indvec[j]].index);
 	  track_mrdi_vec.push_back(p3di);
 	  //timevec.push_back(ppset[ppset[biggest_tracklet].indvec[j]].MJD - pairdets[pdct].MJD);
@@ -962,7 +950,7 @@ int main(int argc, char *argv[])
 	// Load time, x, y, and index vectors from sorted track_mrdi_vec.
 	timevec=xvec=yvec={};
 	detindexvec={};
-	for(j=0;j<track_mrdi_vec.size();j++)
+	for(j=0;j<long(track_mrdi_vec.size());j++)
 	  {
 	    timevec.push_back(track_mrdi_vec[j].x);
 	    xvec.push_back(track_mrdi_vec[j].y);
@@ -971,7 +959,7 @@ int main(int argc, char *argv[])
 	  }
  	if(DEBUG>=2) {
 	  cout << "First iteration linear fit vectors:\n";
-	  for(j=0; j<timevec.size(); j++) {
+	  for(j=0; j<long(timevec.size()); j++) {
 	    cout << detindexvec[j] << " " << timevec[j] << " " << xvec[j] << " " << yvec[j] << "\n";
 	  }
 	}
@@ -982,15 +970,15 @@ int main(int argc, char *argv[])
 	linfituw01(timevec, yvec, slopey, intercepty);
 	// Load vector of residuals
 	fiterr = {};
-	for(j=0; j<timevec.size(); j++) {
+	for(j=0; j<long(timevec.size()); j++) {
 	  fiterr.push_back(sqrt(DSQUARE(timevec[j]*slopex+interceptx-xvec[j]) + DSQUARE(timevec[j]*slopey+intercepty-yvec[j])));
 	}
 	// Ditch duplicate times, if there are any
 	istimedup=1; // Guilty until proven innocent
-	while(istimedup==1 && timevec.size()>=mintrkpts+1) {
+	while(istimedup==1 && long(timevec.size())>=mintrkpts+1) {
 	  istimedup=0;
 	  j=1;
-	  while(j<timevec.size() && istimedup==0) {
+	  while(j<long(timevec.size()) && istimedup==0) {
 	    if(fabs(timevec[j] - timevec[j-1]) < IMAGETIMETOL/SOLARDAY) {
 	      istimedup=1; // Point j and j-1 are time-duplicates.
 	      // Mark for rejection whichever one has the largest fitting error
@@ -1020,14 +1008,14 @@ int main(int argc, char *argv[])
 	    linfituw01(timevec, yvec, slopey, intercepty);
 	    // Load vector of residuals
 	    fiterr = {};
-	    for(j=0; j<timevec.size(); j++) {
+	    for(j=0; j<long(timevec.size()); j++) {
 	      fiterr.push_back(sqrt(DSQUARE(timevec[j]*slopex+interceptx-xvec[j]) + DSQUARE(timevec[j]*slopey+intercepty-yvec[j])));
 	    }
 	  }
 	}
 	// Find worst error.  
 	worsterr = 0.0l;
-	for(j=0; j<timevec.size(); j++) {
+	for(j=0; j<long(timevec.size()); j++) {
 	  if(fiterr[j]>worsterr) {
 	    worsterr = fiterr[j];
 	    worstpoint = j;
@@ -1035,7 +1023,7 @@ int main(int argc, char *argv[])
 	}
 	// Reject successive points until either there are only three left
 	// or the worst error drops below maxgcr.
-	while(worsterr>maxgcr && timevec.size()>3 && timevec.size()>=mintrkpts) {
+	while(worsterr>maxgcr && timevec.size()>3 && long(timevec.size())>=mintrkpts) {
 	  // Reject the worst point
 	  trkptnum=timevec.size();
 	  for(j=worstpoint; j<trkptnum-1; j++) {
@@ -1055,19 +1043,19 @@ int main(int argc, char *argv[])
 	  linfituw01(timevec, yvec, slopey, intercepty);
 	  // Load vector of residuals
 	  fiterr = {};
-	  for(j=0; j<timevec.size(); j++) {
+	  for(j=0; j<long(timevec.size()); j++) {
 	    fiterr.push_back(sqrt(DSQUARE(timevec[j]*slopex+interceptx-xvec[j]) + DSQUARE(timevec[j]*slopey+intercepty-yvec[j])));
 	  }
 	  // Find worst error.  
 	  worsterr = 0.0l;
-	  for(j=0; j<timevec.size(); j++) {
+	  for(j=0; j<long(timevec.size()); j++) {
 	    if(fiterr[j]>worsterr) {
 	      worsterr = fiterr[j];
 	      worstpoint = j;
 	    }
 	  }
 	}
-	if(worsterr<=maxgcr && timevec.size()>=3 && timevec.size()>=mintrkpts) {
+	if(worsterr<=maxgcr && timevec.size()>=3 && long(timevec.size())>=mintrkpts) {
 	  // We succeeded in finding a tracklet with no time-duplicates, and
 	  // no outliers beyond maxgcr. Prepare to write it to the pair file.
 	  // Select points that will represent this tracklet.
@@ -1130,7 +1118,7 @@ int main(int argc, char *argv[])
 	    outstream1 << detindexvec.size() << "\n";
 	    // Now write out the detection indices for this full number of points,
 	    // and wipe all the associated index vectors.
-	    for(j=0; j<detindexvec.size(); j++) {
+	    for(j=0; j<long(detindexvec.size()); j++) {
 	      outstream1 << detindexvec[j] << "\n";
 	      pairdets[detindexvec[j]].indvec = {};
 	    }
@@ -1153,7 +1141,7 @@ int main(int argc, char *argv[])
       // but the original root point pdct got rejected from it.
       // In either case, it's necessary to write out the (surviving) pairs
       // associated with detection pdct.
-      for(j=0; j<pairdets[pdct].indvec.size(); j++) {
+      for(j=0; j<long(pairdets[pdct].indvec.size()); j++) {
 	k=pairdets[pdct].indvec[j];
 	// Calculate angular arc and angular velocity
 	distradec02(pairdets[pdct].RA,pairdets[pdct].Dec,pairdets[k].RA,pairdets[k].Dec, &dist, &pa);

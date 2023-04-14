@@ -70,7 +70,6 @@
 #include "cmath"
 
 #define MAXCLUSTRMS 1.0e5
-#define ONE_POINT_PER_IMAGE 1
 #define DEBUG 1
 #define FTOL_HERGET_SIMPLEX 1e-5L
 #define ESCAPE_SCALE 0.99L // If the input velocity is above escape velocity, we
@@ -87,9 +86,7 @@ int main(int argc, char *argv[])
   int j=1;
   int i1=0;
   int i2=0;
-  int detnum=0;
   int detct=0;
-  char c=0;
   string pairdetfile,clusterlist,clusterfile,rmsfile,outfile,outrmsfile,stest;
   int rmslinect=0;
   int clustlinect=0;
@@ -105,7 +102,6 @@ int main(int argc, char *argv[])
   ifstream instream2;
   ofstream outstream1;
   ofstream outstream2;
-  double tmjd;
   double maxrms = MAXCLUSTRMS;
   vector <det_obsmag_indvec> detvec;
   vector <det_obsmag_indvec> clusterdets;
@@ -128,8 +124,8 @@ int main(int argc, char *argv[])
   vector <float> rmsvec;
   float posrms,velrms,totrms;
   posrms = velrms = totrms = 0;
-  int pairnum;
-  float timespan;
+  int pairnum=0;
+  float timespan=0.0;
   int ptnum=0;
   int obsnights=0;
   float clustmetric=0;
@@ -144,8 +140,6 @@ int main(int argc, char *argv[])
   int startpoint=0;
   int endpoint=0;
   int detfilelinect=0;
-  point3d unitvec = point3d(0l,0l,0l);
-  point3d testvec = point3d(0l,0l,0l);
   int ptpow = 1;      // Set the exponent to be used for the number of unique
                       // points in calculating the cluster quality metric.
   int nightpow = 1;   // Exponent for number of unique nights in quality metric.
@@ -171,7 +165,6 @@ int main(int argc, char *argv[])
   long double geodist1,geodist2, v_escape, v_helio, astromrms, chisq;
   long double ftol = FTOL_HERGET_SIMPLEX;
   long double simplex_scale = SIMPLEX_SCALEFAC;
-  int point1, point2;
   int simptype=0;
   int verbose=0;
   
@@ -781,14 +774,14 @@ int main(int argc, char *argv[])
       cout << "Accepted good cluster " << goodclusternum << " with metric " << clustanvec[clusterct].clustermetric << "\n";
       // See whether cluster is pure or mixed.
       stringncopy01(rating,"PURE",SHORTSTRINGLEN);
-      for(i=0; i<clustanvec[clusterct].clustind.size(); i++) {
+      for(i=0; i<long(clustanvec[clusterct].clustind.size()); i++) {
 	if(i>0 && stringnmatch01(detvec[clustanvec[clusterct].clustind[i]].idstring,detvec[clustanvec[clusterct].clustind[i-1]].idstring,SHORTSTRINGLEN) != 0) {
 	  stringncopy01(rating,"MIXED",SHORTSTRINGLEN);
 	}
       }
       // Figure out the time order of cluster points, so we can write them out in order.
       sortclust = {};
-      for(i=0; i<clustanvec[clusterct].clustind.size(); i++) {
+      for(i=0; i<long(clustanvec[clusterct].clustind.size()); i++) {
 	i1 = clustanvec[clusterct].clustind[i];
 	ldi = ldouble_index(detvec[i1].MJD,i1);
 	sortclust.push_back(ldi);
@@ -796,7 +789,7 @@ int main(int argc, char *argv[])
       sort(sortclust.begin(), sortclust.end(), lower_ldouble_index());
    
       // Write all individual detections in this cluster to the output cluster file
-      for(i=0; i<clustanvec[clusterct].clustind.size(); i++) {
+      for(i=0; i<long(clustanvec[clusterct].clustind.size()); i++) {
 	i1 = sortclust[i].index;
 	outstream1  << fixed << setprecision(6) << intzero01i(i,4) << "," << detvec[i1].MJD << "," << detvec[i1].RA << "," << detvec[i1].Dec << "," << detvec[i1].idstring << ",";
 	outstream1  << fixed << setprecision(3) << detvec[i1].mag << "," << detvec[i1].band << "," << detvec[i1].obscode << "," << i1 << "," << detvec[i1].index << "," << goodclusternum << "\n";
@@ -824,12 +817,12 @@ int main(int argc, char *argv[])
       outstream2 << fixed << setprecision(0) << clustanvec[clusterct].statevecs[15] << "\n";
       // FINISHED WRITING SUMMARY LINE TO RMS/SUMMARY FILE
       
-      for(i=0;i<clustanvec[clusterct].clustind.size();i++) {
+      for(i=0;i<long(clustanvec[clusterct].clustind.size());i++) {
 	// This point is in the chosen cluster, and cannot be in any other
 	detct = clustanvec[clusterct].clustind[i];
 	//cout << "Deduplicating detection " << detct << "\n";
 	// Mark all the clusters containing this point as already considered
-	for(j=0;j<detvec[detct].indvec.size();j++) {
+	for(j=0;j<long(detvec[detct].indvec.size());j++) {
 	  //cout << "         wiping cluster " << detvec[detct].indvec[j] << "\n";
 	  clustanvec[detvec[detct].indvec[j]].uniquepoints = 0;
 	}
