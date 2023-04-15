@@ -10446,15 +10446,18 @@ int Herget_unboundcheck01(double geodist1, double geodist2, int Hergetpoint1, in
 // The vector orbit holds a, e, mjd, and the state vectors, for now.
 long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit, int verbose)
 {
+  int i=0;
   long numobs = long(obsMJD.size());
   if(long(obsRA.size()) != numobs || long(obsDec.size()) != numobs || long(sigastrom.size()) != numobs || long(observerpos.size()) != numobs) {
     cerr << "ERROR: Hergetchi01 finds unequal lenths among input vectors:\n";
     cerr << "observed MJD, RA, Dec, sigastrom, and observerpos have lengths " << numobs << " " << obsRA.size() << " " << obsDec.size() << " " <<  sigastrom.size() << " " << observerpos.size() << "\n";
+    for(i=0;i<10;i++) orbit.push_back(-1.0L);
     return(LARGERR);
   }
   if(Hergetpoint2<=Hergetpoint1 || Hergetpoint1<0 || Hergetpoint2>=numobs) {
     cerr << "ERROR: Hergetchi01 has invalid input reference points:\n";
     cerr << "Starting point " << Hergetpoint1 << " and ending point " << Hergetpoint2 << ", where allowed range is 0 to " << numobs-1 << "\n";
+    for(i=0;i<10;i++) orbit.push_back(-1.0L);
     return(LARGERR);
   }
   
@@ -10474,6 +10477,7 @@ long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpo
     // the failure code up the call chain.
     if(verbose>=1) cerr << "ERROR: Hergetchi01 received failure code from Twopoint_Kepler_v1\n";
     if(verbose>=1) cerr << "On input distances " << geodist1 << " and " << geodist2 << "\n";
+    for(i=0;i<10;i++) orbit.push_back(-1.0L);
     return(LARGERR);
   }
     
@@ -10501,15 +10505,18 @@ long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpo
 
 double Hergetchi01(double geodist1, double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3d> &observerpos, const vector <double> &obsMJD, const vector <double> &obsRA, const vector <double> &obsDec, const vector <double> &sigastrom, vector <double> &fitRA, vector <double> &fitDec, vector <double> &resid, vector <double> &orbit, int verbose)
 {
+  int i=0;
   long numobs = long(obsMJD.size());
   if(long(obsRA.size()) != numobs || long(obsDec.size()) != numobs || long(sigastrom.size()) != numobs || long(observerpos.size()) != numobs) {
     cerr << "ERROR: Hergetchi01 finds unequal lenths among input vectors:\n";
     cerr << "observed MJD, RA, Dec, sigastrom, and observerpos have lengths " << numobs << " " << obsRA.size() << " " << obsDec.size() << " " <<  sigastrom.size() << " " << observerpos.size() << "\n";
+    for(i=0;i<10;i++) orbit.push_back(-1.0l);
     return(LARGERR2);
   }
   if(Hergetpoint2<=Hergetpoint1 || Hergetpoint1<0 || Hergetpoint2>=numobs) {
     cerr << "ERROR: Hergetchi01 has invalid input reference points:\n";
     cerr << "Starting point " << Hergetpoint1 << " and ending point " << Hergetpoint2 << ", where allowed range is 0 to " << numobs-1 << "\n";
+    for(i=0;i<10;i++) orbit.push_back(-1.0l);
     return(LARGERR2);
   }
   
@@ -10529,6 +10536,7 @@ double Hergetchi01(double geodist1, double geodist2, int Hergetpoint1, int Herge
     // the failure code up the call chain.
     if(verbose>=1) cerr << "ERROR: Hergetchi01 received failure code from Twopoint_Kepler_v1\n";
     if(verbose>=1) cerr << "On input distances " << geodist1 << " and " << geodist2 << "\n";
+    for(i=0;i<10;i++) orbit.push_back(-1.0l);
     return(LARGERR2);
   }
     
@@ -10770,6 +10778,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
       // Input is fatally flawed, exit.
       cerr << "ERROR: fatally flawed input to downhill simplex, dists " << simplex[i][0] << " " << simplex[i][1] << "\n";
       cerr << "points " << Hergetpoint1 << " and " << Hergetpoint2 << " out of allowed range 0 to " << obsMJD.size() << "\n";
+      for(i=0;i<10;i++) orbit.push_back(-1.0L);
       return(LARGERR);
     }
   }
@@ -10791,6 +10800,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
   }
   if(bestpoint<0) {
     cerr << "Logically impossible case involving hyperbolic simplex points\n";
+    for(i=0;i<10;i++) orbit.push_back(-1.0L);
     return(LARGERR);
   }
   if(worstpoint>=0) {
@@ -10813,6 +10823,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
       cerr << simplex[i][0] << " " << simplex[i][1] << " unbound = " << unboundsimplex[i] << "\n";
     }
     cerr << "Aborting\n";
+    for(i=0;i<10;i++) orbit.push_back(-1.0L);
     return(LARGERR);
   } else {
     if(verbose>=1) cout << "Good input simplex:\n";
@@ -10848,6 +10859,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
   if(simplex[0][0]<=MINHERGETDIST) {
     if(verbose>=1) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
     if(verbose>=1) cerr << "Method of Herget cannot proceed with these data\n";
+    for(i=0;i<10;i++) orbit.push_back(-1.0L);
     return(LARGERR);
   }
   if(verbose>=1) cout << "Reduced chi-square value for input distances is " << simpchi[0]/obsMJD.size() << "\n";
@@ -11016,6 +11028,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
       if(simplex[0][0]<=MINHERGETDIST) {
 	if(verbose>=1) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
 	if(verbose>=1) cerr << "Method of Herget cannot proceed with these data\n";
+	for(i=0;i<10;i++) orbit.push_back(-1.0L);
 	return(LARGERR);
       } else {
 	// We did eventually find an acceptable simplex
@@ -11105,6 +11118,7 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
       // Input is fatally flawed, exit.
       cerr << "ERROR: fatally flawed input to downhill simplex, dists " << simplex[i][0] << " " << simplex[i][1] << "\n";
       cerr << "points " << Hergetpoint1 << " and " << Hergetpoint2 << " out of allowed range 0 to " << obsMJD.size() << "\n";
+      for(i=0;i<10;i++) orbit.push_back(-1.0l);
       return(LARGERR2);
     }
   }
@@ -11126,6 +11140,7 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
   }
   if(bestpoint<0) {
     cerr << "Logically impossible case involving hyperbolic simplex points\n";
+    for(i=0;i<10;i++) orbit.push_back(-1.0l);
     return(LARGERR2);
   }
   if(worstpoint>=0) {
@@ -11148,6 +11163,7 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
       cerr << simplex[i][0] << " " << simplex[i][1] << " unbound = " << unboundsimplex[i] << "\n";
     }
     cerr << "Aborting\n";
+    for(i=0;i<10;i++) orbit.push_back(-1.0l);
     return(LARGERR2);
   } else {
     if(verbose>=1) cout << "Good input simplex:\n";
@@ -11183,6 +11199,7 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
   if(simplex[0][0]<=MINHERGETDIST) {
     if(verbose>=1) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
     if(verbose>=1) cerr << "Method of Herget cannot proceed with these data\n";
+    for(i=0;i<10;i++) orbit.push_back(-1.0l);
     return(LARGERR2);
   }
   if(verbose>=1) cout << "Reduced chi-square value for input distances is " << simpchi[0]/obsMJD.size() << "\n";
@@ -11351,6 +11368,7 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
       if(simplex[0][0]<=MINHERGETDIST) {
 	if(verbose>=1) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
 	if(verbose>=1) cerr << "Method of Herget cannot proceed with these data\n";
+	for(i=0;i<10;i++) orbit.push_back(-1.0l);
 	return(LARGERR2);
       } else {
 	// We did eventually find an acceptable simplex
