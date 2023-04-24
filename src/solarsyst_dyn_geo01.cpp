@@ -2234,6 +2234,45 @@ int celestial_to_stateunitLD(long double RA, long double Dec, point3LD &baryvec)
   return(0);
 }
 
+// get_csv_string01: Given a line read from a csv file, and an
+// starting point along that line, read the next comma-separated value,
+// and put it into the output string. If the read was successful, return
+// the line index of the comma, newline, or EOF at the end of the value read.
+// Otherwise, return -1 as an error code.
+int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint)
+{
+  unsigned int i=startpoint;
+  char c='0';
+  outstring="";
+  while(i<lnfromfile.size() && c!=',' && c!='\n' && c!=EOF) {
+    c=lnfromfile[i];
+    if(c!=',' && c!='\n' && c!=EOF) outstring.push_back(c);
+    i++;
+  }
+  if(outstring.size() > 0) return(i-1); // Worked fine.
+  else return(-1); // Error code
+}
+
+// get_sv_string01: Given a line read from a file with values
+// separated by one of the following: comma, space, tab, pipe, or ampersand;
+// and a starting point along that line, read the next value,
+// and put it into the output string. If the read was successful, return
+// the line index of the comma, space, tab, pipe, ampersand, newline,
+// or EOF at the end of the value read.
+// Otherwise, return -1 as an error code.
+int get_sv_string01(const string &lnfromfile, string &outstring, int startpoint)
+{
+  unsigned int i=startpoint;
+  char c='0';
+  outstring="";
+  while(i<lnfromfile.size() && c!=',' && c!='&' && c!='|' && c!=' ' && c!='\t' && c!='\r' && c!='\n' && c!='\v' && c!='\f' && c!='\n' && c!=EOF) {
+    c=lnfromfile[i];
+    if(c!=',' && c!='\n' && c!=EOF) outstring.push_back(c);
+    i++;
+  }
+  if(outstring.size() > 0) return(i-1); // Worked fine.
+  else return(-1); // Error code
+}
 
 // read_horizons_file: November 2021:
 // Given an input state-vector ephemeris file downloaded directly
@@ -2604,6 +2643,308 @@ int read_horizons_fileLD(string infile, vector <long double> &mjdvec, vector <po
   }
   else return(reachedeof);
 }
+
+// read_horizons_csv: April 19, 2023:
+// Given an input state-vector ephemeris file downloaded directly
+// from JPL Horizons, WITH THE OPTIONAL CSV FORMAT SELECTED,
+// read it into position and velocity vectors.
+// Note that the default unit convention is km for positions and
+// km/sec for velocities. Note also that JPL state-vector
+// ephemerides use dynamical TT, which is ahead of UT1 by about
+// 70 seconds in 2022. This program does NOT correct TT to UT1,
+// but programs making use of the ouput mjd, position, and velocity
+// vectors might need to.
+int read_horizons_csv(string infile, vector <double> &mjdvec, vector <point3d> &pos, vector <point3d> &vel)
+{
+  ifstream instream1 {infile};
+  point3d pospoint = point3d(0.0,0.0,0.0);
+  point3d velpoint = point3d(0.0,0.0,0.0);
+  int reachedeof=0;
+  int ondata=0;
+  int badread=0;
+  unsigned int i=0;
+  int reachedend=0;
+  string teststring, lnfromfile, stest;
+  double x,y,z,vx,vy,vz,MJD;
+  x = y = z = vx = vy = vz = MJD = 0.0l;
+  long double JD = 0L;
+  int startpoint=0;
+  int endpoint=0;
+  
+  if(!instream1) {
+    cerr << "ERROR: can't open input file " << infile << "\n";
+    return(1);
+  }
+  while(reachedeof==0 && !reachedend) {
+    while(!ondata && !reachedend) {
+      // See if this line contains the code for start-of-data.
+      lnfromfile = "";
+      teststring = "";
+      getline(instream1,lnfromfile);
+      if(instream1.eof()) reachedeof=1; //End of file, fine.
+      else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+      else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+ 
+      if(lnfromfile.size()>=5) {
+	for(i=0;i<5;i++) {
+	  teststring.push_back(lnfromfile[i]);
+	}
+	if(teststring == "$$SOE") ondata=1;
+	else if(teststring == "$$EOE") reachedend=1;
+      }
+    }
+    while(ondata && !reachedend && reachedeof==0) {
+      lnfromfile = "";
+      teststring = "";
+      getline(instream1,lnfromfile);
+      if(instream1.eof()) reachedeof=1; //End of file, fine.
+      else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+      else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+      if(lnfromfile.size()>=5) {
+	for(i=0;i<5;i++) {
+	  teststring.push_back(lnfromfile[i]);
+	}
+	if(teststring == "$$EOE") reachedend=1;
+      }
+      if(!reachedend && reachedeof==0) {
+	// Read JD, and subtract offset to obtain MJD
+	startpoint=0;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { JD = stold(stest); }
+	  catch(...) { cerr << "ERROR: cannot read MJD string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}
+	else badread=1;
+	MJD = JD-MJDOFF;
+	// Read and discard the calendar date
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint<=0) badread=1;
+	// Read the state-vector X position
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { x = stod(stest); }
+	  catch(...) { cerr << "ERROR: cannot read x string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}
+	else badread=1;
+	// Read the state-vector Y position
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { y = stod(stest); }
+	  catch(...) { cerr << "ERROR: cannot read y string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}
+	else badread=1;
+	// Read the state-vector Z position
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { z = stod(stest); } 
+	  catch(...) { cerr << "ERROR: cannot read z string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}
+	else badread=1;
+	// Read the state-vector VX velocity
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { vx = stod(stest); }
+	  catch(...) { cerr << "ERROR: cannot read vx string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}
+	else badread=1;
+	// Read the state-vector VY velocity
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { vy = stod(stest); }
+	  catch(...) { cerr << "ERROR: cannot read vy string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}
+	else badread=1;
+	// Read the state-vector VZ velocity
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { vz = stod(stest); }
+	  catch(...) { cerr << "ERROR: cannot read vz string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}	  
+	else badread=1;
+	// Load output vectors
+	pospoint = point3d(x,y,z);
+	velpoint = point3d(vx,vy,vz);
+	pos.push_back(pospoint);
+	vel.push_back(velpoint);
+	mjdvec.push_back(MJD);
+      }
+    }
+  }
+  if(reachedeof==1 && ondata==1) {
+    //Read file successfully to the end.
+    return(0);
+  }
+  else if(reachedeof==1) {
+    //Did not find any data
+    return(1);
+  }
+  else return(reachedeof);
+}
+
+// read_horizons_csv: April 19, 2023:
+// Given an input state-vector ephemeris file downloaded directly
+// from JPL Horizons, WITH THE OPTIONAL CSV FORMAT SELECTED,
+// read it into a vector of type earthstate.
+// Note that the default unit convention is km for positions and
+// km/sec for velocities. Note also that JPL state-vector
+// ephemerides use dynamical TT, which is ahead of UT1 by about
+// 70 seconds in 2022. This program does NOT correct TT to UT1,
+// but programs making use of the ouput mjd, position, and velocity
+// vectors might need to.
+int read_horizons_csv(string infile, vector <EarthState> &earthpos)
+{
+  ifstream instream1 {infile};
+  EarthState earthonce = EarthState(0l,0l,0l,0l,0l,0l,0l);
+  int reachedeof=0;
+  int ondata=0;
+  int badread=0;
+  unsigned int i=0;
+  int reachedend=0;
+  string teststring, lnfromfile, stest;
+  double x,y,z,vx,vy,vz,MJD;
+  x = y = z = vx = vy = vz = MJD = 0.0l;
+  long double JD = 0L;
+  int startpoint=0;
+  int endpoint=0;
+  
+  if(!instream1) {
+    cerr << "ERROR: can't open input file " << infile << "\n";
+    return(1);
+  }
+  while(reachedeof==0 && !reachedend) {
+    while(!ondata && !reachedend) {
+      // See if this line contains the code for start-of-data.
+      lnfromfile = "";
+      teststring = "";
+      getline(instream1,lnfromfile);
+      if(instream1.eof()) reachedeof=1; //End of file, fine.
+      else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+      else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+ 
+      if(lnfromfile.size()>=5) {
+	for(i=0;i<5;i++) {
+	  teststring.push_back(lnfromfile[i]);
+	}
+	if(teststring == "$$SOE") ondata=1;
+	else if(teststring == "$$EOE") reachedend=1;
+      }
+    }
+    while(ondata && !reachedend && reachedeof==0) {
+      lnfromfile = "";
+      teststring = "";
+      getline(instream1,lnfromfile);
+      if(instream1.eof()) reachedeof=1; //End of file, fine.
+      else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+      else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+      if(lnfromfile.size()>=5) {
+	for(i=0;i<5;i++) {
+	  teststring.push_back(lnfromfile[i]);
+	}
+	if(teststring == "$$EOE") reachedend=1;
+      }
+      if(!reachedend && reachedeof==0) {
+	// Read JD, and subtract offset to obtain MJD
+	startpoint=0;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { JD = stold(stest); }
+	  catch(...) { cerr << "ERROR: cannot read MJD string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}
+	else badread=1;
+	MJD = JD-MJDOFF;
+	// Read and discard the calendar date
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint<=0) badread=1;
+	// Read the state-vector X position
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { x = stod(stest); }
+	  catch(...) { cerr << "ERROR: cannot read x string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}
+	else badread=1;
+	// Read the state-vector Y position
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { y = stod(stest); }
+	  catch(...) { cerr << "ERROR: cannot read y string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}
+	else badread=1;
+	// Read the state-vector Z position
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { z = stod(stest); } 
+	  catch(...) { cerr << "ERROR: cannot read z string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}
+	else badread=1;
+	// Read the state-vector VX velocity
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { vx = stod(stest); }
+	  catch(...) { cerr << "ERROR: cannot read vx string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}
+	else badread=1;
+	// Read the state-vector VY velocity
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { vy = stod(stest); }
+	  catch(...) { cerr << "ERROR: cannot read vy string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}
+	else badread=1;
+	// Read the state-vector VZ velocity
+	startpoint = endpoint+1;
+	if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+	if(endpoint>0) {
+	  try { vz = stod(stest); }
+	  catch(...) { cerr << "ERROR: cannot read vz string " << stest << " from line " << lnfromfile << "\n";
+	    badread = 1; }
+	}	  
+	else badread=1;
+	// Load output vectors
+	earthonce = EarthState(MJD,x,y,z,vx,vy,vz);
+	earthpos.push_back(earthonce);
+      }
+    }
+  }
+  if(reachedeof==1 && ondata==1) {
+    //Read file successfully to the end.
+    return(0);
+  }
+  else if(reachedeof==1) {
+    //Did not find any data
+    return(1);
+  } else if(reachedeof==0 && reachedend==0) {
+    cerr << "ERROR: Stopped reading file " << infile << " before the end\n";
+    cerr << "Last point " << earthpos.size() << ", last line " << lnfromfile << "\n";
+    return(1);
+  } else return(reachedeof);
+}
+
 
 // poleswitch01: December 9, 2021: given a double precision input
 // celestial position IN RADIANS, and the celestial position of the pole
@@ -3587,6 +3928,92 @@ int planetpos01(double detmjd, int polyorder, const vector <double> &posmjd, con
   return(0);
 }
 
+// planetpos01: April 19, 2023: Exactly like overloaded function
+// above, but takes in an EarthState vector instead of the two
+// separate vectors for MJD and position.
+// Uses polynomial interpolation to obtain a precise estimate of the
+// 3-D planet position at the time detmjd. It is assumed that the
+// input time detmjd is in UT1 or some reasonable approximation
+// thereof, while the planet ephemeris vectors are in dynamical TT.
+// Hence, a correction is applied to the input time before the
+// interpolation. If the calling function actually has time in TT
+// already, planetpos01 should be called with the correction
+// pre-subtracted from detmjd, so it will cancel out internally.
+int planetpos01(double detmjd, int polyorder, const vector <EarthState> &planetpos, point3d &outpos)
+{
+  long fitnum = polyorder+1;
+  long pointsbefore = fitnum - fitnum/2;
+  long pbf=0;
+  vector <double> xvec;
+  vector <double> yvec;
+  vector <double> fitvec;
+  double tdelt=0;
+  double sumvar=0;
+  long i=0;
+  long j=0;
+  long k=0;
+  make_dvec(fitnum,fitvec);
+
+  // Convert input time from UT1 standard to the dynamical time (TT) used
+  // by JPL Horizons for the state vectors.
+  detmjd += TTDELTAT/SOLARDAY;
+  // TT is ahead of UT1 because the Earth's rotation is slowing down.
+  
+  //Interpolate to find the planet's exact position at the time
+  //of the detection.
+  pbf=0;
+  i=long(planetpos.size());
+  
+  while(i>0 && pbf<pointsbefore)
+    {
+      i--;
+      if(planetpos[i].MJD < detmjd) pbf++;
+    }
+  pbf=i;
+  xvec={};
+  yvec={};
+  tdelt = detmjd-planetpos[pbf].MJD;
+  // Load vectors to fit x-coordinate of Earth's position.
+  for(i=pbf;i<pbf+fitnum;i++) {
+    xvec.push_back(planetpos[i].MJD-planetpos[pbf].MJD);
+    yvec.push_back(planetpos[i].x);
+  }
+  // Solve for polynomial interpolation
+  perfectpoly01(xvec,yvec,fitvec);
+  // Calculate interpolated position.
+  outpos.x = fitvec[0];
+  for(j=1;j<fitnum;j++) {
+    sumvar = fitvec[j]*tdelt;
+    for(k=2;k<=j;k++) sumvar*=tdelt;
+    outpos.x += sumvar;
+  }
+  // Load vector to fit y-coordinate
+  yvec={};
+  for(i=pbf;i<pbf+fitnum;i++) yvec.push_back(planetpos[i].y);
+  // Solve for polynomial interpolation
+  perfectpoly01(xvec,yvec,fitvec);
+  // Calculate interpolated position.
+  outpos.y = fitvec[0];
+  for(j=1;j<fitnum;j++) {
+    sumvar = fitvec[j]*tdelt;
+    for(k=2;k<=j;k++) sumvar*=tdelt;
+    outpos.y += sumvar;
+  }
+  // Load vector to fit z-coordinate
+  yvec={};
+  for(i=pbf;i<pbf+fitnum;i++) yvec.push_back(planetpos[i].z);
+  // Solve for polynomial interpolation
+  perfectpoly01(xvec,yvec,fitvec);
+  // Calculate interpolated position.
+  outpos.z = fitvec[0];
+  for(j=1;j<fitnum;j++) {
+    sumvar = fitvec[j]*tdelt;
+    for(k=2;k<=j;k++) sumvar*=tdelt;
+    outpos.z += sumvar;
+  }
+  return(0);
+}
+
 // planetpos01LD: November 24, 2021:
 // Given a vector of MJD values and a vector of 3-D planet positions,
 // use polynomial interpolation to obtain a precise estimate of the
@@ -3761,6 +4188,104 @@ int planetposvel01(double detmjd, int polyorder, const vector <double> &posmjd, 
   // Load vector to fit z-coordinate
   yvec={};
   for(i=pbf;i<pbf+fitnum;i++) yvec.push_back(planetvel[i].z);
+  // Solve for polynomial interpolation
+  perfectpoly01(xvec,yvec,fitvec);
+  // Calculate interpolated position.
+  outvel.z = fitvec[0];
+  outpos.z = planetpos[pbf].z + fitvec[0]*tdelt*SOLARDAY;
+  for(j=1;j<fitnum;j++) {
+    sumvar = fitvec[j]*tdelt;
+    for(k=2;k<=j;k++) sumvar*=tdelt;
+    outvel.z += sumvar;
+    sumvar *= tdelt*SOLARDAY/((long double)(j+1.0L)); // One more power of tdelt, for the position.
+    outpos.z += sumvar;
+  }
+  return(0);
+}
+
+// planetposvel01: April 19, 2023:
+// Like overloaded function immediately above, but takes a single
+// input vector of type EarthState, in place of the three vectors
+// posmjd, planetpos, and planetvel.
+// Given a vector of MJD values, a vector of 3-D planet positions,
+// and a vector of 3-D planet velocities (expected usually to be for the Sun,
+// but could be for another object), perform a polynomial fit to the velocity,
+// and use it to calculate an interpolated velocity and an integrated position
+// at the instant detmjd. It is assumed that the
+// input time detmjd is in UT1 or some reasonable approximation
+// thereof, while the planet ephemeris vectors are in dynamical TT.
+// Hence, a correction is applied to the input time before the
+// interpolation. If the calling function actually has time in TT
+// already, planetpos01 should be called with the correction
+// pre-subtracted from detmjd, so it will cancel out internally.
+int planetposvel01(double detmjd, int polyorder, const vector <EarthState> &planetpos, point3d &outpos, point3d &outvel)
+{
+  long fitnum = polyorder+1;
+  long pointsbefore = fitnum - fitnum/2;
+  long pbf=0;
+  vector <double> xvec;
+  vector <double> yvec;
+  vector <double> fitvec;
+  double tdelt=0;
+  double sumvar=0;
+  long i=0;
+  int j=0;
+  int k=0;
+  make_dvec(fitnum,fitvec);
+  
+  // Convert input time from UT1 standard to the dynamical time (TT) used
+  // by JPL Horizons for the state vectors.
+  detmjd += TTDELTAT/SOLARDAY;
+  // TT is ahead of UT1 because the Earth's rotation is slowing down.
+
+  //Interpolate to find the planet's exact velocity at the time
+  //of the detection.
+  pbf=0;
+  i=long(planetpos.size());
+  while(i>0 && pbf<pointsbefore)
+    {
+      i--;
+      if(planetpos[i].MJD < detmjd) pbf++;
+    }
+  pbf=i;
+  xvec={};
+  yvec={};
+  tdelt = detmjd-planetpos[pbf].MJD;
+  // Load vectors to fit x-coordinate of the planet's velocity
+  for(i=pbf;i<pbf+fitnum;i++) {
+    xvec.push_back(planetpos[i].MJD-planetpos[pbf].MJD);
+    yvec.push_back(planetpos[i].vx);
+  }
+  // Solve for polynomial interpolation
+  perfectpoly01(xvec,yvec,fitvec);
+  // Calculate interpolated velocity and position
+  outvel.x = fitvec[0];
+  outpos.x = planetpos[pbf].x + fitvec[0]*tdelt*SOLARDAY;
+  for(j=1;j<fitnum;j++) {
+    sumvar = fitvec[j]*tdelt;
+    for(k=2;k<=j;k++) sumvar*=tdelt;
+    outvel.x += sumvar;
+    sumvar *= tdelt*SOLARDAY/((long double)(j+1.0L)); // One more power of tdelt, for the position.
+    outpos.x += sumvar;
+  }
+  // Load vector to fit y-coordinate
+  yvec={};
+  for(i=pbf;i<pbf+fitnum;i++) yvec.push_back(planetpos[i].vy);
+  // Solve for polynomial interpolation
+  perfectpoly01(xvec,yvec,fitvec);
+  // Calculate interpolated position.
+  outvel.y = fitvec[0];
+  outpos.y = planetpos[pbf].y + fitvec[0]*tdelt*SOLARDAY;
+  for(j=1;j<fitnum;j++) {
+    sumvar = fitvec[j]*tdelt;
+    for(k=2;k<=j;k++) sumvar*=tdelt;
+    outvel.y += sumvar;
+    sumvar *= tdelt*SOLARDAY/((long double)(j+1.0L)); // One more power of tdelt, for the position.
+    outpos.y += sumvar;
+  }
+  // Load vector to fit z-coordinate
+  yvec={};
+  for(i=pbf;i<pbf+fitnum;i++) yvec.push_back(planetpos[i].vz);
   // Solve for polynomial interpolation
   perfectpoly01(xvec,yvec,fitvec);
   // Calculate interpolated position.
@@ -4150,6 +4675,91 @@ int observer_baryvel01(double detmjd, int polyorder, double lon, double obscos, 
   // the observer, in km/sec.
 
   planetposvel01(detmjd,polyorder,posmjd,planetpos,planetvel,geocen_from_barycen,vel_from_barycen);
+
+  outpos.x = geocen_from_barycen.x + obs_from_geocen.x;
+  outpos.y = geocen_from_barycen.y + obs_from_geocen.y;
+  outpos.z = geocen_from_barycen.z + obs_from_geocen.z;
+  outvel.x = vel_from_barycen.x + vel_from_geocen.x;
+  outvel.y = vel_from_barycen.y + vel_from_geocen.y;
+  outvel.z = vel_from_barycen.z + vel_from_geocen.z;
+ 
+  cout << "spinvel: " << vel_from_geocen.x << " " << vel_from_geocen.y << " " << vel_from_geocen.z << "\n";
+  cout << "orbvel: " << vel_from_barycen.x << " " << vel_from_barycen.y << " " << vel_from_barycen.z << "\n";
+  cout << "total: " << outvel.x << " " << outvel.y << " " << outvel.z << "\n";
+  return(0);
+}
+
+// observer_baryvel01: April 19, 2023:
+// Like overloaded fuction just above, but takes as input a
+// single vector of type EarthState, rather than three separate
+// vectors posmjd, planetpos, and planetvel.
+// Note that the handling of Earth's rotation assumes that the
+// input MJD is UT1, while the ephemeris vectors posmjd
+// and planetpos are in dynamical TT. Hence, after calculating
+// aspects related to Earth's rotation with detmjd as input,
+// planetpos01 is called which internally converts the input
+// UT1 into TT.
+int observer_baryvel01(double detmjd, int polyorder, double lon, double obscos, double obssine, const vector <EarthState> &earthpos, point3d &outpos, point3d &outvel)
+{
+  double gmst=0;
+  double djdoff = detmjd-51544.5l;
+  double zenithRA=0.0l;
+  double zenithDec=0.0l;
+  double velRA=0.0l; // RA of the observer's geocentric velocity vector
+  double velDec=0.0l; // Dec of the observer's geocentric velocity vector, always 0.
+  double junkRA=0.0l;
+  double junkDec=0.0l;
+  double crad = sqrt(obscos*obscos + obssine*obssine)*EARTHEQUATRAD;
+  double cvel = 2.0l*M_PI*obscos*EARTHEQUATRAD/SIDEREALDAY;
+  point3d obs_from_geocen = point3d(0,0,0);
+  point3d vel_from_geocen = point3d(0,0,0);
+  point3d geocen_from_barycen = point3d(0,0,0);
+  point3d vel_from_barycen = point3d(0,0,0);
+
+  gmst = 18.697374558l + 24.06570982441908l*djdoff;
+  // Add the longitude, converted to hours.
+  // Note: at this point it stops being gmst.
+  gmst += lon/15.0l;
+  // Get a value between 0 and 24.0.
+  while(gmst>=24.0l) gmst-=24.0l;
+  while(gmst<0.0l) gmst+=24.0l;
+  // Convert to degrees
+  zenithRA = gmst * 15.0l;
+  // Get zenithDec    
+  if(obscos!=0.0l) {
+    zenithDec = atan(obssine/obscos)*DEGPRAD;
+  } else if(obssine>=0.0l) {
+    zenithDec = 90.0l;
+  } else {
+    zenithDec=-90.0l;
+  }
+  // Calculate RA and Dec of the observer's geocentric velocity vector.
+  velRA = zenithRA+90.0l;
+  if(velRA >= 360.0l) velRA -= 360.0l;
+  velDec = 0.0l;
+  
+  // Now zenithRA and zenithDec are epoch-of-date coordinates.
+  // If you want them in J2000.0, this is the place to convert them.
+  int precesscon=-1; //Precess epoch-of-date to J2000.0
+  junkRA = zenithRA/DEGPRAD;
+  junkDec = zenithDec/DEGPRAD;
+  precess01a(junkRA,junkDec,detmjd,&zenithRA,&zenithDec,precesscon);
+  zenithRA*=DEGPRAD;
+  zenithDec*=DEGPRAD;
+  celestial_to_statevec(zenithRA,zenithDec,crad,obs_from_geocen);
+  // crad is the distance from the geocenter to the observer, in AU.
+  // Now velRA and velDec are also epoch-of-date coordinates,
+  // and hence should be converted to J2000.0.
+  junkRA = velRA/DEGPRAD;
+  junkDec = velDec/DEGPRAD;
+  precess01a(junkRA,junkDec,detmjd,&velRA,&velDec,precesscon);
+  velRA*=DEGPRAD;
+  velDec*=DEGPRAD;
+  celestial_to_statevec(velRA,velDec,cvel,vel_from_geocen);
+  // cvel is the Earth's rotation velocity at the latitude of
+  // the observer, in km/sec.
+
+  planetposvel01(detmjd,polyorder,earthpos,geocen_from_barycen,vel_from_barycen);
 
   outpos.x = geocen_from_barycen.x + obs_from_geocen.x;
   outpos.y = geocen_from_barycen.y + obs_from_geocen.y;
@@ -6791,25 +7401,6 @@ string intzero01i(const int i, const int n)
   for(j=0;j<leadzero;j++) outstring.push_back('0');
   for(j=0;j<int(str.size());j++) outstring.push_back(str[j]);
   return(outstring);
-}
-
-// get_csv_string01: Given a line read from a csv file, and an
-// starting point along that line, read the next comma-separated value,
-// and put it into the output string. If the read was successful, return
-// the line index of the comma, newline, or EOF at the end of the value read.
-// Otherwise, return -1 as an error code.
-int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint)
-{
-  unsigned int i=startpoint;
-  char c='0';
-  outstring="";
-  while(i<lnfromfile.size() && c!=',' && c!='\n' && c!=EOF) {
-    c=lnfromfile[i];
-    if(c!=',' && c!='\n' && c!=EOF) outstring.push_back(c);
-    i++;
-  }
-  if(outstring.size() > 0) return(i-1); // Worked fine.
-  else return(-1); // Error code
 }
 
 // get_col_vector01: Given a line from a file, containing fields
@@ -10045,8 +10636,8 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
   long double dtp = (intpowLD(lambda1,3) - Ysign*intpowLD(lambda2,3))/6.0L/k;
   if(DEBUG_2PTBVP > 1) cout << "Checking for hyperbolic case: " << timediff << " <= " << dtp/SOLARDAY << "\n";
   if(timediff*SOLARDAY <= dtp) {
-    if(verbose>=1) cerr << "ERROR: Twopoint_Kepler_v1 has hyperbolic case\n";
-    if(verbose>=1) cerr << "Returning with velocity set to zero\n";
+    if(verbose>=2) cerr << "ERROR: Twopoint_Kepler_v1 has hyperbolic case\n";
+    if(verbose>=2) cerr << "Returning with velocity set to zero\n";
     return(v1);
   }
   
@@ -10150,8 +10741,8 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
     itnum++;
     }
     if(fabs(f) > KEP2PBVPTOL || fabs(delta_aorb) > KEP2PBVPTOL*aorb) {
-      if(verbose>=1) cerr << "ERROR: Twopoint_Kepler_v1 failed to converge\n";
-      if(verbose>=1) cerr << "Returning with velocity set to zero\n";
+      if(verbose>=2) cerr << "ERROR: Twopoint_Kepler_v1 failed to converge\n";
+      if(verbose>=2) cerr << "Returning with velocity set to zero\n";
       *a=-1.0L;
       return(v1);
     }
@@ -10191,8 +10782,8 @@ point3d Twopoint_Kepler_v1(const double GMsun, const point3d startpos, const poi
   double dtp = (intpowD(lambda1,3) - Ysign*intpowD(lambda2,3))/6.0L/k;
   if(DEBUG_2PTBVP > 1) cout << "Checking for hyperbolic case: " << timediff << " <= " << dtp/SOLARDAY << "\n";
   if(timediff*SOLARDAY <= dtp) {
-    if(verbose>=1) cerr << "ERROR: Twopoint_Kepler_v1 has hyperbolic case\n";
-    if(verbose>=1) cerr << "Returning with velocity set to zero\n";
+    if(verbose>=2) cerr << "ERROR: Twopoint_Kepler_v1 has hyperbolic case\n";
+    if(verbose>=2) cerr << "Returning with velocity set to zero\n";
     return(v1);
   }
   
@@ -10296,8 +10887,8 @@ point3d Twopoint_Kepler_v1(const double GMsun, const point3d startpos, const poi
     itnum++;
     }
     if(fabs(f) > KEP2PBVPTOL2 || fabs(delta_aorb) > KEP2PBVPTOL2*aorb) {
-      if(verbose>=1) cerr << "ERROR: Twopoint_Kepler_v1 failed to converge\n";
-      if(verbose>=1) cerr << "Returning with velocity set to zero\n";
+      if(verbose>=2) cerr << "ERROR: Twopoint_Kepler_v1 failed to converge\n";
+      if(verbose>=2) cerr << "Returning with velocity set to zero\n";
       *a=-1.0L;
       return(v1);
     }
@@ -10475,8 +11066,8 @@ long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpo
     // This is a failure code for Twopoint_Kepler_v1, which is returned if, e.g.,
     // the implied orbit is hyperbolic. Nothing to be done here, but pass
     // the failure code up the call chain.
-    if(verbose>=1) cerr << "ERROR: Hergetchi01 received failure code from Twopoint_Kepler_v1\n";
-    if(verbose>=1) cerr << "On input distances " << geodist1 << " and " << geodist2 << "\n";
+    if(verbose>=2) cerr << "ERROR: Hergetchi01 received failure code from Twopoint_Kepler_v1\n";
+    if(verbose>=2) cerr << "On input distances " << geodist1 << " and " << geodist2 << "\n";
     for(i=0;i<10;i++) orbit.push_back(-1.0L);
     return(LARGERR);
   }
@@ -10534,8 +11125,8 @@ double Hergetchi01(double geodist1, double geodist2, int Hergetpoint1, int Herge
     // This is a failure code for Twopoint_Kepler_v1, which is returned if, e.g.,
     // the implied orbit is hyperbolic. Nothing to be done here, but pass
     // the failure code up the call chain.
-    if(verbose>=1) cerr << "ERROR: Hergetchi01 received failure code from Twopoint_Kepler_v1\n";
-    if(verbose>=1) cerr << "On input distances " << geodist1 << " and " << geodist2 << "\n";
+    if(verbose>=2) cerr << "ERROR: Hergetchi01 received failure code from Twopoint_Kepler_v1\n";
+    if(verbose>=2) cerr << "On input distances " << geodist1 << " and " << geodist2 << "\n";
     for(i=0;i<10;i++) orbit.push_back(-1.0l);
     return(LARGERR2);
   }
@@ -10784,9 +11375,9 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
   }
   while(unboundsimplex[0]==1 && unboundsimplex[1]==1 && unboundsimplex[2]==1) {
     // All the points are bad, shrink all the distances.
-    if(verbose>=1) cout << "All points are hyperbolic with simplex:\n";
+    if(verbose>=2) cout << "All points are hyperbolic with simplex:\n";
     for(i=0;i<3;i++) {
-      if(verbose>=1) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
+      if(verbose>=2) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
       simplex[i][0]*=HERGET_DOWNSCALE;
       simplex[i][1]*=HERGET_DOWNSCALE;
       unboundsimplex[i] = Herget_unboundcheck01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec);
@@ -10804,12 +11395,12 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
     return(LARGERR);
   }
   if(worstpoint>=0) {
-    if(verbose>=1) cout << "Good simplex point " << bestpoint << ": " << simplex[bestpoint][0] << " " << simplex[bestpoint][1] << "\n";
+    if(verbose>=2) cout << "Good simplex point " << bestpoint << ": " << simplex[bestpoint][0] << " " << simplex[bestpoint][1] << "\n";
     // There is at least one bad point.
     for(i=0;i<3;i++) {
       while(unboundsimplex[i]==1 && sqrt(LDSQUARE(simplex[i][0]-simplex[bestpoint][0]) + LDSQUARE(simplex[i][1]-simplex[bestpoint][1])) > MINHERGETDIST) {
 	// Bring the bad point closer to a good point until it stops being bad.
-	if(verbose>=1) cout << "Modifying bad simplex point " << i << ": " << simplex[i][0] << " " << simplex[i][1] << "\n";
+	if(verbose>=2) cout << "Modifying bad simplex point " << i << ": " << simplex[i][0] << " " << simplex[i][1] << "\n";
 	simplex[i][0] = 0.5L*(simplex[i][0]+simplex[bestpoint][0]);
 	simplex[i][1] = 0.5L*(simplex[i][1]+simplex[bestpoint][1]);
 	unboundsimplex[i] = Herget_unboundcheck01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec);
@@ -10826,9 +11417,9 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
     for(i=0;i<10;i++) orbit.push_back(-1.0L);
     return(LARGERR);
   } else {
-    if(verbose>=1) cout << "Good input simplex:\n";
+    if(verbose>=2) cout << "Good input simplex:\n";
     for(i=0;i<3;i++) {
-      if(verbose>=1) cout << simplex[i][0] << " " << simplex[i][1] << " unbound = " << unboundsimplex[i] << "\n";
+      if(verbose>=2) cout << simplex[i][0] << " " << simplex[i][1] << " unbound = " << unboundsimplex[i] << "\n";
     }
   }
   
@@ -10841,28 +11432,28 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
     // Note that the output vectors fitRA, fitDec, and resid are null-wiped
     // internally, so it isn't necessary to wipe them here.
     for(i=0;i<3;i++) {
-      if(verbose>=1) cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << " : ";
+      if(verbose>=2) cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << " : ";
       simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
-      if(verbose>=1) cout << "reduced chi-square value is " << simpchi[i]/obsMJD.size() << "\n";
+      if(verbose>=2) cout << "reduced chi-square value is " << simpchi[i]/obsMJD.size() << "\n";
       simp_eval_ct++;
       simp_total_ct++;
     }
     if(simpchi[0] == LARGERR || simpchi[1] == LARGERR || simpchi[2] == LARGERR) {
-      if(verbose>=1) cout << "Hergetchi01 returned failure code with simplex:\n";
+      if(verbose>=2) cout << "Hergetchi01 returned failure code with simplex:\n";
       for(i=0;i<3;i++) {
-	if(verbose>=1) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
+	if(verbose>=2) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
 	simplex[i][0]*=HERGET_DOWNSCALE;
 	simplex[i][1]*=HERGET_DOWNSCALE;
       }
     }
   }
   if(simplex[0][0]<=MINHERGETDIST) {
-    if(verbose>=1) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
-    if(verbose>=1) cerr << "Method of Herget cannot proceed with these data\n";
+    if(verbose>=2) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
+    if(verbose>=2) cerr << "Method of Herget cannot proceed with these data\n";
     for(i=0;i<10;i++) orbit.push_back(-1.0L);
     return(LARGERR);
   }
-  if(verbose>=1) cout << "Reduced chi-square value for input distances is " << simpchi[0]/obsMJD.size() << "\n";
+  if(verbose>=2) cout << "Reduced chi-square value for input distances is " << simpchi[0]/obsMJD.size() << "\n";
   
   // Find best and worst points
   worstpoint=bestpoint=0;
@@ -10881,7 +11472,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 
   // LAUNCH DOWNHILL SIMPLEX SEARCH
   while(simprange>ftol && simp_total_ct <= SIMP_MAXCT_TOTAL) {
-    if(verbose>=1) cout << fixed << setprecision(6) << "Eval " << simp_total_ct << ": Best reduced chi-square value is " << bestchi/obsMJD.size() << ", range is " << simprange << ", vector is " << simplex[bestpoint][0] << " "  << simplex[bestpoint][1] << "\n";
+    if(verbose>=2) cout << fixed << setprecision(6) << "Eval " << simp_total_ct << ": Best reduced chi-square value is " << bestchi/obsMJD.size() << ", range is " << simprange << ", vector is " << simplex[bestpoint][0] << " "  << simplex[bestpoint][1] << "\n";
     
     // Try to reflect away from worst point
     // Find mean over all the points except the worst one
@@ -11001,7 +11592,7 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 
     if(bestchi<LARGERR) simprange = (worstchi-bestchi)/bestchi;
     else {
-      if(verbose>=1) cout << "WARNING: probing a simplex with no valid points!\n";
+      if(verbose>=2) cout << "WARNING: probing a simplex with no valid points!\n";
       // We have problems: expanding the simplex resulted in no
       // acceptable points at all.
       simprange = LARGERR;
@@ -11011,23 +11602,23 @@ long double Hergetfit01(long double geodist1, long double geodist2, long double 
 	// Note that the output vectors fitRA, fitDec, and resid are null-wiped
 	// internally, so it isn't necessary to wipe them here.
 	for(i=0;i<3;i++) {
-	  if(verbose>=1) cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << "\n";
+	  if(verbose>=2) cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << "\n";
 	  simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
 	  simp_eval_ct++;
 	  simp_total_ct++;
 	}
 	if(simpchi[0] == LARGERR || simpchi[1] == LARGERR || simpchi[2] == LARGERR) {
-	  if(verbose>=1) cout << "Hergetchi01 returned failure code with simplex:\n";
+	  if(verbose>=2) cout << "Hergetchi01 returned failure code with simplex:\n";
 	  for(i=0;i<3;i++) {
-	    if(verbose>=1) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
+	    if(verbose>=2) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
 	    simplex[i][0]*=HERGET_DOWNSCALE;
 	    simplex[i][1]*=HERGET_DOWNSCALE;
 	  }
 	}
       }
       if(simplex[0][0]<=MINHERGETDIST) {
-	if(verbose>=1) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
-	if(verbose>=1) cerr << "Method of Herget cannot proceed with these data\n";
+	if(verbose>=2) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
+	if(verbose>=2) cerr << "Method of Herget cannot proceed with these data\n";
 	for(i=0;i<10;i++) orbit.push_back(-1.0L);
 	return(LARGERR);
       } else {
@@ -11101,7 +11692,7 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
   Hergetpoint1 = point1-1;
   Hergetpoint2 = point2-1;
 
-  if(verbose>=1) {
+  if(verbose>=2) {
     cout << "Herget points: " << Hergetpoint1 << " " << Hergetpoint2 << "\n";
     for(i=0;i<long(obsMJD.size());i++) {
       cout << "Input observerpos " << i << ": " << obsMJD[i] << " " << observerpos[i].x << " " << observerpos[i].y << " " << observerpos[i].z << "\n";
@@ -11124,9 +11715,9 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
   }
   while(unboundsimplex[0]==1 && unboundsimplex[1]==1 && unboundsimplex[2]==1) {
     // All the points are bad, shrink all the distances.
-    if(verbose>=1) cout << "All points are hyperbolic with simplex:\n";
+    if(verbose>=2) cout << "All points are hyperbolic with simplex:\n";
     for(i=0;i<3;i++) {
-      if(verbose>=1) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
+      if(verbose>=2) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
       simplex[i][0]*=HERGET_DOWNSCALE;
       simplex[i][1]*=HERGET_DOWNSCALE;
       unboundsimplex[i] = Herget_unboundcheck01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec);
@@ -11144,12 +11735,12 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
     return(LARGERR2);
   }
   if(worstpoint>=0) {
-    if(verbose>=1) cout << "Good simplex point " << bestpoint << ": " << simplex[bestpoint][0] << " " << simplex[bestpoint][1] << "\n";
+    if(verbose>=2) cout << "Good simplex point " << bestpoint << ": " << simplex[bestpoint][0] << " " << simplex[bestpoint][1] << "\n";
     // There is at least one bad point.
     for(i=0;i<3;i++) {
       while(unboundsimplex[i]==1 && sqrt(LDSQUARE(simplex[i][0]-simplex[bestpoint][0]) + LDSQUARE(simplex[i][1]-simplex[bestpoint][1])) > MINHERGETDIST) {
 	// Bring the bad point closer to a good point until it stops being bad.
-	if(verbose>=1) cout << "Modifying bad simplex point " << i << ": " << simplex[i][0] << " " << simplex[i][1] << "\n";
+	if(verbose>=2) cout << "Modifying bad simplex point " << i << ": " << simplex[i][0] << " " << simplex[i][1] << "\n";
 	simplex[i][0] = 0.5L*(simplex[i][0]+simplex[bestpoint][0]);
 	simplex[i][1] = 0.5L*(simplex[i][1]+simplex[bestpoint][1]);
 	unboundsimplex[i] = Herget_unboundcheck01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec);
@@ -11166,9 +11757,9 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
     for(i=0;i<10;i++) orbit.push_back(-1.0l);
     return(LARGERR2);
   } else {
-    if(verbose>=1) cout << "Good input simplex:\n";
+    if(verbose>=2) cout << "Good input simplex:\n";
     for(i=0;i<3;i++) {
-      if(verbose>=1) cout << simplex[i][0] << " " << simplex[i][1] << " unbound = " << unboundsimplex[i] << "\n";
+      if(verbose>=2) cout << simplex[i][0] << " " << simplex[i][1] << " unbound = " << unboundsimplex[i] << "\n";
     }
   }
   
@@ -11181,28 +11772,28 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
     // Note that the output vectors fitRA, fitDec, and resid are null-wiped
     // internally, so it isn't necessary to wipe them here.
     for(i=0;i<3;i++) {
-      if(verbose>=1) cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << " : ";
+      if(verbose>=2) cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << " : ";
       simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
-      if(verbose>=1) cout << "reduced chi-square value is " << simpchi[i]/obsMJD.size() << "\n";
+      if(verbose>=2) cout << "reduced chi-square value is " << simpchi[i]/obsMJD.size() << "\n";
       simp_eval_ct++;
       simp_total_ct++;
     }
     if(simpchi[0] == LARGERR2 || simpchi[1] == LARGERR2 || simpchi[2] == LARGERR2) {
-      if(verbose>=1) cout << "Hergetchi01 returned failure code with simplex:\n";
+      if(verbose>=2) cout << "Hergetchi01 returned failure code with simplex:\n";
       for(i=0;i<3;i++) {
-	if(verbose>=1) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
+	if(verbose>=2) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
 	simplex[i][0]*=HERGET_DOWNSCALE;
 	simplex[i][1]*=HERGET_DOWNSCALE;
       }
     }
   }
   if(simplex[0][0]<=MINHERGETDIST) {
-    if(verbose>=1) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
-    if(verbose>=1) cerr << "Method of Herget cannot proceed with these data\n";
+    if(verbose>=2) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
+    if(verbose>=2) cerr << "Method of Herget cannot proceed with these data\n";
     for(i=0;i<10;i++) orbit.push_back(-1.0l);
     return(LARGERR2);
   }
-  if(verbose>=1) cout << "Reduced chi-square value for input distances is " << simpchi[0]/obsMJD.size() << "\n";
+  if(verbose>=2) cout << "Reduced chi-square value for input distances is " << simpchi[0]/obsMJD.size() << "\n";
   
   // Find best and worst points
   worstpoint=bestpoint=0;
@@ -11221,7 +11812,7 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
 
   // LAUNCH DOWNHILL SIMPLEX SEARCH
   while(simprange>ftol && simp_total_ct <= SIMP_MAXCT_TOTAL) {
-    if(verbose>=1) cout << fixed << setprecision(6) << "Eval " << simp_total_ct << ": Best reduced chi-square value is " << bestchi/obsMJD.size() << ", range is " << simprange << ", vector is " << simplex[bestpoint][0] << " "  << simplex[bestpoint][1] << "\n";
+    if(verbose>=2) cout << fixed << setprecision(6) << "Eval " << simp_total_ct << ": Best reduced chi-square value is " << bestchi/obsMJD.size() << ", range is " << simprange << ", vector is " << simplex[bestpoint][0] << " "  << simplex[bestpoint][1] << "\n";
     
     // Try to reflect away from worst point
     // Find mean over all the points except the worst one
@@ -11341,7 +11932,7 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
 
     if(bestchi<LARGERR2) simprange = (worstchi-bestchi)/bestchi;
     else {
-      if(verbose>=1) cout << "WARNING: probing a simplex with no valid points!\n";
+      if(verbose>=2) cout << "WARNING: probing a simplex with no valid points!\n";
       // We have problems: expanding the simplex resulted in no
       // acceptable points at all.
       simprange = LARGERR2;
@@ -11351,23 +11942,23 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
 	// Note that the output vectors fitRA, fitDec, and resid are null-wiped
 	// internally, so it isn't necessary to wipe them here.
 	for(i=0;i<3;i++) {
-	  if(verbose>=1) cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << "\n";
+	  if(verbose>=2) cout << "Calling Hergetchi01 with distances " << simplex[i][0] << " " << simplex[i][1] << "\n";
 	  simpchi[i] = Hergetchi01(simplex[i][0], simplex[i][1], Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
 	  simp_eval_ct++;
 	  simp_total_ct++;
 	}
 	if(simpchi[0] == LARGERR2 || simpchi[1] == LARGERR2 || simpchi[2] == LARGERR2) {
-	  if(verbose>=1) cout << "Hergetchi01 returned failure code with simplex:\n";
+	  if(verbose>=2) cout << "Hergetchi01 returned failure code with simplex:\n";
 	  for(i=0;i<3;i++) {
-	    if(verbose>=1) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
+	    if(verbose>=2) cout << simplex[i][0] << " " << simplex[i][1] << "\n";
 	    simplex[i][0]*=HERGET_DOWNSCALE;
 	    simplex[i][1]*=HERGET_DOWNSCALE;
 	  }
 	}
       }
       if(simplex[0][0]<=MINHERGETDIST) {
-	if(verbose>=1) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
-	if(verbose>=1) cerr << "Method of Herget cannot proceed with these data\n";
+	if(verbose>=2) cerr << "ERROR: no acceptable solutions found for the Kepler two-point boundary value problem:\n";
+	if(verbose>=2) cerr << "Method of Herget cannot proceed with these data\n";
 	for(i=0;i<10;i++) orbit.push_back(-1.0l);
 	return(LARGERR2);
       } else {
@@ -12236,6 +12827,83 @@ int read_obscode_file(string obscodefile,  vector <observatory> &observatory_lis
   return(0);  
 }
 
+// read_obscode_file2: March 14, 2023
+// Read an observatory code file into a vector of type 'observatory'.
+// The input observatory code file must have a one-line header, and
+// must adheres to the format of the ones downloadable from
+// https://minorplanetcenter.net/iau/lists/ObsCodesF.html
+// This version 2 is more flexible than the original read_obscode_file,
+// in that it handles the lines corresponding to space-based observatories,
+// and roving observers, which do not have the required columns for longitude, 
+// parallax cosine, and parallax sine (obslon,plxcos,plxsin).
+// Note that although the function READS these lines without generating
+// an error, downstream clients making use of the ouput observatory_list
+// may not be able to handle observations from space-based observatories
+// or roving observers. The expectation is that we are analyzing data from
+// ground-based observatories, for which obslon, plxcos, and plxsin are
+// all well-defined.
+int read_obscode_file2(string obscodefile,  vector <observatory> &observatory_list, int verbose)
+{
+  string lnfromfile;
+  string stest;
+  char obscode[MINSTRINGLEN];
+  double obslon,plxcos,plxsin;
+  obslon = plxcos = plxsin = 0.0l;
+  observatory obs1 = observatory("X05",0l,0l,0l);
+  ifstream instream1;
+  int i=0;
+  int badread=0;
+  long linenum=0;
+  instream1.open(obscodefile);
+
+  if(!instream1) {
+    cerr << "can't open input file " << obscodefile << "\n";
+    return(1);
+  }
+  // Skip one-line header
+  getline(instream1,lnfromfile);
+  linenum++;
+  while (!instream1.eof() && !instream1.fail() && !instream1.bad())
+    {
+      // Wipe results of previous read.
+      obslon = plxcos = plxsin = 0.0l;
+      badread=0;
+      // Read the next line
+      getline(instream1,lnfromfile);
+      linenum++;
+      if(lnfromfile.size()>=30) {
+	// Parse the line
+	stest={};
+	for(i=0; i<3; i++) stest.push_back(lnfromfile[i]);
+	stringncopy01(obscode,stest,MINSTRINGLEN);
+	stest={};
+	for(i=4; i<13; i++) stest.push_back(lnfromfile[i]);
+	try { obslon = stod(stest); }
+	catch(...) { badread=1; }
+	stest={};
+	for(i=13; i<21; i++) stest.push_back(lnfromfile[i]);
+	try { plxcos = stod(stest); }
+	catch(...) { badread=1; }
+	stest={};
+	for(i=21; i<30; i++) stest.push_back(lnfromfile[i]);
+	try { plxsin = stod(stest); }
+	catch(...) { badread=1; }
+	obs1 = observatory(obscode,obslon,plxcos,plxsin);
+	observatory_list.push_back(obs1);
+	if(badread>=1 && verbose>=1 && !instream1.eof() && !instream1.fail() && !instream1.bad()) {
+	  cerr << "WARNING: could not read full data from line " << linenum << " of ObsCode file " << obscodefile << "\n";
+	  cerr << "Here is the problem line: " << lnfromfile << "\n";
+	}
+      } else if(verbose>=1 && !instream1.eof() && !instream1.fail() && !instream1.bad()) {
+	cerr << "WARNING: Line " << linenum << " of ObsCode file " << obscodefile << " is too short to hold valid data\n";
+	cerr << "Offending line: " << lnfromfile << "\n";
+      }
+    }
+  instream1.close();
+  return(0);  
+}
+
+
 // read_detection_filemt: March 14, 2023:
 // Read an input detection file for make_tracklets. This
 // function is quite specified to the exact needs of
@@ -12376,8 +13044,1059 @@ int read_detection_filemt(string indetfile, int idcol, int mjdcol, int racol, in
   if(reachedeof==1) { 
     cout << "Input file " << indetfile << " read successfully to the end.\n";
     return(0);
+  } else if(reachedeof==0) {
+    cerr << "ERROR: Stopped reading file " << indetfile << " before the end\n";
+    return(1);
   } else if(reachedeof==-1) {
     cerr << "Warning: file read failed\n";
+    return(1);
+  } else if(reachedeof==-2) {
+    cerr << "Warning: file possibly corrupted\n";
+    return(2);
+  } else return(reachedeof);
+}
+
+// read_detection_filemt2: April 18, 2023:
+// Read an input detection file for make_tracklets. This
+// function is quite specified to the exact needs of
+// make_tracklets, and not likely to be very generally
+// useful.
+int read_detection_filemt2(string indetfile, int mjdcol, int racol, int deccol, int magcol, int idcol, int bandcol, int obscodecol, int trail_len_col, int trail_PA_col, int sigmag_col, int sig_across_col, int sig_along_col, int known_obj_col, int det_qual_col, vector <hldet> &detvec, int verbose, int forcerun)
+{
+  double MJD,RA,Dec;
+  MJD = RA = Dec = 0.0l;
+  float mag, trail_len, trail_PA, sigmag, sig_across, sig_along;
+  mag = -99.99;
+  trail_len = 0.0;
+  trail_PA = 90.0;
+  sigmag = 9.999;
+  sig_across = sig_along = 1.0;
+  char idstring[SHORTSTRINGLEN];
+  char band[MINSTRINGLEN];
+  char obscode[MINSTRINGLEN];
+  stringncopy01(idstring,"",SHORTSTRINGLEN);
+  stringncopy01(obscode,"500",MINSTRINGLEN);
+  stringncopy01(band,"V",MINSTRINGLEN);
+  int image = -1;
+  long known_obj, det_qual, index;
+  known_obj = det_qual = index = -1;
+  hldet o1 = hldet(MJD, RA, Dec, mag, trail_len, trail_PA, sigmag, sig_across, sig_along, image, idstring, band, obscode, known_obj, det_qual, index);
+  ifstream instream1;
+  string lnfromfile,stest;
+  int lct,j,reachedeof,mjdread,raread,decread,magread,idread,bandread,obscoderead;
+  lct = j = reachedeof = mjdread = raread = decread = magread = idread = bandread = obscoderead = 0;
+  int trail_len_read, trail_PA_read, sigmag_read, sig_across_read, sig_along_read, known_obj_read, det_qual_read;
+  trail_len_read = trail_PA_read = sigmag_read = sig_across_read = sig_along_read = known_obj_read = det_qual_read = 0;
+  long i = 0;
+  char c='0';
+  
+  
+  instream1.open(indetfile);
+  if(!instream1) {
+    cerr << "can't open input file " << indetfile << "\n";
+    return(1);
+  }
+  // Skip one-line header
+  getline(instream1,lnfromfile);
+  lct++;
+  //cout << lnfromfile << "\n";
+  reachedeof = 0;
+  while(reachedeof==0) {
+    getline(instream1,lnfromfile);
+    lct++;
+    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) ; // Read on.
+    else if(instream1.eof()) reachedeof=1; //End of file, fine.
+    else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+    else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+    i=0;
+    j = 0;
+    c='0';
+    mjdread = raread = decread = magread = idread = bandread = obscoderead = 0;
+    trail_len_read = trail_PA_read = sigmag_read = sig_across_read = known_obj_read = det_qual_read = 0;
+    MJD = RA = Dec = 0.0l;
+    mag = -99.99;
+    trail_len = 0.0;
+    trail_PA = 90.0;
+    sigmag = 9.999;
+    sig_across = sig_along = 1.0;
+    stringncopy01(idstring,"",SHORTSTRINGLEN);
+    stringncopy01(obscode,"500",MINSTRINGLEN);
+    stringncopy01(band,"V",MINSTRINGLEN);
+    image = -1;
+    known_obj = det_qual = index = -1;
+
+    while(i<long(lnfromfile.size()) && lnfromfile.size()>=30 && reachedeof == 0) {
+      // Note check on line length: it is completely impossible for a
+      // line containing all the required quantities at minimum plausible
+      // precision to be less than 30 characters long.
+      c='0';
+      stest="";
+      while(i<long(lnfromfile.size()) && c!=',' && c!='\n' && c!=EOF) {
+	c=lnfromfile[i];
+	if(c!=',' && c!='\n' && c!=EOF) stest.push_back(c);
+	i++;
+      }
+      // We just finished reading something
+      j++;
+      if(j==mjdcol) {
+	MJD=stold(stest);
+	mjdread=1;
+      } else if(j==racol) {
+	RA=stold(stest);
+	raread=1;
+      } else if(j==deccol) {
+	Dec=stold(stest);
+	decread=1;
+      } else if(j==magcol) {
+	mag=stod(stest);
+	magread=1;
+      } else if(j==trail_len_col) {
+	trail_len=stod(stest);
+	trail_len_read=1;
+      } else if(j==trail_PA_col) {
+	trail_PA=stod(stest);
+	trail_PA_read=1;
+      } else if(j==sigmag_col) {
+	sigmag=stod(stest);
+	sigmag_read=1;
+      } else if(j==sig_across_col) {
+	sig_across=stod(stest);
+	sig_across_read=1;
+      } else if(j==sig_along_col) {
+	sig_along=stod(stest);
+	sig_along_read=1;
+      } else if(j==idcol) {
+	stringncopy01(idstring,stest,SHORTSTRINGLEN);
+	idread=1;
+      } else if(j==bandcol) {
+	stringncopy01(band,stest,MINSTRINGLEN);
+	bandread=1;
+      } else if(j==obscodecol) {
+	stringncopy01(obscode,stest,MINSTRINGLEN);
+	obscoderead=1;
+      } else if(j==known_obj_col) {
+	known_obj=stol(stest);
+	known_obj_read=1;
+      } else if(j==det_qual_col) {
+	det_qual=stol(stest);
+	det_qual_read=1;
+      } 
+      // cout<<"Column "<< j << " read as " << stest << ".\n";
+    }
+    if(reachedeof == 0 && lnfromfile.size()>=30) {
+      if(!mjdread) {
+	cerr << "ERROR: MJD not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	return(2);
+      }
+      if(!raread) {
+	cerr << "ERROR: RA not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	return(2);
+      }
+      if(!decread) {
+	cerr << "ERROR: Dec not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	return(2);
+      }
+      if(!magread) {
+	if(forcerun) {
+	  mag = 99.999;
+	  if(verbose>=2) {
+	    cerr << "WARNING: magnitude not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	    cerr << "magnitude will be set to 99.999\n";
+	  }
+	} else {
+	  cerr << "ERROR: magnitude not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	  return(2);
+	}
+      }
+      if(!bandread) {
+	if(forcerun) {
+	  stringncopy01(band,"V",MINSTRINGLEN);
+	  if(verbose>=2) {
+	    cerr << "WARNING: photometric band not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	    cerr << "band will be set to V\n";
+	  }
+	} else {
+	  cerr << "ERROR: photometric band not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	  cerr << "bandcol = " << bandcol << " line: " << lnfromfile << "\n";
+	  return(2);
+	}
+      }
+      if(!obscoderead) {
+	if(forcerun) {
+	  stringncopy01(obscode,"500",MINSTRINGLEN);
+	  if(verbose>=1) {
+	    cerr << "WARNING: observatory code not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	    cerr << "observatory code will be set to 500 (Geocentric)\n";
+	  }
+	} else {
+	  cerr << "ERROR: observatory code not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	  return(2);
+	}
+      }
+      if(!idread) {
+	if(forcerun) {
+	  stringncopy01(idstring,"null",SHORTSTRINGLEN);
+	  if(verbose>=2) {
+	    cerr << "WARNING: ID not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	    cerr << "String ID will be set to null.\n";
+	  }
+	} else {
+	  cerr << "ERROR: String ID not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	  return(2);
+	}
+      }
+      if(verbose>=2 && !trail_len_read) {
+	cerr << "Warning: trail length not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+      }
+      if(verbose>=2 && !trail_PA_read) {
+	cerr << "Warning: trail PA not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+      }
+      if(verbose>=2 && !sigmag_read) {
+	cerr << "Warning: magnitude uncertainty sigmag not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+      }
+      if(verbose>=2 && !sig_across_read) {
+	cerr << "Warning: cross-trail astrometric uncertainty sig_across not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+      }
+      if(verbose>=2 && !known_obj_read) {
+	cerr << "Warning: known object specifier not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+      }
+      if(verbose>=2 && !det_qual_read) {
+	cerr << "Warning: detection quality specifier not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+      }
+      o1=hldet(MJD, RA, Dec, mag, trail_len, trail_PA, sigmag, sig_across, sig_along, image, idstring, band, obscode, known_obj, det_qual, -lct);
+      detvec.push_back(o1);
+    }
+  }
+  instream1.close();
+  
+  if(reachedeof==1) { 
+    cout << "Input file " << indetfile << " read successfully to the end.\n";
+    return(0);
+  } else if(reachedeof==0) {
+    cerr << "ERROR: Stopped reading file " << indetfile << " before the end\n";
+    return(1);
+  } else if(reachedeof==-1) {
+    cerr << "Warning: file read failed\n";
+    return(1);
+  } else if(reachedeof==-2) {
+    cerr << "Warning: file possibly corrupted\n";
+    return(2);
+  } else return(reachedeof);
+}
+
+// read_pairdet_file: April 20, 2023:
+// Read a paired detection file produced by make_tracklets_new.
+int read_pairdet_file(string pairdetfile, vector <hldet> &detvec, int verbose)
+{
+  double MJD, RA, Dec;
+  MJD = RA = Dec = 0.0l;
+  float mag, trail_len, trail_PA, sigmag, sig_across, sig_along;
+  mag =  trail_len = trail_PA = sigmag = sig_across = sig_along = 0.0;
+  int image = 0;
+  char idstring[SHORTSTRINGLEN];
+  char band[MINSTRINGLEN];
+  char obscode[MINSTRINGLEN];
+  stringncopy01(idstring,"",SHORTSTRINGLEN);
+  stringncopy01(obscode,"500",MINSTRINGLEN);
+  stringncopy01(band,"V",MINSTRINGLEN);
+  long known_obj, det_qual, index;
+  known_obj = det_qual = index = 0;
+  hldet o1 = hldet(MJD, RA, Dec, mag, trail_len, trail_PA, sigmag, sig_across, sig_along, image, idstring, band, obscode, known_obj, det_qual, index);
+  ifstream instream1;
+  string lnfromfile,stest;
+  int badread=0;
+  int reachedeof=0;
+  int startpoint=0;
+  int endpoint=0;
+
+  detvec={};
+  
+  instream1.open(pairdetfile);
+  if(!instream1) {
+    cerr << "can't open input file " << pairdetfile << "\n";
+    return(1);
+  }
+  // Skip one-line header
+  getline(instream1,lnfromfile);
+  //cout << lnfromfile << "\n";
+  reachedeof = 0;
+  while(reachedeof==0) {
+    getline(instream1,lnfromfile);
+    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
+      // Read on.
+      // Read the MJD
+      startpoint=0;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { MJD = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read MJD string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      }
+      else badread=1;
+      // Read the RA
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { RA = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read RA string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the Dec
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { Dec = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read Dec string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the mag
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { mag = stof(stest); }
+	catch(...) { cerr << "ERROR: cannot read mag string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the trail_len
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { trail_len = stof(stest); }
+      catch(...) { cerr << "ERROR: cannot read trail_len string " << stest << " from line " << lnfromfile << "\n";
+	badread = 1; }
+      } else badread=1;
+      // Read the trail_PA
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { trail_PA = stof(stest); }
+	catch(...) { cerr << "ERROR: cannot read trail_PA string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      }
+      // Read the sigmag
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { sigmag = stof(stest); }
+	catch(...) { cerr << "ERROR: cannot read sigmag string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the sig_across
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { sig_across = stof(stest); }
+	catch(...) { cerr << "ERROR: cannot read sig_across string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      }
+      // Read the sig_along
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { sig_along = stof(stest); }
+	catch(...) { cerr << "ERROR: cannot read sig_along string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the image
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { image = stoi(stest); }
+	catch(...) { cerr << "ERROR: cannot read image string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the idstring
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) stringncopy01(idstring,stest,SHORTSTRINGLEN);
+      else badread=1;
+      // Read the band
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) stringncopy01(band,stest,MINSTRINGLEN);
+      else badread=1;
+      // Read the obscode
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) 	stringncopy01(obscode,stest,MINSTRINGLEN);
+      else badread=1;
+      // Read the known_obj
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { known_obj = stol(stest); }
+	catch(...) { cerr << "ERROR: cannot read known_obj string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the det_qual
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { det_qual = stol(stest); }
+	catch(...) { cerr << "ERROR: cannot read det_qual string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the index
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { index = stol(stest); }
+	catch(...) { cerr << "ERROR: cannot read origindex string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      if(badread==0) {
+	o1 = hldet(MJD, RA, Dec, mag, trail_len, trail_PA, sigmag, sig_across, sig_along, image, idstring, band, obscode, known_obj, det_qual, index);
+	detvec.push_back(o1);
+      }
+    } else if(instream1.eof()) reachedeof=1; //End of file, fine.
+    else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+    else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+    if(badread!=0) {
+      cerr << "ERROR reading paired detection file " << pairdetfile << "\n";
+      cerr << "Last point was " << detvec.size() << "; last file line was " << lnfromfile << "\n";
+      return(badread);
+    }
+  }
+  instream1.close();
+
+  if(badread!=0) {
+    cerr << "ERROR reading paired detection file " << pairdetfile << "\n";
+    return(badread);
+  } 
+  if(reachedeof==1) { 
+    if(verbose>=1) cout << "Input file " << pairdetfile << " read successfully to the end.\n";
+    return(0);
+  } else if(reachedeof==0) {
+    cerr << "ERROR: Stopped reading file " << pairdetfile << " before the end\n";
+    return(1);
+  } else if(reachedeof==-1) {
+    cerr << "ERROR: file read failed\n";
+    return(1);
+  } else if(reachedeof==-2) {
+    cerr << "Warning: file possibly corrupted\n";
+    return(2);
+  } else return(reachedeof);
+}
+
+// read_tracklet_file: April 20, 2023:
+// Read a tracklet file produced by make_tracklets_new.
+int read_tracklet_file(string trackletfile, vector <tracklet> &tracklets, int verbose)
+{
+  long Img1 = 0;
+  double RA1 = 0.0l;
+  double Dec1 = 0.0l;
+  long Img2 = 0;
+  double RA2 = 0.0l;
+  double Dec2 = 0.0l;
+  int npts = 0;
+  long trk_ID = 0;
+  tracklet one_tracklet = tracklet(Img1, RA1, Dec1, Img2, RA2, Dec2, npts, trk_ID);
+  ifstream instream1;
+  string stest,lnfromfile;
+  int badread=0;
+  int reachedeof=0;
+  int startpoint=0;
+  int endpoint=0;
+  
+  tracklets={};
+  
+  instream1.open(trackletfile);
+  if(!instream1) {
+    cerr << "can't open input file " << trackletfile << "\n";
+    return(1);
+  }
+  // Skip one-line header
+  getline(instream1,lnfromfile);
+  //cout << lnfromfile << "\n";
+  reachedeof = 0;
+  while(reachedeof==0) {
+    getline(instream1,lnfromfile);
+    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) ; // Read on.
+    else if(instream1.eof()) reachedeof=1; //End of file, fine.
+    else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+    else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+
+    if(reachedeof == 0) {
+      // Read Img1
+      startpoint=0;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { Img1 = stol(stest); }
+	catch(...) { cerr << "ERROR: cannot read Img1 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      }
+      else badread=1;
+      // Read RA1
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { RA1 = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read RA1 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read Dec1
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { Dec1 = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read Dec1 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read Img2
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { Img2 = stol(stest); }
+	catch(...) { cerr << "ERROR: cannot read Img2 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      }
+      else badread=1;
+      // Read RA2
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { RA2 = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read RA2 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read Dec2
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { Dec2 = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read Dec2 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read npts
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { npts = stoi(stest); }
+	catch(...) { cerr << "ERROR: cannot read npts string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read trk_ID
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { trk_ID = stol(stest); }
+	catch(...) { cerr << "ERROR: cannot read trk_ID string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      if(badread==0) {
+	one_tracklet = tracklet(Img1, RA1, Dec1, Img2, RA2, Dec2, npts, trk_ID);
+	tracklets.push_back(one_tracklet);
+      }
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad() && badread!=0) {
+	cerr << "ERROR reading tracklet file " << trackletfile << "\n";
+	return(badread);
+      }
+    }
+  }
+  instream1.close();
+
+  if(badread!=0) {
+    cerr << "ERROR reading tracklet file " << trackletfile << "\n";
+    return(badread);
+  } 
+  if(reachedeof==1) { 
+    if(verbose>=1) cout << "Input file " << trackletfile << " read successfully to the end.\n";
+    return(0);
+  } else if(reachedeof==0) {
+    cerr << "ERROR: Stopped reading file " << trackletfile << " before the end\n";
+    return(1);
+  } else if(reachedeof==-1) {
+    cerr << "ERROR: file read failed\n";
+    return(1);
+  } else if(reachedeof==-2) {
+    cerr << "Warning: file possibly corrupted\n";
+    return(2);
+  } else return(reachedeof);
+}
+
+// read_longpair_file: April 20, 2023:
+// Read a longpair file: e.g. trk2det or clust2det.
+int read_longpair_file(string pairfile, vector <longpair> &pairvec, int verbose)
+{
+  long i1 = 0;
+  long i2 = 0;
+  longpair onepair = longpair(i1,i2);
+  ifstream instream1;
+  string stest,lnfromfile;
+  int badread=0;
+  int reachedeof=0;
+  int startpoint=0;
+  int endpoint=0;
+
+  pairvec={};
+  instream1.open(pairfile);
+  if(!instream1) {
+    cerr << "can't open input file " << pairfile << "\n";
+    return(1);
+  }
+  reachedeof = 0;
+  while(reachedeof==0) {
+    getline(instream1,lnfromfile);
+    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) ; // Read on.
+    else if(instream1.eof()) reachedeof=1; //End of file, fine.
+    else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+    else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+    if(!isdigit(lnfromfile[0])) {
+      // Non-numerical: cannot be part of long pair.
+      // Skip this possible header or comment line.
+      continue;
+    }
+    if(reachedeof == 0) {
+      // Read i1
+      startpoint=0;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { i1 = stol(stest); }
+	catch(...) { cerr << "ERROR: cannot read i1 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      }
+      else badread=1;
+      // Read i2
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { i2 = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read i2 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      if(badread==0) {
+	onepair = longpair(i1,i2);
+	pairvec.push_back(onepair);
+      }
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad() && badread!=0) {
+	cerr << "ERROR reading long pair file " << pairfile << "\n";
+	return(badread);
+      }
+    }
+  }
+  instream1.close();
+
+  if(badread!=0) {
+    cerr << "ERROR reading long pair file " << pairfile << "\n";
+    return(badread);
+  } 
+  if(reachedeof==1) { 
+    if(verbose>=1) cout << "Input file " << pairfile << " read successfully to the end.\n";
+    return(0);
+  } else if(reachedeof==0) {
+    cerr << "ERROR: Stopped reading file " << pairfile << " before the end\n";
+    return(1);
+  } else if(reachedeof==-1) {
+    cerr << "ERROR: file read failed\n";
+    return(1);
+  } else if(reachedeof==-2) {
+    cerr << "Warning: file possibly corrupted\n";
+    return(2);
+  } else return(reachedeof);
+}
+
+// read_radhyp_file: April 20, 2023:
+// Read a file containing heliolinc radial motion hypotheses
+int read_radhyp_file(string hypfile, vector <hlradhyp> &accelmat, int verbose)
+{
+  double HelioRad = 0.0l;
+  double R_dot = 0.0l;
+  double R_dubdot = 0.0l;
+  hlradhyp onehyp = hlradhyp(HelioRad,R_dot,R_dubdot);
+  ifstream instream1;
+  string stest,lnfromfile;
+  int badread=0;
+  int reachedeof=0;
+  int startpoint=0;
+  int endpoint=0;
+  
+  accelmat={};
+    
+  instream1.open(hypfile);
+  if(!instream1) {
+    cerr << "can't open input file " << hypfile << "\n";
+    return(1);
+  }
+  reachedeof = 0;
+  while(reachedeof==0) {
+    getline(instream1,lnfromfile);
+    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) ; // Read on.
+    else if(instream1.eof()) reachedeof=1; //End of file, fine.
+    else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+    else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+    if(!isdigit(lnfromfile[0])) {
+      // Non-numerical: cannot be part of heliocentric motion hypothesis
+      // Skip this possible header or comment line.
+      continue;
+    }
+    if(reachedeof == 0) {
+      // Read HelioRad
+      startpoint=0;
+      if(badread==0) endpoint = get_sv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { HelioRad = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read HelioRad string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read R_dot
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_sv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { R_dot = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read R_dot string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read R_dubdot
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_sv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { R_dubdot = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read R_dubdot string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      if(badread==0) {
+	onehyp = hlradhyp(HelioRad,R_dot,R_dubdot);
+	accelmat.push_back(onehyp);
+      }
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad() && badread!=0) {
+	cerr << "ERROR reading heliolcentric motion hypothesis file " << hypfile << "\n";
+	cerr << "Last line was " << lnfromfile << " , last point was " << accelmat.size() << "\n";
+	return(badread);
+      }
+    }
+  }
+  instream1.close();
+
+  if(badread!=0) {
+    cerr << "ERROR reading long pair file " << hypfile << "\n";
+    return(badread);
+  } 
+  if(reachedeof==1) { 
+    if(verbose>=1) cout << "Input file " << hypfile << " read successfully to the end.\n";
+    return(0);
+  } else if(reachedeof==0) {
+    cerr << "ERROR: Stopped reading file " << hypfile << " before the end\n";
+    return(1);
+  } else if(reachedeof==-1) {
+    cerr << "ERROR: file read failed\n";
+    return(1);
+  } else if(reachedeof==-2) {
+    cerr << "Warning: file possibly corrupted\n";
+    return(2);
+  } else return(reachedeof);
+}
+
+// read_clustersum_file: April 21, 2023:
+// Read a cluster summary file produced by heliolinc_new or link_refine_Herget_new.
+int read_clustersum_file(string sumfile, vector <hlclust> &clustvec, int verbose)
+{
+  long clusternum=0;
+  double posRMS,velRMS,totRMS,astromRMS;
+  posRMS = velRMS = totRMS = astromRMS = 0.0l;
+  int pairnum=0;
+  double timespan=0.0l;
+  int uniquepoints=0;
+  int obsnights=0;
+  double metric=0.0l;
+  char rating[SHORTSTRINGLEN];
+  stringncopy01(rating,"NULL",SHORTSTRINGLEN);
+  double heliohyp0,heliohyp1,heliohyp2;
+  heliohyp0 = heliohyp1 = heliohyp2 = 0.0l;
+  double posX,posY,posZ,velX,velY,velZ;
+  posX = posY = posZ = velX = velY = velZ = 0.0l;
+  double orbit_a,orbit_e,orbit_MJD;
+  orbit_a = orbit_e = orbit_MJD = 0.0l;
+  double orbitX,orbitY,orbitZ,orbitVX,orbitVY,orbitVZ;
+  orbitX = orbitY = orbitZ = orbitVX = orbitVY = orbitVZ = 0.0l;
+  long orbit_eval_count=0;
+  hlclust onecluster = hlclust(clusternum, posRMS, velRMS, totRMS, astromRMS, pairnum, timespan, uniquepoints, obsnights, metric, rating, heliohyp0, heliohyp1, heliohyp2, posX, posY, posZ, velX, velY, velZ, orbit_a, orbit_e, orbit_MJD, orbitX, orbitY, orbitZ, orbitVX, orbitVY,  orbitVZ, orbit_eval_count);
+  ifstream instream1;
+  string lnfromfile,stest;
+  int badread=0;
+  int reachedeof=0;
+  int startpoint=0;
+  int endpoint=0;
+  
+  clustvec = {};
+  
+  instream1.open(sumfile);
+  if(!instream1) {
+    cerr << "can't open input file " << sumfile << "\n";
+    return(1);
+  }
+  // Skip one-line header
+  getline(instream1,lnfromfile);
+  //cout << lnfromfile << "\n";
+  reachedeof = 0;
+  while(reachedeof==0) {
+    getline(instream1,lnfromfile);
+    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
+      // Read on.
+      // Read the clusternum
+      startpoint=0;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { clusternum = stol(stest); }
+	catch(...) { cerr << "ERROR: cannot read clusternum string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      }
+      else badread=1;
+      // Read the posRMS
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { posRMS = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read posRMS string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the velRMS
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { velRMS = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read velRMS string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+       // Read the totRMS
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { totRMS = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read totRMS string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the astromRMS
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { astromRMS = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read astromRMS string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+     // Read the pairnum
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { pairnum = stoi(stest); }
+	catch(...) { cerr << "ERROR: cannot read pairnum string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the timespan
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { timespan = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read timespan string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the number of unique points
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { uniquepoints = stoi(stest); }
+      catch(...) { cerr << "ERROR: cannot read uniquepoints " << stest << " from line " << lnfromfile << "\n";
+	badread = 1; }
+      } else badread=1;
+      // Read the obsnights
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { obsnights = stoi(stest); }
+	catch(...) { cerr << "ERROR: cannot read obsnights string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      }
+      // Read the metric
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { metric = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read metric string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the rating
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) stringncopy01(rating,stest,SHORTSTRINGLEN);
+      else badread=1;
+      // Read heliohyp0
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { heliohyp0 = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read heliohyp0 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read heliohyp1
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { heliohyp1 = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read heliohyp1 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read heliohyp2
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { heliohyp2 = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read heliohyp2 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read posX
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { posX = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read posX string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read posY
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { posY = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read posY string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read posZ
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { posZ = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read posZ string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read velX
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { velX = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read velX string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read velY
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { velY = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read velY string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read velZ
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { velZ = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read velZ string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbit_a
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbit_a = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbit_a string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbit_e
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbit_e = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbit_e string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbit_MJD
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbit_MJD = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbit_MJD string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbitX
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbitX = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbitX string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbitY
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbitY = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbitY string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbitZ
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbitZ = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbitZ string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbitVX
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbitVX = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbitVX string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbitVY
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbitVY = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbitVY string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbitVZ
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbitVZ = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbitVZ string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbit_eval_count
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbit_eval_count = stol(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbit_eval_Count string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      if(badread==0) {
+	onecluster = hlclust(clusternum, posRMS, velRMS, totRMS, astromRMS, pairnum, timespan, uniquepoints, obsnights, metric, rating, heliohyp0, heliohyp1, heliohyp2, posX, posY, posZ, velX, velY, velZ, orbit_a, orbit_e, orbit_MJD, orbitX, orbitY, orbitZ, orbitVX, orbitVY,  orbitVZ, orbit_eval_count);
+	clustvec.push_back(onecluster);
+      }
+    } else if(instream1.eof()) reachedeof=1; //End of file, fine.
+    else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+    else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+    if(badread!=0) {
+      cerr << "ERROR reading cluster summary file " << sumfile << "\n";
+      cerr << "Last point was " << clustvec.size() << "; last file line was " << lnfromfile << "\n";
+      return(badread);
+    }
+  }
+  instream1.close();
+
+  if(badread!=0) {
+    cerr << "ERROR reading cluster summary file " << sumfile << "\n";
+    return(badread);
+  } 
+  if(reachedeof==1) { 
+    if(verbose>=1) cout << "Input file " << sumfile << " read successfully to the end.\n";
+    return(0);
+  } else if(reachedeof==0) {
+    cerr << "ERROR: Stopped reading file " << sumfile << " before the end\n";
+    return(1);
+  } else if(reachedeof==-1) {
+    cerr << "ERROR: file read failed\n";
     return(1);
   } else if(reachedeof==-2) {
     cerr << "Warning: file possibly corrupted\n";
@@ -12453,6 +14172,174 @@ int read_image_file(string inimfile, vector <img_log03> &img_log)
       // Requirement of MJD>0.0 tests that we read a plausibly
       // valid line.
       imlog=img_log03(MJD,RA,Dec,obscode,0,0);
+      img_log.push_back(imlog);
+    }
+  }
+  instream1.close();
+  if(reachedeof==1) {
+    cout << "Input file " << inimfile << " read successfully to the end.\n";
+    return(0);
+  }
+  else if(reachedeof==-1) {
+    cerr << "Warning: file read failed\n";
+    return(1);
+  } else if(reachedeof==-2) {
+    cerr << "Warning: file possibly corrupted\n";
+    return(2);
+  } else {
+    cerr << "Warning: unknown file read problem\n";
+    return(3);
+  }
+}
+
+// read_image_file: April 18, 2023: Read an input file
+// containing MJD, RA, Dec, obscode for a set of images,
+// and partially load a vector of type hlimage.
+int read_image_file(string inimfile, vector <hlimage> &img_log)
+{
+  hlimage imlog = hlimage(0.0l, 0.0l, 0.0l, "500", 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0, 0);
+  ifstream instream1;
+  int reachedeof,i,j;
+  reachedeof = i = j = 0;
+  char c = '0';
+  double MJD, RA, Dec;
+  MJD = RA = Dec = 0.0l;
+  string lnfromfile,stest;
+  char obscode[MINSTRINGLEN];
+
+  img_log={};
+  
+  // Read input image file: MJD, RA, Dec, obscode:
+  instream1.open(inimfile);
+  if(!instream1) {
+    cerr << "can't open input file " << inimfile << "\n";
+    return(1);
+  }
+  reachedeof=0;
+  while(reachedeof==0) {
+    getline(instream1,lnfromfile);
+    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) ; // Read on.
+    else if(instream1.eof()) reachedeof=1; //End of file, fine.
+    else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+    else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+    if(!isdigit(lnfromfile[0])) {
+      // This cannot be a valid MJD -- maybe it's a header line.
+      continue;
+    }
+    i=0;
+    j = 0;
+    c='0';
+    MJD=0.0l;
+    while(i<long(lnfromfile.size()) && reachedeof == 0) {
+      stest="";
+      c='0';
+      while(i<long(lnfromfile.size()) && c!=',' && c!=' ' && c!='\n' && c!=EOF) {
+	// We allow the file to be delimited by comma or space.
+	c=lnfromfile[i];
+	if(c!=',' && c!=' ' && c!='\n' && c!=EOF) stest.push_back(c);
+	i++;
+      }
+      // We just finished reading something
+      j++;
+      if(j==1) MJD=stod(stest); // We assume we have MJD, RA, Dec, obscode
+      else if(j==2) RA=stod(stest);
+      else if(j==3) Dec=stod(stest);
+      else if(j==4) stringncopy01(obscode,stest,MINSTRINGLEN);
+    }
+    if((reachedeof == 0 || reachedeof == 1) && MJD>0.0l) {
+      // Requirement of MJD>0.0 tests that we read a plausibly
+      // valid line.
+      imlog=hlimage(MJD,RA,Dec,obscode, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0, 0);
+      img_log.push_back(imlog);
+    }
+  }
+  instream1.close();
+  if(reachedeof==1) {
+    cout << "Input file " << inimfile << " read successfully to the end.\n";
+    return(0);
+  }
+  else if(reachedeof==-1) {
+    cerr << "Warning: file read failed\n";
+    return(1);
+  } else if(reachedeof==-2) {
+    cerr << "Warning: file possibly corrupted\n";
+    return(2);
+  } else {
+    cerr << "Warning: unknown file read problem\n";
+    return(3);
+  }
+}
+
+// read_image_file2: April 20, 2023: Read an input file
+// containing MJD, RA, Dec, obscode for a set of images,
+// and fully load a vector of type hlimage.
+int read_image_file2(string inimfile, vector <hlimage> &img_log)
+{
+  hlimage imlog = hlimage(0.0l, 0.0l, 0.0l, "500", 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0, 0);
+  ifstream instream1;
+  int reachedeof,i,j;
+  reachedeof = i = j = 0;
+  char c = '0';
+  double MJD, RA, Dec;
+  MJD = RA = Dec = 0.0l;
+  string lnfromfile,stest;
+  char obscode[MINSTRINGLEN];
+  double X, Y, Z, VX, VY, VZ;
+  X = Y = Z = VX = VY = VZ = 0.0l;
+  long startind=0;
+  long endind=0;
+  
+  img_log={};
+  
+  // Read input image file: MJD, RA, Dec, obscode:
+  instream1.open(inimfile);
+  if(!instream1) {
+    cerr << "can't open input file " << inimfile << "\n";
+    return(1);
+  }
+  reachedeof=0;
+  while(reachedeof==0) {
+    getline(instream1,lnfromfile);
+    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) ; // Read on.
+    else if(instream1.eof()) reachedeof=1; //End of file, fine.
+    else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+    else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+    if(!isdigit(lnfromfile[0])) {
+      // This cannot be a valid MJD -- maybe it's a header line.
+      continue;
+    }
+    i=0;
+    j = 0;
+    c='0';
+    MJD=0.0l;
+    while(i<long(lnfromfile.size()) && reachedeof == 0) {
+      stest="";
+      c='0';
+      while(i<long(lnfromfile.size()) && c!=',' && c!=' ' && c!='\n' && c!=EOF) {
+	// We allow the file to be delimited by comma or space.
+	c=lnfromfile[i];
+	if(c!=',' && c!=' ' && c!='\n' && c!=EOF) stest.push_back(c);
+	i++;
+      }
+      // We just finished reading something
+      j++;
+      if(j==1) MJD=stod(stest); // We assume we have MJD, RA, Dec, obscode
+      else if(j==2) RA=stod(stest);
+      else if(j==3) Dec=stod(stest);
+      else if(j==4) stringncopy01(obscode,stest,MINSTRINGLEN);
+      else if(j==5) X=stod(stest);
+      else if(j==6) Y=stod(stest);
+      else if(j==7) Z=stod(stest);
+      else if(j==8) VX=stod(stest);
+      else if(j==9) VY=stod(stest);
+      else if(j==10) VZ=stod(stest);
+      else if(j==11) startind=stol(stest);
+      else if(j==12) endind=stol(stest);
+    }
+    if((reachedeof == 0 || reachedeof == 1) && MJD>0.0l) {
+      // Requirement of MJD>0.0 tests that we read a plausibly
+      // valid line.
+      imlog=hlimage(MJD,RA,Dec,obscode, X, Y, Z, VX, VY, VZ, startind, endind);
       img_log.push_back(imlog);
     }
   }
@@ -12573,8 +14460,7 @@ int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indve
 	endind=i;
 	if(isnormal(mjdnorm)) mjdmean /= mjdnorm;
 	else mjdmean = 0.0;
-	//Load it into the vector with mean MJD for all images,
-	// and increment image count.
+	//Load it into the vector with mean MJD for all images.
 	if(DEBUGB==1) cout << "Working on image " << img_log.size() << ", detections from " << startind << " to " << endind << "\n";
 	imlog = img_log03(mjdmean,0.0,0.0,detvec[endind-1].obscode,startind,endind);
 	img_log.push_back(imlog);
@@ -12649,6 +14535,209 @@ int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indve
   }
   return(0);
 }
+
+// load_image_table: April 18, 2023: Construct an
+// image table in the form of a vector of type hlimage.
+// If the input image log is non-empty, assume it contains
+// the correct MJD, RA, and Dec, and augment it with
+// index information based on the input detvec. If the input
+// image log vector is empty, infer the number of images,
+// MJD, and approximate boresight RA, Dec from the entries
+// in the detection vector.
+// Also (THIS DIFFERS FROM EARLIER OVERLOADED FUNCTION),
+// calculate the observer's position and velocity at the instant
+// of each image. 
+int load_image_table(vector <hlimage> &img_log, const vector <hldet> &detvec, const vector <observatory> &observatory_list, const vector <double> &EarthMJD, const vector <point3d> &Earthpos, const vector <point3d> &Earthvel)
+{
+  hlimage imlog = hlimage(0.0l, 0.0l, 0.0l, "500", 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0, 0);
+  vector <hlimage> img_log_tmp = img_log;
+  img_log = {};
+  // We make a copy of the input image log and then wipe the original,
+  // because we are going to reload the original only with images that
+  // match detections in the detection catalog: we won't track images
+  // that had no detections.
+  
+  point3d p3 = point3d(0,0,0);
+  point3d p3avg = point3d(0,0,0);
+  int imct,detct,startind,endind,i;
+  imct = detct = startind = endind = i = 0;
+  double mjdnorm,mjdmean,tdelt;
+  mjdnorm = mjdmean = tdelt = 0.0l;
+  vector <double> x;
+  vector <double> y;
+  vector <double> z;
+  double obslon = 0.0l;
+  double plxcos = 0.0l;
+  double plxsin = 0.0l;
+  point3d obspos = point3d(0,0,0);
+  point3d obsvel = point3d(0,0,0);
+  int status=0;
+
+  if(DEBUGB==1) cout << "Inside load_image_table\n";
+  
+  if(img_log_tmp.size() > 0) {
+    // We received an input image table, and all we have to do is
+    // add the detection information to it.
+
+    // Find the indices in the time-sorted detection file
+    // that correspond to the earliest and latest detections
+    // on each image, and load these values into imglog02.
+    detct=0;
+    for(imct=0;imct<long(img_log_tmp.size());imct++) {
+      while(detct<long(detvec.size()) && detvec[detct].MJD < img_log_tmp[imct].MJD-IMAGETIMETOL/SOLARDAY) detct++; //Not on any image
+      if(detct<long(detvec.size()) && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log_tmp[imct].obscode,3)==0) {
+	// This should be the first detection on image imct.
+	img_log_tmp[imct].startind = detct;
+	while(detct<long(detvec.size()) && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log_tmp[imct].obscode,3)==0) detct++; //Still on this same image
+	// This should be the first detection on the next image
+	img_log_tmp[imct].endind = detct;
+      }
+      if(img_log_tmp[imct].startind >= 0 && img_log_tmp[imct].endind > 0) {
+	// This image is good: calculate the observer's position and velocity
+	// Look up observatory coordinates for this image.
+	status = obscode_lookup(observatory_list,img_log_tmp[imct].obscode,obslon,plxcos,plxsin);
+	if(status>0) {
+	  cerr << "ERROR: obscode_lookup failed for observatory code " << img_log[imct].obscode << "\n";
+	  return(3);
+	}
+	// Calculate observer's exact heliocentric position and velocity.
+	observer_baryvel01(img_log_tmp[imct].MJD, 5, obslon, plxcos, plxsin, EarthMJD, Earthpos, Earthvel, obspos, obsvel);
+	img_log_tmp[imct].X = obspos.x;
+	img_log_tmp[imct].Y = obspos.y;
+	img_log_tmp[imct].Z = obspos.z;
+	img_log_tmp[imct].VX = obsvel.x;
+	img_log_tmp[imct].VY = obsvel.y;
+	img_log_tmp[imct].VZ = obsvel.z;
+      
+	// Load the image to the output vector
+	img_log.push_back(img_log_tmp[imct]);
+      }
+    }
+  } else {
+    if(DEBUGB==1) cout << "Creating new image table\n";
+
+    // No input image file was supplied: we have to create one from
+    // the sorted detection file.
+    mjdnorm = 1.0;
+    mjdmean = detvec[0].MJD;
+    startind=0;
+    for(i=1;i<long(detvec.size());i++) {
+      tdelt = detvec[i].MJD - detvec[i-1].MJD;
+      if(tdelt < IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[i].obscode,detvec[i-1].obscode,3)==0) {
+	//This point corresponds to the same image as the previous one.
+	mjdmean += detvec[i].MJD;
+	mjdnorm += 1.0;
+      }
+      else {
+	//Now we are considering a new image.
+	//Calculate the meanmjd of the previous image, for which
+	// we have now seen all points.
+	//Record the current detct i as the detection index just
+	//after the end of the previous image
+	endind=i;
+	// Calculate the mean MJD
+	if(isnormal(mjdnorm)) mjdmean /= mjdnorm;
+	else mjdmean = 0.0;
+	if(!isnormal(mjdmean) || mjdmean<=0.0l) {
+	  cerr << "ERROR: invalid mean MJD for image " << img_log.size() << "\n";
+	  return(4);
+	}
+	// Look up the observatory code, so we can get the observer's
+	// exact position and velocity.
+	status = obscode_lookup(observatory_list,detvec[endind-1].obscode,obslon,plxcos,plxsin);
+	if(status>0) {
+	  cerr << "ERROR: obscode_lookup failed for observatory code " << img_log[imct].obscode << "\n";
+	  return(3);
+	}
+	// Calculate observer's exact heliocentric position and velocity.
+	observer_baryvel01(mjdmean, 5, obslon, plxcos, plxsin, EarthMJD, Earthpos, Earthvel, obspos, obsvel);
+	imlog = hlimage(mjdmean,0.0,0.0,detvec[endind-1].obscode,obspos.x,obspos.y,obspos.z,obsvel.x,obsvel.y,obsvel.z,startind,endind);
+	//Load it into the vector with mean MJD for all images.
+	if(DEBUGB==1) cout << "Working on image " << img_log.size() << ", detections from " << startind << " to " << endind << "\n";
+	img_log.push_back(imlog);
+	// Set up for the next image, starting with detvec[i].MJD;
+	mjdmean = detvec[i].MJD;
+	mjdnorm = 1.0;
+	startind=i;
+      }
+    }
+    // Account for the final image.
+    if(isnormal(mjdnorm)) {
+      endind=detvec.size(); // Used to be endind=i, change eliminated an OS-dependent segfault.
+      if(DEBUGB==1) cout << "Working on final image, " << img_log.size() << ", detections from " << startind << " to " << endind << "\n";
+      mjdmean /= mjdnorm;
+      // Look up the observatory code, so we can get the observer's
+      // exact position and velocity.
+      status = obscode_lookup(observatory_list,detvec[endind-1].obscode,obslon,plxcos,plxsin);
+      if(status>0) {
+	cerr << "ERROR: obscode_lookup failed for observatory code " << img_log[imct].obscode << "\n";
+	return(3);
+      }
+      // Calculate observer's exact heliocentric position and velocity.
+      observer_baryvel01(mjdmean, 5, obslon, plxcos, plxsin, EarthMJD, Earthpos, Earthvel, obspos, obsvel);
+      imlog = hlimage(mjdmean,0.0,0.0,detvec[endind-1].obscode,obspos.x,obspos.y,obspos.z,obsvel.x,obsvel.y,obsvel.z,startind,endind);
+      
+      //Load it into the vector with mean MJD for all images,
+      // and increment image count.
+      imlog = hlimage(mjdmean,0.0,0.0,detvec[endind-1].obscode,obspos.x,obspos.y,obspos.z,obsvel.x,obsvel.y,obsvel.z,startind,endind);
+      img_log.push_back(imlog);
+    }
+
+    //We've now loaded the mean MJDs and the starting and ending
+    //detection table indices for each image; it still remains to
+    //get the mean RA and Dec.
+   
+    long detnum = detvec.size();
+    long imnum = img_log.size();
+    cout << img_log.size() << " unique images were identified.\n";
+    cout << "Given our total of " << detvec.size() << " detections,\n";
+    cout << "we have " << double(detvec.size())/double(img_log.size()) << " detections per image, on average\n";
+
+    // Find the number of detections and the average RA, Dec on each image.
+    // We perform the average after projection onto the unit circle, to
+    // avoid wrapping issues.
+    detct=imct=0;
+    while( imct<imnum && detct<detnum ) {
+      int num_dets=0;
+      p3avg = point3d(0,0,0);
+      x = y = z ={};
+      while(detct<detnum && detvec[detct].MJD < img_log[imct].MJD + IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)==0) {
+	num_dets++; //Keep count of detections on this image
+	p3 =  celeproj01(detvec[detct].RA,detvec[detct].Dec); // Project current detection
+	x.push_back(p3.x); // Note that the projection from spherical to Cartesian
+	y.push_back(p3.y); // coordinates avoids angle-wrapping issues.
+	z.push_back(p3.z);
+	detct++;
+      }
+      // If we got here, we must just have finished with an image.
+      // Calculate the averages of the extrema:
+      if(num_dets>0) {
+	p3avg.x = avg_extrema(x); // Because the sources on an image could be distributed
+	p3avg.y = avg_extrema(y); // very non-uniformly, the average of the extrema is
+	p3avg.z = avg_extrema(z); // a better indicator for the image center than either
+	                          // the mean or the median.
+	i=celedeproj01(p3avg, &img_log[imct].RA, &img_log[imct].Dec);
+	if(i==0) ; // All is well.
+	else if(i==1) {
+	  cout << "Warning: vector of zeros fed to celedeproj01\n";
+	  img_log[imct].RA = img_log[imct].Dec = 0.0;
+	}
+	else if(i==2) {
+	  cout << "Warning: impossible z value " << p3avg.z << " fed to celedeproj01\n";
+	  img_log[imct].RA = img_log[imct].Dec = 0.0;
+	}
+	else {
+	  cout << "Warning: unspecified failure from celedeproj01 with\n";
+	  cout << "input " << p3avg.x << " " << p3avg.y << " " << p3avg.z << "\n";
+	  img_log[imct].RA = img_log[imct].Dec = 0.0;
+	}
+      }
+      imct++;
+    }
+  }
+  return(0);
+}
+
 
 #undef DEBUGB
 
@@ -13261,7 +15350,7 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
 	    // aligned tracklet was found and written to the output file.
 	  } else {
 	    istracklet=0;
-	    cout << "A tracklet was rejected: arc = " << setprecision(3) << fixed << dist << " < " << minarc << " or angvel = " << setprecision(5) << fixed << angvel << " not in range " << setprecision(3) << fixed << minvel << "-" << maxvel << "\n";
+	    if(verbose>=1) cout << "A tracklet was rejected: arc = " << setprecision(3) << fixed << dist << " < " << minarc << " or angvel = " << setprecision(5) << fixed << angvel << " not in range " << setprecision(3) << fixed << minvel << "-" << maxvel << "\n";
 	  }
 	} else istracklet=0;
 	// Close else-statement confirming there was a candidate for
@@ -13578,22 +15667,9 @@ vector <long> tracklet_lookup(const vector <longpair> &trk2det, long trknum)
 // position for the Earth from a vector of the new EarthState struct.
 point3d earthpos01(const vector <EarthState> &earthpos, double mjd)
 {
-  long earthnum = earthpos.size();
-  long i=0;
   point3d earthnow = point3d(0,0,0);
-  vector <double> posmjd;
-  vector <point3d> planetpos;
-  int status = 0;
   int polyorder=EPH_INTERP_POLYORDER;
-  
-  posmjd={};
-  planetpos={};
-  for(i=0; i<earthnum; i++) {
-    posmjd.push_back(earthpos[i].MJD);
-    earthnow = point3d(earthpos[i].x, earthpos[i].y, earthpos[i].z);
-    planetpos.push_back(earthnow);
-  }  
-  status = planetpos01(mjd, polyorder, posmjd, planetpos, earthnow);
+  int status = planetpos01(mjd, polyorder, earthpos, earthnow); 
   if(status==0) return(earthnow);
   else {
     cerr << "ERROR: ephemeris interpolation code planetpos01,\n";
@@ -14063,17 +16139,17 @@ int link_refine_Herget(const vector <hlimage> &image_log, const vector <hldet> &
 	endpos.z -= observerpos[ptnum-1].z;
 	geodist2 = vecabs3d(endpos)/AU_KM;
 	simplex_scale = SIMPLEX_SCALEFAC;
-	if(config.verbose>=1) {
+	if(config.verbose>=2) {
 	  cout << "Calling Hergetfit01 with dists " << geodist1 << " and " << geodist2 << "\n";
 	}
-	if(config.verbose>=1) {
+	if(config.verbose>=2) {
 	  cout << "Launching Hergetfit01 for cluster " << inclustct << ":\n";
 	  for(i=0;i<=ptnum;i++) {
 	    cout << "Point " << i << ": " << obsMJD[i] << " " << obsRA[i] << " "  << obsDec[i] << " " << sigastrom[i] << "\n";
 	  }
 	}
-	cout << "Cluster " << inclustct << " of " << inclustnum << " is good: ";
-	if(config.verbose>=1) cout << "\n";
+	if(config.verbose>=1) cout << "Cluster " << inclustct << " of " << inclustnum << " is good: ";
+	if(config.verbose>=2) cout << "\n";
 	chisq = Hergetfit01(geodist1, geodist2, simplex_scale, config.simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, config.verbose);
 	// orbit vector contains: semimajor axis [0], eccentricity [1],
 	// mjd at epoch [2], the state vectors [3-8], and the number of

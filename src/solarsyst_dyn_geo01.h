@@ -559,6 +559,13 @@ public:
   }
 };
 
+class early_hlimage{
+public:
+  inline bool operator() (const hlimage& i1, const hlimage& i2) {
+    return(i1.MJD < i2.MJD || (i1.MJD == i2.MJD && stringnmatch01(i1.obscode,i2.obscode,3)==-1));
+  }
+};
+
 class longpair{ // Pair of long integers
 public:
   long i1;
@@ -1236,18 +1243,18 @@ public:
 };
 
 struct EarthState {
-    long double MJD;
-    long double x;
-    long double y;
-    long double z;
-    long double vx;
-    long double vy;
-    long double vz;
+    double MJD;
+    double x;
+    double y;
+    double z;
+    double vx;
+    double vy;
+    double vz;
 
     EarthState() = default;
 
-    EarthState(long double MJD, long double x, long double y, long double z,
-               long double vx, long double vy, long double vz)
+    EarthState(double MJD, double x, double y, double z,
+               double vx, double vy, double vz)
             : MJD(MJD), x(x), y(y), z(z), vx(vx), vy(vy), vz(vz) {}
 };
 
@@ -1311,8 +1318,12 @@ int celestial_to_statevec(double RA, double Dec,double delta,point3d &baryvec);
 int celestial_to_statevecLD(long double RA, long double Dec,long double delta,point3LD &baryvec);
 int celestial_to_stateunit(double RA, double Dec,point3d &baryvec);
 int celestial_to_stateunitLD(long double RA, long double Dec, point3LD &baryvec);
+int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint);
+int get_sv_string01(const string &lnfromfile, string &outstring, int startpoint);
 int read_horizons_file(string infile, vector <double> &mjdvec, vector <point3d> &pos, vector <point3d> &vel);
 int read_horizons_fileLD(string infile, vector <long double> &mjdvec, vector <point3LD> &pos, vector <point3LD> &vel);
+int read_horizons_csv(string infile, vector <double> &mjdvec, vector <point3d> &pos, vector <point3d> &vel);
+int read_horizons_csv(string infile, vector <EarthState> &earthpos);
 int poleswitch01(const double &inRA, const double &inDec, const double &poleRA, const double &poleDec, const double &oldpoleRA, double &newRA, double &newDec);
 int poleswitch01LD(const long double &inRA, const long double &inDec, const long double &poleRA, const long double &poleDec, const long double &oldpoleRA, long double &newRA, long double &newDec);
 int poleswitch02(const double &inRA, const double &inDec, const double &poleRA, const double &poleDec, const double &oldpoleRA, double &newRA, double &newDec);
@@ -1324,14 +1335,17 @@ int solvematrix01LD(const vector <vector <long double>> &inmat, int eqnum, vecto
 int perfectpoly01(const vector <double> &x, const vector <double> &y, vector <double> &fitvec);
 int perfectpoly01LD(const vector <long double> &x, const vector <long double> &y, vector <long double> &fitvec);
 int planetpos01(double detmjd, int polyorder, const vector <double> &posmjd, const vector <point3d> &planetpos, point3d &outpos);
+int planetpos01(double detmjd, int polyorder, const vector <EarthState> &planetpos, point3d &outpos);
 int planetpos01LD(long double detmjd, int polyorder, const vector <long double> &posmjd, const vector <point3LD> &planetpos, point3LD &outpos);
 int planetposvel01(double detmjd, int polyorder, const vector <double> &posmjd, const vector <point3d> &planetpos, const vector <point3d> &planetvel, point3d &outpos, point3d &outvel);
+int planetposvel01(double detmjd, int polyorder, const vector <EarthState> &planetpos, point3d &outpos, point3d &outvel);
 int planetposvel01LD(long double detmjd, int polyorder, const vector <long double> &posmjd, const vector <point3LD> &planetpos, const vector <point3LD> &planetvel, point3LD &outpos, point3LD &outvel);
 int nplanetpos01LD(long double detmjd, int planetnum, int polyorder, const vector <long double> &posmjd, const vector <point3LD> &planetpos, vector <point3LD> &outpos);
 int nplanetgrab01LD(int pointrequest, int planetnum, const vector <long double> &posmjd, const vector <point3LD> &planetpos, vector <point3LD> &outpos);
 int observer_barycoords01(double detmjd, int polyorder, double lon, double obscos, double obssine, const vector <double> &posmjd, const vector <point3d> &planetpos, point3d &outpos);
 int observer_barycoords01LD(long double detmjd, int polyorder, long double lon, long double obscos, long double obssine, const vector <long double> &posmjd, const vector <point3LD> &planetpos, point3LD &outpos);
 int observer_baryvel01(double detmjd, int polyorder, double lon, double obscos, double obssine, const vector <double> &posmjd, const vector <point3d> &planetpos, const vector <point3d> &planetvel, point3d &outpos, point3d &outvel);
+int observer_baryvel01(double detmjd, int polyorder, double lon, double obscos, double obssine, const vector <EarthState> &earthpos, point3d &outpos, point3d &outvel);
 int helioproj01(point3d unitbary, point3d obsbary,double heliodist,double &geodist, point3d &projbary);
 int helioproj01LD(point3LD unitbary, point3LD obsbary, long double heliodist, long double &geodist, point3LD &projbary);
 int helioproj02LD(point3LD unitbary, point3LD obsbary, long double heliodist, vector <long double> &geodist, vector <point3LD> &projbary);
@@ -1363,7 +1377,6 @@ int multilinfit02b(const vector <double> &yvec, const vector <double> &varvec, c
 int arc2cel01(double racenter,double deccenter,double dist,double pa,double &outra,double &outdec);
 int obscode_lookup(const vector <observatory> &observatory_list, const char* obscode, double &obslon, double &plxcos,double &plxsin);
 string intzero01i(const int i, const int n);
-int get_csv_string01(const string &lnfromfile, string &outstring, int startpoint);
 int get_col_vector01(const string &lnfromfile, vector <string> &outvec);
 int mjd2mpcdate(double MJD,int &year,int &month,double &day);
 int stringline01(const string &lnfromfile, vector <string> &outstrings);
@@ -1422,10 +1435,20 @@ double MPCcal2MJD(int year, int month, double day);
 int mpc80_parseline(const string &lnfromfile, string &object, double *MJD, double *RA, double *Dec, double *mag, string &band, string &obscode);
 double mpc80_mjd(const string &lnfromfile);
 int read_obscode_file(string obscodefile,  vector <observatory> &observatory_list);
+int read_obscode_file2(string obscodefile,  vector <observatory> &observatory_list, int verbose);
 int read_detection_filemt(string indetfile, int idcol, int mjdcol, int racol, int deccol, int magcol,int bandcol, int obscodecol, vector <det_obsmag_indvec> &detvec, int forcerun);
+int read_detection_filemt2(string indetfile, int mjdcol, int racol, int deccol, int magcol, int idcol, int bandcol, int obscodecol, int trail_len_col, int trail_PA_col, int sigmag_col, int sig_across_col, int sig_along_col, int known_obj_col, int det_qual_col, vector <hldet> &detvec, int verbose, int forcerun);
+int read_pairdet_file(string pairdetfile, vector <hldet> &detvec, int verbose);
+int read_tracklet_file(string trackletfile, vector <tracklet> &tracklets, int verbose);
+int read_longpair_file(string pairfile, vector <longpair> &pairvec, int verbose);
+int read_radhyp_file(string hypfile, vector <hlradhyp> &accelmat, int verbose);
+int read_clustersum_file(string sumfile, vector <hlclust> &clustvec, int verbose);
 double avg_extrema(const vector <double> &x);
 int read_image_file(string inimfile, vector <img_log03> &img_log);
+int read_image_file(string inimfile, vector <hlimage> &img_log);
+int read_image_file2(string inimfile, vector <hlimage> &img_log);
 int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indvec> &detvec);
+int load_image_table(vector <hlimage> &img_log, const vector <hldet> &detvec, const vector <observatory> &observatory_list, const vector <double> &Earthmjd, const vector <point3d> &Earthpos, const vector <point3d> &Earthvel);
 int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double imagetimetol, int forcerun);
 int find_pairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <hldet> &pairdets, vector <vector <long>> &indvecs, vector <longpair> &pairvec, double mintime, double maxtime, double imrad, double maxvel, int verbose);
 int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs, const vector <longpair> &pairvec, vector <tracklet> &tracklets, vector <longpair> &trk2det, int mintrkpts, double maxgcr, double minarc, double minvel, double maxvel, int verbose);
