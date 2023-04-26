@@ -15106,6 +15106,10 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
       ppind={};
       for(j=0; j<long(indvecs[pdct].size()); j++) { // Loop over the pair-partners of detection pdct.
 	detct = indvecs[pdct][j]; // detct is the pairdets index of a pair-partner to detection pdct.
+	if(detct<0 || detct>=long(indvecs.size())) {
+	  cerr << "Error: merge_pairs attempting to query detct=" << detct << ", out of range 0-" << long(indvecs.size()) << " = " << detnum << "\n";
+	  return(8);
+	}
 	if(indvecs[detct].size()>0) {
 	  // Detection detct hasn't already been allocated to a tracklet,
 	  // and hence is available for inclusion in a new tracklet anchored by pdct.
