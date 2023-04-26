@@ -319,10 +319,10 @@ int main(int argc, char *argv[])
   
   if(default_maxrms==1) cout << "Defaulting to maximum cluster RMS = " << config.maxrms << " km\n";
   else cout << "User-specified maximum cluster RMS is " << config.maxrms << " km\n";
-  if(default_sumfile==1) cout << "WARNING: using default name " << sumfile << " for summary output file\n";
-  else cout << "summary output file " << sumfile << "\n";
-  if(default_clust2det==1) cout << "WARNING: using default name " << clust2detfile << " for output clust2det file\n";
-  else cout << "output clust2det file " << clust2detfile << "\n";
+  if(default_sumfile==1) cout << "WARNING: using default name " << outsumfile << " for summary output file\n";
+  else cout << "summary output file " << outsumfile << "\n";
+  if(default_clust2det==1) cout << "WARNING: using default name " << outclust2detfile << " for output clust2det file\n";
+  else cout << "output clust2det file " << outclust2detfile << "\n";
 
   image_log={};
   status=read_image_file2(imfile, image_log);
