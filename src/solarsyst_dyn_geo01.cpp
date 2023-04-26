@@ -14991,8 +14991,20 @@ int find_pairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <
 	      pairct++;
 	      apct++;
 	      // Load index of each detection into the paired index vector of the other
-	      indvecs[detvec[axyvec[detct].index].index].push_back(detvec[kdvec[matchpt].point.index].index);
-	      indvecs[detvec[kdvec[matchpt].point.index].index].push_back(detvec[axyvec[detct].index].index);
+	      if(detvec[kdvec[matchpt].point.index].index >= 0 && detvec[kdvec[matchpt].point.index].index <= long(detvec.size())) {
+		indvecs[detvec[axyvec[detct].index].index].push_back(detvec[kdvec[matchpt].point.index].index);
+	      } else {
+		cerr << "ERROR: trying to load out-of-range point " <<  detvec[kdvec[matchpt].point.index].index << " onto indvecs\n";
+		cerr << "Permitted range is 0 to " << detvec.size() << "\n";
+		return(8);
+	      }
+	      if(detvec[axyvec[detct].index].index >= 0 && detvec[axyvec[detct].index].index <= long(detvec.size())) {
+		indvecs[detvec[kdvec[matchpt].point.index].index].push_back(detvec[axyvec[detct].index].index);
+	      } else {
+		cerr << "ERROR: trying to load out-of-range point " << detvec[axyvec[detct].index].index  << " onto indvecs\n";
+		cerr << "Permitted range is 0 to " << detvec.size() << "\n";
+		return(8);
+	      }
 	    }
 	    // Close if-statement checking if image A detection was matched to anything.
 	  }
@@ -15061,6 +15073,19 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
   if(verbose) {
     cout << "Input vector lengths: pairdets: " << detnum << ", indvecs: " << indvecs.size() << ", pairvec: " << pairvec.size() << "\n";
   }
+
+  // Sanity-check indvecs
+  cout << "merge_pairs is sanity-checking indvecs\n";
+  for(detct=0; detct<detnum; detct++) {
+    for(i=0; i<=long(indvecs[detct].size()); i++) {
+      if(indvecs[detct][i]<0 || indvecs[detct][i]>=detnum) {
+	cerr << "ERROR: indvecs[" << detct << "][" << i << "] out of range: " << indvecs[detct][i] << "\n";
+	cerr << "Acceptable range is 0 to " << detnum << "\n";
+	return(9);
+      }
+    }
+  }
+  cout << "Sanity-check finished\n";
   
   tracklets={};
   trk2det={}; // Wipe output vectors.
@@ -15438,7 +15463,7 @@ int make_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrac
   long unsigned int i=0;
   std::vector <longpair> pairvec;
   std::vector <vector <long>> indvecs;
-   
+  
   // Echo config struct
   cout << "Configuration parameters:\n";
   cout << "Min. number of tracklet points: " << config.mintrkpts << "\n";
@@ -16314,6 +16339,33 @@ int link_refine_Herget(const vector <hlimage> &image_log, const vector <hldet> &
 #undef FTOL_HERGET_SIMPLEX
 #undef ESCAPE_SCALE
 
-
-
-
+// parse_clust2det: April 26, 2023:
+// Use the clust2det mapping vector produced by heliolinc or
+// link_refine to parse out clusters into a cluster detection
+// vector -- that is, a vector that includes detection records
+// only for the valid clusters. In the output hldet vector,
+// 'index' gets replaced with the cluster number.
+int parse_clust2det(const vector <hldet> &detvec, const vector <longpair> &inclust2det, vector <hldet> &clustdet)
+{
+  long detnum = detvec.size();
+  long c2dnum = inclust2det.size();
+  long detct=0;
+  long c2dct=0;
+  long clustct=0;
+  clustdet = {};
+  hldet o1 = hldet(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, "null", "V", "500", 0, 0, 0);
+  
+  for(c2dct=0; c2dct<c2dnum; c2dct++) {
+    clustct = inclust2det[c2dct].i1;
+    detct = inclust2det[c2dct].i2;
+    if(detct>=0 && detct<detnum) {
+      o1 = detvec[detct];
+      o1.index = clustct;
+      clustdet.push_back(o1);
+    } else {
+      cerr << "Warning: parse_clust2det tried to access out-of-range detection\n";
+      cerr << "number " << detct << ", while valid range is 0-" << detnum << "\n";
+    }
+  }
+  return(0);
+}
