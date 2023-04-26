@@ -15088,11 +15088,14 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
     if(long(indvecs[pdct].size()) > mintrkpts-1) { // Use mintrkpts-1 because the root detection pdct
                                                      // is itself is a potential point in the tracklet
       if(verbose>=1) {
-	cout << "Working on detection " << i << " = " << pdct << " of " << detnum << ", with " << pair_partner_num[i].lelem << " = " << indvecs[pdct].size() << " pair partners:\n";
-	for(j=0; j<long(indvecs[pdct].size()); j++) {
-	  cout << indvecs[pdct][j] << ", ";
-	}
-	cout << "\n";
+	cout << "Working on detection " << i << " = " << pdct << " of " << detnum << ", with " << pair_partner_num[i].lelem << " = " << indvecs[pdct].size() << " pair partners";
+	if(verbose>=3) {
+	  cout << ":\n";
+	  for(j=0; j<long(indvecs[pdct].size()); j++) {
+	    cout << indvecs[pdct][j] << ", ";
+	  }
+	  cout << "\n";
+	} else cout << "\n";
       }
       // Detection number pdct is paired with more than one
       // other detection.
