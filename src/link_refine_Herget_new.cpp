@@ -77,7 +77,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: link_refine_Herget_new -imgs imfile -pairdet pairdet_file -lflist link_file_list -mjd mjdref -simptype simplex_type -ptpow point_num_exponent -nightpow night_num_exponent -timepow timespan_exponent -rmspow astrom_rms_exponent -maxrms maxrms -outsum summary_file -clust2det clust2detfile -verbose verbosity\n\nOR, at minimum:\nlink_refine_Herget_new -imgs imfile -pairdet pairdet_file -lflist link_file_list -mjd mjdref -outfile outfile -outrms rmsfile\n";
+  cerr << "Usage: link_refine_Herget_new -imgs imfile -pairdet pairdet_file -lflist link_file_list -mjd mjdref -simptype simplex_type -ptpow point_num_exponent -nightpow night_num_exponent -timepow timespan_exponent -rmspow astrom_rms_exponent -maxrms maxrms -outsum summary_file -clust2det clust2detfile -verbose verbosity\n\nOR, at minimum:\nlink_refine_Herget_new -imgs imfile -pairdet pairdet_file -lflist link_file_list -mjd mjdref\n";
 }
 
 int main(int argc, char *argv[])
@@ -93,15 +93,21 @@ int main(int argc, char *argv[])
   vector <hlimage> image_log;
   vector <hldet> detvec;
   LinkRefineConfig config;
-  string imfile, pairdetfile,outsumfile,outclust2detfile,stest;
+  string imfile, pairdetfile,stest;
+  string outsumfile = "LRHsumfile_test.csv";
+  string outclust2detfile = "LRHclust2detfile_test.csv";
   ifstream instream1;
   ofstream outstream1;
   long i=0;
   long clustnum=0;
   int status=0;
   long clustct=0;
+  int default_simptype, default_ptpow, default_nightpow, default_timepow;
+  default_simptype = default_ptpow = default_nightpow = default_timepow = 1;
+  int default_rmspow, default_maxrms, default_sumfile, default_clust2det;
+  default_rmspow = default_maxrms = default_sumfile = default_clust2det = 1;
   
-  if(argc!=11 && argc!=13 && argc!=15 && argc!=17 && argc!=19 && argc!=21 && argc!=23 && argc!=25) {
+  if(argc<9) {
     show_usage();
     return(1);
   }
@@ -157,6 +163,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	config.simptype=stoi(argv[++i]);
+	default_simptype=0;
 	i++;
       }
       else {
@@ -168,6 +175,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	config.ptpow=stoi(argv[++i]);
+	default_ptpow=0;
 	i++;
       }
       else {
@@ -179,6 +187,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	config.nightpow=stoi(argv[++i]);
+	default_nightpow=0;
 	i++;
       }
       else {
@@ -190,6 +199,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	config.timepow=stoi(argv[++i]);
+	default_timepow=0;
 	i++;
       }
       else {
@@ -201,6 +211,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	config.rmspow=stoi(argv[++i]);
+	default_rmspow=0;
 	i++;
       }
       else {
@@ -223,6 +234,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	outsumfile=argv[++i];
+	default_sumfile=0;
 	i++;
       }
       else {
@@ -234,6 +246,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	outclust2detfile=argv[++i];
+	default_clust2det=0;
 	i++;
       }
       else {
@@ -257,17 +270,59 @@ int main(int argc, char *argv[])
       i++;
     }
   }
-    
+
+  // Catch required parameters if missing
+  if(imfile.size()<=0) {
+    cout << "\nERROR: input image catalog file is required\n";
+    show_usage();
+    return(1);
+  } else if(pairdetfile.size()<=0) {
+    cout << "\nERROR: input detection file is required\n";
+    show_usage();
+    return(1);
+  } else if(clusterlist.size()<=0) {
+    cout << "\nERROR: input cluster list file is required\n";
+    show_usage();
+    return(1);
+  } else if(config.MJDref<=0.0l) {
+    cout << "\nERROR: input reference MJD is required. Note that\n";
+    cout << "it should match the reference MJD used in the heliolinc run\n";
+    cout << "that produced the input files.\n";
+    show_usage();
+    return(1);
+  }
+
   cout << "input paired detection file " << pairdetfile << "\n";
   cout << "input cluster list file " << clusterlist << "\n";
   cout << "Reference MJD: " << config.MJDref << "\n";
+
   cout << "Maximum RMS in km: " << config.maxrms << "\n";
-  cout << "In calculating the cluster quality metric, the number of\nunique points will be raised to the power of " << config.ptpow << ";\n";
-  cout << "the number of unique nights will be raised to the power of " << config.nightpow << ";\n";
-  cout << "the total timespan will be raised to the power of " << config.timepow << ";\n";
-  cout << "and the astrometric RMS will be raised to the power of (negative) " << config.rmspow << "\n";
   cout << "output cluster file " << outclust2detfile << "\n";
   cout << "output rms file " << outsumfile << "\n";
+
+  if(default_simptype==1) cout << "Defaulting to simplex type = " << config.simptype << "\n";
+  else cout << "user-specified simplex type " << config.simptype << "\n\n";
+  
+  cout << "In calculating the cluster quality metric, the number of\n";
+  cout << "unique points will be raised to the power of " << config.ptpow << ",\n";
+  if(default_ptpow==1) cout << "which is the default.\n";
+  else cout << "as specified by the user.\n";
+  cout << "The number of unique nights will be raised to the power of " << config.nightpow << ",\n";
+  if(default_nightpow==1) cout << "which is the default.\n";
+  else cout << "as specified by the user.\n";
+  cout << "The total timespan will be raised to the power of " << config.timepow << ",\n";
+  if(default_timepow==1) cout << "which is the default.\n";
+  else cout << "as specified by the user.\n";
+  cout << "Finally, the astrometric RMS will be raised to the power of (negative) " << config.rmspow << ",\n";
+  if(default_rmspow==1) cout << "which is the default.\n";
+  else cout << "as specified by the user.\n\n";
+  
+  if(default_maxrms==1) cout << "Defaulting to maximum cluster RMS = " << config.maxrms << " km\n";
+  else cout << "User-specified maximum cluster RMS is " << config.maxrms << " km\n";
+  if(default_sumfile==1) cout << "WARNING: using default name " << sumfile << " for summary output file\n";
+  else cout << "summary output file " << sumfile << "\n";
+  if(default_clust2det==1) cout << "WARNING: using default name " << clust2detfile << " for output clust2det file\n";
+  else cout << "output clust2det file " << clust2detfile << "\n";
 
   image_log={};
   status=read_image_file2(imfile, image_log);

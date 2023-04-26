@@ -15053,6 +15053,15 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
   int rp1,rp2,instep;
   rp1=rp2=instep=0;
 
+  if(detnum != long(indvecs.size())) {
+    cerr << "ERROR: merge_pairs received input vectors pairdets and indvecs\n";
+    cerr << "with different lengths (" << detnum << " and " << indvecs.size() << "\n";
+    return(4);
+  }
+  if(verbose) {
+    cout << "Input vector lengths: pairdets: " << detnum << ", indvecs: " << indvecs.size() << ", pairvec: " << pairvec.size() << "\n";
+  }
+  
   tracklets={};
   trk2det={}; // Wipe output vectors.
   
@@ -15060,6 +15069,11 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
   for(i=0;i<detnum;i++) {
     ppn = long_index(indvecs[i].size(),i);
     pair_partner_num.push_back(ppn);
+  }
+  if(detnum != long(pair_partner_num.size())) {
+    cerr << "ERROR: newly constructed vector pair_partner_num in  merge_pairs\n";
+    cerr << "is not the same length as pairdets vector (" << detnum << " vs " << pair_partner_num.size() << "\n";
+    return(4);
   }
   // Sort the new vector by number of pair-partners
   sort(pair_partner_num.begin(), pair_partner_num.end(), lower_long_index());
@@ -15073,8 +15087,8 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
     istracklet=0; // Assume there is no tracklet unless one is confirmed to exist.
     if(long(indvecs[pdct].size()) > mintrkpts-1) { // Use mintrkpts-1 because the root detection pdct
                                                      // is itself is a potential point in the tracklet
-      if(DEBUG>=2) {
-	cout << "Working on detection " << i << " = " << pdct << " with " << pair_partner_num[i].lelem << " = " << indvecs[pdct].size() << " pair partners:\n";
+      if(verbose>=1) {
+	cout << "Working on detection " << i << " = " << pdct << " of " << detnum << ", with " << pair_partner_num[i].lelem << " = " << indvecs[pdct].size() << " pair partners:\n";
 	for(j=0; j<long(indvecs[pdct].size()); j++) {
 	  cout << indvecs[pdct][j] << ", ";
 	}
@@ -15102,7 +15116,7 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
 	                       // indices of mutually consistent pair partners on the next step
 	}
       }
-      if(DEBUG>=2) cout << "Loaded axyvec and ppset vectors OK, with sizes " << axyvec.size() << " and " << ppset.size() << "\n";
+      if(verbose>=2) cout << "Loaded axyvec and ppset vectors OK, with sizes " << axyvec.size() << " and " << ppset.size() << "\n";
       if(axyvec.size() != ppset.size() || axyvec.size() != ppind.size()) {
 	cerr << "ERROR: vectors of projected and original\n";
 	cerr << "pair partner candidates do not have the same length!\n";
@@ -15130,7 +15144,7 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
 	    dx = axyvec[k].x - axyvec[j].x*(dt/dtref);
 	    dy = axyvec[k].y - axyvec[j].y*(dt/dtref);
 	    dist = sqrt(dx*dx + dy*dy); 
-	    if(DEBUG>=2) cout << "Detection " << axyvec[j].index << ":" << axyvec[k].index << " dist = " << dist << "\n";
+	    if(verbose>=3) cout << "Detection " << axyvec[j].index << ":" << axyvec[k].index << " dist = " << dist << "\n";
 	    if(dist < 2.0*maxgcr) {
 	      // Detections j, k, and pdct all lie along a plausibly
 	      // linear, constant-velocity trajectory on the sky.
@@ -15152,7 +15166,7 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
 	  if(DEBUG>=2) cout << "bt = " << biggest_tracklet << ", size = " << tracklet_size << "\n";
 	} else if(DEBUG>=2) cout << "not the biggest\n";
       }
-      if(DEBUG>=2) cout << "Biggest tracklet is " << biggest_tracklet << ", which corresponds to " << axyvec[biggest_tracklet].index << ", with size " << tracklet_size << "\n";
+      if(verbose>=2 && biggest_tracklet>=0) cout << "Biggest tracklet is " << biggest_tracklet << ", which corresponds to " << axyvec[biggest_tracklet].index << ", with size " << tracklet_size << "\n";
       istracklet=0; // Assume there is no tracklet until one is confirmed to exist.
       if(tracklet_size <= mintrkpts) {
 	istracklet=0;
@@ -15184,6 +15198,12 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
 	    yvec.push_back(track_mrdi_vec[j].z);
 	    detindexvec.push_back(track_mrdi_vec[j].index);
 	  }
+	if(track_mrdi_vec.size() != timevec.size() || track_mrdi_vec.size() != xvec.size() || track_mrdi_vec.size() != yvec.size() || track_mrdi_vec.size() != detindexvec.size()) {
+	  cerr << "ERROR: vector length mismatch in vectors for tracklet-fitting!\n";
+	  cerr << "Lengths of track_mrdi_vec, timevec, xvec, yvec, and detindexvec:\n";
+	  cerr << track_mrdi_vec.size() << ", " << timevec.size()  << ", " << xvec.size()  << ", " << yvec.size()  << ", " << detindexvec.size() << "\n";
+	  return(6);
+	}
  	if(DEBUG>=2) {
 	  cout << "First iteration linear fit vectors:\n";
 	  for(j=0; j<long(timevec.size()); j++) {
@@ -15228,6 +15248,12 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
 	    xvec.resize(trkptnum);
 	    yvec.resize(trkptnum);
 	    detindexvec.resize(trkptnum);
+	    if(timevec.size() != xvec.size() || timevec.size() != yvec.size() || timevec.size() != detindexvec.size()) {
+	      cerr << "ERROR: vector length mismatch in vectors for tracklet-fitting!\n";
+	      cerr << "Lengths of timevec, xvec, yvec, and detindexvec:\n";
+	      cerr  << timevec.size()  << ", " << xvec.size()  << ", " << yvec.size()  << ", " << detindexvec.size() << "\n";
+	      return(6);
+	    }
 	    // Re-do linear fit
 	    // Perform fit to projected x coordinate as a function of time
 	    linfituw01(timevec, xvec, slopex, interceptx);
@@ -15264,6 +15290,12 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
 	  xvec.resize(trkptnum);
 	  yvec.resize(trkptnum);
 	  detindexvec.resize(trkptnum);	  
+	  if(timevec.size() != xvec.size() || timevec.size() != yvec.size() || timevec.size() != detindexvec.size()) {
+	    cerr << "ERROR: vector length mismatch in vectors for tracklet-fitting!\n";
+	    cerr << "Lengths of timevec, xvec, yvec, and detindexvec:\n";
+	    cerr  << timevec.size()  << ", " << xvec.size()  << ", " << yvec.size()  << ", " << detindexvec.size() << "\n";
+	    return(6);
+	  }
 	  // Perform fit to projected x coordinate as a function of time
 	  linfituw01(timevec, xvec, slopex, interceptx);
 	  // Perform fit to projected y coordinate as a function of time
@@ -15275,6 +15307,10 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
 	  }
 	  // Find worst error.  
 	  worsterr = 0.0l;
+	  if(fiterr.size() != timevec.size()) {
+	    cerr << "Error: fiterr and timevec have different sizes: " << fiterr.size() << "vs. " << timevec.size() << "\n";
+	    return(7);
+	  }
 	  for(j=0; j<long(timevec.size()); j++) {
 	    if(fiterr[j]>worsterr) {
 	      worsterr = fiterr[j];
@@ -15292,7 +15328,7 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
 	  if(rp1==rp2) {
 	    cerr << "ERROR: both representative points for a tracklet are the same!\n";
 	    cerr << "size, instep, rp1, rp2: " << timevec.size() << " " << instep << " " << rp1 << " " << rp2 << "\n";
-	    return(4);
+	    return(5);
 	  }
 	  // Calculate angular velocity in deg/day. The slope values
 	  // correspond to velocities in arcsec/day.
@@ -15439,8 +15475,11 @@ int make_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrac
     return(status);
   }
   status = merge_pairs(pairdets, indvecs, pairvec, tracklets, trk2det, config.mintrkpts, config.maxgcr, config.minarc, config.minvel, config.maxvel, config.verbose);
-  cout << "merge_pairs finished OK\n";
-  return(status);
+  if(status!=0) {
+    cerr << "ERROR: merge_pairs reports failure status " << status << "\n";
+    return(status);
+  } else cout << "merge_pairs finished OK\n";
+  return(0);
 }
 
 int trk2statevec(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar)
@@ -15634,7 +15673,7 @@ vector <long> tracklet_lookup(const vector <longpair> &trk2det, long trknum)
       if(i<0) i=0;
       else if(i>=catnum) i=catnum-1;
     } else if(trk2det[i].i1 > trknum) {
-      if(DEBUG>=2) cout << "Guess = " << i << " trknum = " << trk2det[i].i1 << ": too low\n";
+      if(DEBUG>=2) cout << "Guess = " << i << " trknum = " << trk2det[i].i1 << ": too high\n";
       // Guess is too high. Make it the new upper bound
       ihi = i;
       // Reset to midway between the current low and high bounds
