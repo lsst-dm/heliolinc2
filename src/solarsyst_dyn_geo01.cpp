@@ -14991,20 +14991,22 @@ int find_pairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <
 	      pairct++;
 	      apct++;
 	      // Load index of each detection into the paired index vector of the other
-	      if(detvec[kdvec[matchpt].point.index].index >= 0 && detvec[kdvec[matchpt].point.index].index <= long(detvec.size())) {
-		indvecs[detvec[axyvec[detct].index].index].push_back(detvec[kdvec[matchpt].point.index].index);
+	      if(kdvec[matchpt].point.index>=0 && kdvec[matchpt].point.index < long(detvec.size()) && axyvec[detct].index >=0 && axyvec[detct].index < long(detvec.size())) {
+		if(detvec[kdvec[matchpt].point.index].index >= 0 && detvec[kdvec[matchpt].point.index].index < long(detvec.size()) && detvec[axyvec[detct].index].index >= 0 && detvec[axyvec[detct].index].index < long(detvec.size())) {
+		  indvecs[detvec[axyvec[detct].index].index].push_back(detvec[kdvec[matchpt].point.index].index);
+		  indvecs[detvec[kdvec[matchpt].point.index].index].push_back(detvec[axyvec[detct].index].index);
+		} else {
+		  cerr << "ERROR: trying to load out-of-range points to indvecs\n";
+		  cerr << "Points are " <<  detvec[kdvec[matchpt].point.index].index << " and " << detvec[axyvec[detct].index].index  << "\n";
+		  cerr << "Permitted range is 0 to " << detvec.size() << "\n";
+		  return(8);
+		}
 	      } else {
-		cerr << "ERROR: trying to load out-of-range point " <<  detvec[kdvec[matchpt].point.index].index << " onto indvecs\n";
+		cerr << "ERROR: attempting to access out-of-range values in detvec\n";
+		cerr << "Indices are " << kdvec[matchpt].point.index << " and " << axyvec[detct].index << "\n";
 		cerr << "Permitted range is 0 to " << detvec.size() << "\n";
-		return(8);
-	      }
-	      if(detvec[axyvec[detct].index].index >= 0 && detvec[axyvec[detct].index].index <= long(detvec.size())) {
-		indvecs[detvec[kdvec[matchpt].point.index].index].push_back(detvec[axyvec[detct].index].index);
-	      } else {
-		cerr << "ERROR: trying to load out-of-range point " << detvec[axyvec[detct].index].index  << " onto indvecs\n";
-		cerr << "Permitted range is 0 to " << detvec.size() << "\n";
-		return(8);
-	      }
+		return(9);
+	      }				  
 	    }
 	    // Close if-statement checking if image A detection was matched to anything.
 	  }
@@ -15077,7 +15079,7 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
   // Sanity-check indvecs
   cout << "merge_pairs is sanity-checking indvecs\n";
   for(detct=0; detct<detnum; detct++) {
-    for(i=0; i<=long(indvecs[detct].size()); i++) {
+    for(i=0; i<long(indvecs[detct].size()); i++) {
       if(indvecs[detct][i]<0 || indvecs[detct][i]>=detnum) {
 	cerr << "ERROR: indvecs[" << detct << "][" << i << "] out of range: " << indvecs[detct][i] << "\n";
 	cerr << "Acceptable range is 0 to " << detnum << "\n";
