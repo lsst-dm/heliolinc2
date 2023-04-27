@@ -15021,6 +15021,22 @@ int find_pairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <
   }
   if(verbose>=1) cout << "Test count of paired detections: " << pdct << " " << pairdets.size() << "\n";
   if(verbose>=1) cout << "Test count of pairs: " << pairct << " " << pairvec.size() << "\n";
+
+  // Sanity-check indvecs
+  cout << "find_pairs is sanity-checking indvecs\n";
+  long detnum = indvecs.size();
+  long i = 0;
+  for(detct=0; detct<detnum; detct++) {
+    for(i=0; i<long(indvecs[detct].size()); i++) {
+      if(indvecs[detct][i]<0 || indvecs[detct][i]>=detnum) {
+	cerr << "ERROR: indvecs[" << detct << "][" << i << "] out of range: " << indvecs[detct][i] << "\n";
+	cerr << "Acceptable range is 0 to " << detnum << "\n";
+	return(9);
+      }
+    }
+  }
+  cout << "Sanity-check finished\n";
+  
   return(0);
 }
 
@@ -15462,7 +15478,7 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
 int make_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrackletsConfig config, vector <hldet> &pairdets,vector <tracklet> &tracklets, vector <longpair> &trk2det)
 {
  
-  long unsigned int i=0;
+  long i=0;
   std::vector <longpair> pairvec;
   std::vector <vector <long>> indvecs;
   
@@ -15495,7 +15511,7 @@ int make_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrac
   //  cout << "det " << i << " " << detvec[i].MJD << " " << detvec[i].RA << " " << detvec[i].Dec << " " << detvec[i].mag  << " " << detvec[i].obscode << " " << detvec[i].image << "\n";
   //}
   // Echo image log
-  for(i=0;i<image_log.size();i++) {
+  for(i=0;i<long(image_log.size());i++) {
     cout << "image " << i << " " << image_log[i].MJD << " " << image_log[i].RA << " " << image_log[i].Dec << " " << image_log[i].X << " " << image_log[i].obscode  << " " << image_log[i].startind  << " " << image_log[i].endind << "\n";
   }
 
@@ -15508,6 +15524,22 @@ int make_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrac
     cerr << "ERROR: find_pairs reports failure status " << status << "\n";
     return(status);
   }
+
+  // Sanity-check indvecs
+  cout << "make_tracklets is sanity-checking indvecs\n";
+  long detnum = indvecs.size();
+  long detct=0;
+  for(detct=0; detct<detnum; detct++) {
+    for(i=0; i<long(indvecs[detct].size()); i++) {
+      if(indvecs[detct][i]<0 || indvecs[detct][i]>=detnum) {
+	cerr << "ERROR: indvecs[" << detct << "][" << i << "] out of range: " << indvecs[detct][i] << "\n";
+	cerr << "Acceptable range is 0 to " << detnum << "\n";
+	return(9);
+      }
+    }
+  }
+  cout << "Sanity-check finished\n";
+   
   status = merge_pairs(pairdets, indvecs, pairvec, tracklets, trk2det, config.mintrkpts, config.maxgcr, config.minarc, config.minvel, config.maxvel, config.verbose);
   if(status!=0) {
     cerr << "ERROR: merge_pairs reports failure status " << status << "\n";
@@ -16371,3 +16403,246 @@ int parse_clust2det(const vector <hldet> &detvec, const vector <longpair> &inclu
   }
   return(0);
 }
+
+// greatcircfit: April 27, 2023:
+// Derived from early (September 09, 2020) bezalel01 code greatcirc_vel01.
+// Fit great circle motion at a contant angular velocity to
+// astrometric input data consisting of MJD in days, RA in degrees,
+// and Dec in degrees as three double precision vectors. 
+// Output the pole of the Great Circle, the angular velocity, the celestial
+// position angle of the objects angular velocity vector, and the cross-track
+// and along-track RMS residuals relative to constant velocity motion. 
+// Angle outputs are in degrees, except for the RMS residuals, which are in 
+// arcseconds; and the velocity is in degrees per day.*/
+int greatcircfit(const vector <hldet> &trackvec, double &poleRA, double &poleDec,double &angvel,double &pa,double &crosstrack,double &alongtrack)
+{
+  long npoints = trackvec.size();
+  point3d p3 = point3d(0l,0l,0l);
+  point3d p3avg = point3d(0l,0l,0l);
+  long i=0;
+  double RA,Dec,dist,tpa,x,y,altra,altramean,altranorm;
+  RA = Dec = dist = tpa = x = y = altra = altramean = altranorm = 0l;
+  vector <double> projx;
+  vector <double> projy;
+  vector <double> timevec;
+  vector <double> altravec;
+  vector <double> newRA;
+  vector <double> newDec;
+  double lastpa,avgtime,xsq,slopex,interceptx,slopey,intercepty;
+  lastpa = avgtime = xsq = slopex = interceptx = slopey = intercepty = 0l;
+  double tpoleRA,tpoleDec,oldpolera,meanRA,meanDec;
+  tpoleRA = tpoleDec = oldpolera = 0.0l;
+  double offeq,tcross,talong,tangvel,unwrapping;
+  offeq = tcross = talong = tangvel = unwrapping = 0.0l;
+  double altpa,GCR,altGCR;
+  altpa = altGCR = GCR = 0.0l;
+  
+  if(npoints<=1) {
+    cerr << "ERROR: too few points to fit a Great Circle!\n";
+    return(1);
+  }
+
+  // Find averaged Cartesian projection over input points,
+  // and average time
+  avgtime = 0.0l;
+  p3avg = point3d(0l,0l,0l);
+  for(i=0;i<npoints;i++) {
+    avgtime += trackvec[i].MJD;
+    p3 =  celeproj01(trackvec[i].RA,trackvec[i].Dec);
+    p3avg.x += p3.x;
+    p3avg.y += p3.y;
+    p3avg.z += p3.z;
+  }
+  p3avg.x /= double(npoints);
+  p3avg.y /= double(npoints);
+  p3avg.z /= double(npoints);
+  avgtime /= double(npoints);
+  // Normalize the Cartesian vector
+  vecnorm3d(p3avg);
+  // Convert this back to RA and Dec
+  celedeproj01(p3avg, &meanRA, &meanDec);
+
+  // Project all points relative to this mean position, using arc projection,
+  // and load time vector
+  altramean=altranorm=0.0;
+  projx = projy = altravec = {};
+  timevec={};
+  for(i=0;i<npoints;i++) {
+    distradec02(meanRA,meanDec,trackvec[i].RA,trackvec[i].Dec,&dist,&tpa);
+    x = dist/3600.0l * -sin(tpa/DEGPRAD);
+    y = dist/3600.0l * cos(tpa/DEGPRAD);
+    projx.push_back(x);
+    projy.push_back(y);
+    // Load RA for alternative PA determination*/
+    altra = atan(x/y)*DEGPRAD;
+    altravec.push_back(altra);
+    altramean += altra*dist;
+    altranorm += dist;
+    // Load time vector
+    timevec.push_back(trackvec[i].MJD - avgtime);
+  }
+  // Save celestial PA of last point relative to mean position
+  lastpa=tpa;
+  // Calculate alternative mean RA
+  altramean = altramean/altranorm;
+
+  // Perform linear fit on projected x and y
+  linfituw01(timevec, projx, slopex, interceptx);
+  linfituw01(timevec, projy, slopey, intercepty);
+  if(slopex==0.0l && slopey>=0.0l) tpa = 0.0l;
+  else if(slopex==0.0l && slopey<0.0l) tpa=180.0;
+  else if(slopex>0.0l) tpa = 270.0 +  DEGPRAD*atan(slopey/slopex);
+  else if(slopex<0.0l) tpa = 90.0 +  DEGPRAD*atan(slopey/slopex);
+  else {
+    // Illogical case
+    cerr << "Logically excluded position angle case. slopex = " << slopex << ", slopey = " << slopey << "\n";
+    return(1);
+  }
+  pa = tpa;
+  // Solve for pole position using calculated PA of tracklet.
+  tpa-=90.0;
+  if(tpa<0.0) tpa+=360.0;
+  arc2cel01(meanRA,meanDec,90.0l,tpa,tpoleRA,tpoleDec);
+
+  // Transform all points to a coordinate system whose
+  // pole is the Great Circle pole. Thus the tracklet should
+  // lie along the equator.*/
+  newRA = newDec = {};
+  for(i=0;i<npoints;i++) {
+    oldpolera=0.0;
+    poleswitch02(trackvec[i].RA, trackvec[i].Dec, tpoleRA, tpoleDec, oldpolera, RA, Dec);
+    newRA.push_back(RA);
+    newDec.push_back(Dec);
+   }
+
+  // Calculate the crosstrack RMS
+  // Find the mean Dec of the transformed points, (should be zero)
+  offeq=0.0;
+  for(i=0;i<npoints;i++) offeq+=newDec[i];
+  offeq/=double(npoints);
+
+  tcross=0.0;
+  for(i=0;i<npoints;i++) {
+    tcross += DSQUARE(offeq-newDec[i]);
+  }
+  tcross = sqrt(tcross/double(npoints-1))*3600.0l;
+
+  // Calculate the mean angular velocity in degrees per day
+  unwrapping = 0.0l;
+  for(i=1;i<npoints;i++) {
+    // Check for wrapping of RA
+    if(newRA[i] > newRA[i-1]+180.0) {
+      // We were going downward and wrapped across zero
+      // into values just slightly less than 360 degrees
+      unwrapping = -360.0l;
+    }
+    else if(newRA[i] < newRA[i-1]-180.0) {
+      // We were going upward and wrapped across zero
+      // into values just slightly greater than zero
+      unwrapping = +360.0l;
+    }
+    newRA[i] += unwrapping;
+  }
+  linfituw01(timevec, newRA, tangvel, interceptx);
+  talong = 0.0;
+  for(i=0;i<npoints;i++) {
+    talong += DSQUARE(interceptx + tangvel*timevec[i] - newRA[i]);
+  }
+  talong = sqrt(talong/double(npoints-1))*3600.0l;
+
+  GCR = sqrt(DSQUARE(tcross)+DSQUARE(talong));
+  angvel = tangvel;
+  crosstrack = tcross;
+  alongtrack = talong;
+  poleRA = tpoleRA;
+  poleDec = tpoleDec;
+  
+  // Perform alternative calculation using old method for position angle
+  // Unwrap position angle and match to last point
+  while(altramean<0.0) altramean+=360.0;
+  while(altramean>=360.0) altramean-=360.0;
+  altpa = 360.0 - altramean;
+  if(altpa>lastpa)
+    {
+      if(fabs(altpa-180.0-lastpa) < fabs(altpa-lastpa)) altpa-=180.0;
+      if(altpa<0) altpa+=360.0;
+    }
+  else if(altpa<lastpa)
+    {
+      if(fabs(altpa+180.0-lastpa) < fabs(altpa-lastpa))altpa+=180.0;
+      if(altpa>=360.0) altpa-=360.0;
+    }
+  tpa=altpa;
+
+  // Solve for pole position using calculated PA of tracklet.*/
+  tpa-=90.0;
+  if(tpa<0.0) tpa+=360.0;
+  arc2cel01(meanRA,meanDec,90.0l,tpa,tpoleRA,tpoleDec);
+
+  // Transform all points to a coordinate system whose
+  // pole is the Great Circle pole. Thus the tracklet should
+  // lie along the equator.*/
+  newRA = newDec = {};
+  for(i=0;i<npoints;i++) {
+    oldpolera=0.0;
+    poleswitch02(trackvec[i].RA, trackvec[i].Dec, tpoleRA, tpoleDec, oldpolera, RA, Dec);
+    newRA.push_back(RA);
+    newDec.push_back(Dec);
+   }
+
+  // Calculate the crosstrack RMS
+  // Find the mean Dec of the transformed points, (should be zero)
+  offeq=0.0;
+  for(i=0;i<npoints;i++) offeq+=newDec[i];
+  offeq/=double(npoints);
+
+  tcross=0.0;
+  for(i=0;i<npoints;i++) {
+    tcross += DSQUARE(offeq-newDec[i]);
+  }
+  tcross = sqrt(tcross/double(npoints-1))*3600.0l;
+
+  // Calculate the mean angular velocity in degrees per day
+  unwrapping = 0.0l;
+  for(i=1;i<npoints;i++) {
+    // Check for wrapping of RA
+    if(newRA[i] > newRA[i-1]+180.0) {
+      // We were going downward and wrapped across zero
+      // into values just slightly less than 360 degrees
+      unwrapping = -360.0l;
+    }
+    else if(newRA[i] < newRA[i-1]-180.0) {
+      // We were going upward and wrapped across zero
+      // into values just slightly greater than zero
+      unwrapping = +360.0l;
+    }
+    newRA[i] += unwrapping;
+  }
+  linfituw01(timevec, newRA, tangvel, interceptx);
+  talong = 0.0;
+  for(i=0;i<npoints;i++) {
+    talong += DSQUARE(interceptx + tangvel*timevec[i] - newRA[i]);
+  }
+  talong = sqrt(talong/double(npoints-1))*3600.0l;
+
+  altGCR = sqrt(DSQUARE(tcross)+DSQUARE(talong));
+  angvel = tangvel;
+  crosstrack = tcross;
+  alongtrack = talong;
+  poleRA = tpoleRA;
+  poleDec = tpoleDec;
+
+  // printf("GCR=%f, altac=%f, altal=%f, altGCR=%f\n",GCR,altcrosstrack,altalongtrack,altGCR);
+
+  if(altGCR<GCR) {
+    angvel = tangvel;
+    crosstrack = tcross;
+    alongtrack = talong;
+    poleRA = tpoleRA;
+    poleDec = tpoleDec;
+    cout << "Used case 2 fit\n";
+  }
+  return(0);
+}
+
+
