@@ -458,7 +458,8 @@ int main(int argc, char *argv[])
     read_pairdet_file(pairdetfile, detvec, config.verbose);
     sort(detvec.begin(), detvec.end(), early_hldet());
     cout << "\nERROR: input positive-valued reference MJD is required\n";
-    cout << fixed << setprecision(2) << "Suggested value is " << detvec[0].MJD*0.5L + detvec[detvec.size()-1].MJD*0.5L << "\n";
+    cout << "MJD range is " << detvec[0].MJD << " to " << detvec[detvec.size()-1].MJD << "\n";
+    cout << fixed << setprecision(2) << "Suggested reference value is " << detvec[0].MJD*0.5L + detvec[detvec.size()-1].MJD*0.5L << "\n";
     cout << "based on your input detection catalog " << pairdetfile << "\n\n\n";
     show_usage();
     return(1);
