@@ -12985,23 +12985,28 @@ int read_detection_filemt(string indetfile, int idcol, int mjdcol, int racol, in
     if(reachedeof == 0 && lnfromfile.size()>=30) {
       if(!mjdread) {
 	cerr << "ERROR: MJD not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	cerr << "Here is the line: " << lnfromfile << "\n";
 	return(2);
       }
       if(!raread) {
 	cerr << "ERROR: RA not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	cerr << "Here is the line: " << lnfromfile << "\n";
 	return(2);
       }
       if(!decread) {
 	cerr << "ERROR: Dec not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	cerr << "Here is the line: " << lnfromfile << "\n";
 	return(2);
       }
       if(!idread) {
 	if(forcerun) {
 	  stringncopy01(idstring,"null",SHORTSTRINGLEN);
 	  cout << "WARNING: ID not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	  cerr << "Here is the line: " << lnfromfile << "\n";
 	  cout << "String ID will be set to null.\n";
 	} else {
 	  cerr << "ERROR: String ID not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	  cerr << "Here is the line: " << lnfromfile << "\n";
 	  return(2);
 	}
       }
@@ -13009,9 +13014,11 @@ int read_detection_filemt(string indetfile, int idcol, int mjdcol, int racol, in
 	if(forcerun) {
 	  mag = 99.999;
 	  cout << "WARNING: magnitude not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	  cerr << "Here is the line: " << lnfromfile << "\n";
 	  cout << "magnitude will be set to 99.999\n";
 	} else {
 	  cerr << "ERROR: magnitude not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	    cerr << "Here is the line: " << lnfromfile << "\n";
 	  return(2);
 	}
       }
@@ -13019,19 +13026,23 @@ int read_detection_filemt(string indetfile, int idcol, int mjdcol, int racol, in
 	if(forcerun) {
 	  stringncopy01(band,"V",MINSTRINGLEN);
 	  cout << "WARNING: photometric band not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	  cerr << "Here is the line: " << lnfromfile << "\n";
 	  cout << "band will be set to V\n";
 	} else {
 	  cerr << "ERROR: photometric band not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	    cerr << "Here is the line: " << lnfromfile << "\n";
 	  return(2);
 	}
       }
       if(!obscoderead) {
 	if(forcerun) {
 	  stringncopy01(obscode,"500",MINSTRINGLEN);
-	  cout << "WARNING: observatory code not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
-	  cout << "observatory code will be set to 500 (Geocentric)\n";
+	  cerr << "WARNING: observatory code not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	  cerr << "Here is the line: " << lnfromfile << "\n";
+	  cerr << "observatory code will be set to 500 (Geocentric)\n";
 	} else {
 	  cerr << "ERROR: observatory code not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	    cerr << "Here is the line: " << lnfromfile << "\n";
 	  return(2);
 	}
       }
@@ -13186,14 +13197,17 @@ int read_detection_filemt2(string indetfile, int mjdcol, int racol, int deccol, 
     if(reachedeof == 0 && lnfromfile.size()>=30) {
       if(!mjdread) {
 	cerr << "ERROR: MJD not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	cerr << "Here is the line: " << lnfromfile << "\n";
 	return(2);
       }
       if(!raread) {
 	cerr << "ERROR: RA not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	cerr << "Here is the line: " << lnfromfile << "\n";
 	return(2);
       }
       if(!decread) {
 	cerr << "ERROR: Dec not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	cerr << "Here is the line: " << lnfromfile << "\n";
 	return(2);
       }
       if(!magread) {
@@ -13201,10 +13215,12 @@ int read_detection_filemt2(string indetfile, int mjdcol, int racol, int deccol, 
 	  mag = 99.999;
 	  if(verbose>=2) {
 	    cerr << "WARNING: magnitude not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	    cerr << "Here is the line: " << lnfromfile << "\n";
 	    cerr << "magnitude will be set to 99.999\n";
 	  }
 	} else {
 	  cerr << "ERROR: magnitude not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	  cerr << "Here is the line: " << lnfromfile << "\n";
 	  return(2);
 	}
       }
@@ -13213,6 +13229,7 @@ int read_detection_filemt2(string indetfile, int mjdcol, int racol, int deccol, 
 	  stringncopy01(band,"V",MINSTRINGLEN);
 	  if(verbose>=2) {
 	    cerr << "WARNING: photometric band not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	    cerr << "Here is the line: " << lnfromfile << "\n";
 	    cerr << "band will be set to V\n";
 	  }
 	} else {
@@ -13227,9 +13244,11 @@ int read_detection_filemt2(string indetfile, int mjdcol, int racol, int deccol, 
 	  if(verbose>=1) {
 	    cerr << "WARNING: observatory code not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
 	    cerr << "observatory code will be set to 500 (Geocentric)\n";
+	    cerr << "Here is the line: " << lnfromfile << "\n";
 	  }
 	} else {
 	  cerr << "ERROR: observatory code not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	    cerr << "Here is the line: " << lnfromfile << "\n";
 	  return(2);
 	}
       }
@@ -13238,30 +13257,38 @@ int read_detection_filemt2(string indetfile, int mjdcol, int racol, int deccol, 
 	  stringncopy01(idstring,"null",SHORTSTRINGLEN);
 	  if(verbose>=2) {
 	    cerr << "WARNING: ID not read from line " << detvec.size()+1 << " of input detection file " << indetfile << ".\n";
+	    cerr << "Here is the line: " << lnfromfile << "\n";
 	    cerr << "String ID will be set to null.\n";
 	  }
 	} else {
 	  cerr << "ERROR: String ID not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	  cerr << "Here is the line: " << lnfromfile << "\n";
 	  return(2);
 	}
       }
       if(verbose>=2 && !trail_len_read) {
 	cerr << "Warning: trail length not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	cerr << "Here is the line: " << lnfromfile << "\n";
       }
       if(verbose>=2 && !trail_PA_read) {
 	cerr << "Warning: trail PA not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	cerr << "Here is the line: " << lnfromfile << "\n";
       }
       if(verbose>=2 && !sigmag_read) {
 	cerr << "Warning: magnitude uncertainty sigmag not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	cerr << "Here is the line: " << lnfromfile << "\n";
       }
       if(verbose>=2 && !sig_across_read) {
 	cerr << "Warning: cross-trail astrometric uncertainty sig_across not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	cerr << "Here is the line: " << lnfromfile << "\n";
       }
       if(verbose>=2 && !known_obj_read) {
 	cerr << "Warning: known object specifier not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	cerr << "Here is the line: " << lnfromfile << "\n";
       }
       if(verbose>=2 && !det_qual_read) {
 	cerr << "Warning: detection quality specifier not read from line " << detvec.size()+1 << " of input detection file " << indetfile << "!\n";
+	cerr << "Here is the line: " << lnfromfile << "\n";
       }
       o1=hldet(MJD, RA, Dec, mag, trail_len, trail_PA, sigmag, sig_across, sig_along, image, idstring, band, obscode, known_obj, det_qual, -lct);
       detvec.push_back(o1);
@@ -15783,6 +15810,7 @@ point3d earthpos01(const vector <EarthState> &earthpos, double mjd)
   }
 }
 
+#define LOOPY 1
 
 int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const point3d &Earthrefpos, double heliodist, double heliovel, double helioacc, double chartimescale, vector <hlclust> &outclust, vector <longpair> &clust2det, long &realclusternum, double cluster_radius, double dbscan_npt, double mingeodist, double geologstep, double maxgeodist, int mintimespan, int minobsnights, int verbose)
 {
@@ -15827,16 +15855,33 @@ int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &
   string rating;
   int pairct=0;
   int j=0;
+  double dgnum;
+  int georadct,georadnum;
 
   // Loop over geocentric bins, selecting the subset of state-vectors
   // in each bin, and running DBSCAN only on those, with clustering radius
   // adjusted accordingly.
-  while(georadcen<=maxgeodist) {
+
+  // Sanity check the logarithmic geocentric distance framework to avoid a
+  // possible infinte loop.
+  dgnum = log(maxgeodist/mingeodist)/log(geologstep);
+  if(!isnormal(dgnum) || dgnum<0.0l) {
+    cerr << "ERROR: geocentric distance parameters led to nonsense:\n";
+    cerr << "mingeodist, maxgeodist, geologstep = " << maxgeodist << ", " << mingeodist << ", " << geologstep << "\n";
+    cerr << "dgnum = " << dgnum << "\n";
+    return(10);
+  } else georadnum = ceil(dgnum)+1;
+
+  georadct = 0;
+  while(georadcen<=maxgeodist && georadct<=georadnum) {
+    georadct++;
     georadcen = mingeodist*intpowD(geologstep,geobinct);
+    if(verbose>=1) cout << "Geocentric distance step " << georadct << ", bin-center distance is " << georadcen << " AU\n";
     georadmin = georadcen/geologstep;
     georadmax = georadcen*geologstep;
     // Load new array of state vectors, limited to those in the current geocentric bin
     binstatevecs={};
+    if(LOOPY) cerr << "Entering statevecnum loop, limits 0, " << statevecnum << "\n";
     for(i=0; i<statevecnum; i++) {
       // Reverse integerization of the state vector.
       // This is only possible to a crude approximation, of course.
@@ -15867,6 +15912,7 @@ int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &
     kdclust={};
     int clusternum = DBSCAN_6i01(kdvec, cluster_radius*(georadcen/REF_GEODIST)/INTEGERIZING_SCALEFAC, dbscan_npt, INTEGERIZING_SCALEFAC, kdclust, verbose);
     if(verbose>=1) cout << "DBSCAN_6i01 finished, with " << clusternum << " = " << kdclust.size() << " clusters found\n";
+    if(LOOPY) cerr << "Entering clusterct loop with limits 0, " << long(kdclust.size()) << "\n";
     for(clusterct=0; clusterct<long(kdclust.size()); clusterct++) {
       // Scale cluster RMS down to reference geocentric distance
       if(DEBUG >= 2) cout << "scaling kdclust rms for cluster " << clusterct << " out of " << kdclust.size() << "\n";
@@ -15978,6 +16024,7 @@ int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &
 	gridpoint_clusternum++;
       }
     }
+    if(LOOPY) cerr << "Finished clusterct loop\n";
     // Move on to the next bin in geocentric distance
     geobinct++;
   }
@@ -16065,6 +16112,7 @@ int heliolinc_alg(const vector <hlimage> &image_log, const vector <hldet> &detve
   realclusternum=0;  
   for(accelct=0;accelct<accelnum;accelct++) {
     gridpoint_clusternum=0;
+    cout << "Working on hypothesis " << accelct << ": " << radhyp[accelct].HelioRad << " AU, " << radhyp[accelct].R_dot*AU_KM/SOLARDAY << " km/sec " << radhyp[accelct].R_dubdot << " GMsun/r^2\n";
     
     // Covert all tracklets into state vectors at the reference time, under
     // the assumption that the heliocentric distance hypothesis is correct.
@@ -16644,5 +16692,3 @@ int greatcircfit(const vector <hldet> &trackvec, double &poleRA, double &poleDec
   }
   return(0);
 }
-
-
