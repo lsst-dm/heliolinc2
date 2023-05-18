@@ -223,6 +223,7 @@ int main(int argc, char *argv[])
       if(i+1 < argc) {
 	//There is still something to read;
 	config.maxrms=stod(argv[++i]);
+	default_maxrms=0;
 	i++;
       }
       else {

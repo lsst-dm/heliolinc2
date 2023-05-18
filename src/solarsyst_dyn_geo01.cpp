@@ -5,6 +5,7 @@
 
 #include "solarsyst_dyn_geo01.h"
 #include "cmath"
+#include <omp.h>
 
 // stringncopy01: March 09, 2022:
 // like library function strncpy, but works the way I want it to.
@@ -12649,7 +12650,7 @@ int mpc80_parseline(const string &lnfromfile, string &object, double *MJD, doubl
   day = stod(sdat);
   if(year<1900 || month<1 || month>12 || day < 1.0l || day > 32.0l) {
     cerr << "mpc80_readline cannot read a valid date from the line:\n";
-    cerr << lnfromfile;
+    cerr << lnfromfile << "\n";
     return(1);
   }
   // Successfully read the date: convert it to MJD.
@@ -12680,7 +12681,7 @@ int mpc80_parseline(const string &lnfromfile, string &object, double *MJD, doubl
   raread = 15.0l*hour + min/4.0l + sec/240.0l;
   if(raread<0.0l || raread>360.0l) {
     cerr << "ERROR: mpc80_readline cannot read a valid Right Ascension. Line:\n";
-    cerr << lnfromfile;
+    cerr << lnfromfile << "\n";
     return(1);
   }
   *RA = raread;
@@ -12690,7 +12691,7 @@ int mpc80_parseline(const string &lnfromfile, string &object, double *MJD, doubl
   decsign = lnfromfile[44];
   if(decsign != '+' && decsign != '-') {
     cerr << "ERROR: mpc80_readline cannot read a valid sign for the Declination. Line:\n";
-    cerr << lnfromfile;
+    cerr << lnfromfile << "\n";
     return(1);
   }
   // degrees
@@ -12719,7 +12720,7 @@ int mpc80_parseline(const string &lnfromfile, string &object, double *MJD, doubl
   if(decsign == '-') decread *= -1.0l;
   if(decread<-90.0l || decread>90.0l) {
     cerr << "ERROR: mpc80_readline cannot read a valid Declination. Line:\n";
-    cerr << lnfromfile;
+    cerr << lnfromfile << "\n";
     return(1);
   }
   *Dec = decread;
@@ -12778,7 +12779,7 @@ double mpc80_mjd(const string &lnfromfile)
   day = stod(sdat);
   if(year<1900 || month<1 || month>12 || day < 1.0l || day > 32.0l) {
     cerr << "mpc80_mjd cannot read a valid date from the line:\n";
-    cerr << lnfromfile;
+    cerr << lnfromfile << "\n";
     return(-1.0l);
   }
   // Successfully read the date: convert it to MJD.
@@ -13311,6 +13312,93 @@ int read_detection_filemt2(string indetfile, int mjdcol, int racol, int deccol, 
   } else return(reachedeof);
 }
 
+// read_detection_file_MPC80: May 10, 2023:
+// Read an input file consiting of MPC 80-column formatted
+// observations, and store the output in the vector detvec of
+// type hldet. Intended primarily for use by make_tracklets_MPC80.cpp,
+// for processing the MPC's Isolated Tracklet File, but likely also
+// to have wider applications.
+int read_detection_file_MPC80(string indetfile, vector <hldet> &detvec)
+{
+  double MJD,RA,Dec;
+  MJD = RA = Dec = 0.0l;
+  double mag, trail_len, trail_PA, sigmag, sig_across, sig_along;
+  mag = -99.99;
+  trail_len = 0.0;
+  trail_PA = 90.0;
+  sigmag = 9.999;
+  sig_across = sig_along = 1.0;
+  string idstring,band,obscode;
+  idstring = "";
+  obscode = "500";
+  band = "V";
+  int image = -1;
+  long known_obj, det_qual, index;
+  known_obj = det_qual = index = -1;
+  hldet o1 = hldet(MJD, RA, Dec, mag, trail_len, trail_PA, sigmag, sig_across, sig_along, image, idstring, band, obscode, known_obj, det_qual, index);
+  ifstream instream1;
+  string lnfromfile,stest;
+  int lct,j,reachedeof;
+  lct = j = reachedeof = 0;
+  int status = 0;
+    
+  instream1.open(indetfile);
+  if(!instream1) {
+    cerr << "can't open input file " << indetfile << "\n";
+    return(1);
+  }
+  // Skip one-line header
+  getline(instream1,lnfromfile);
+  lct++;
+  //cout << lnfromfile << "\n";
+  reachedeof = 0;
+  while(reachedeof==0) {
+    MJD = RA = Dec = 0.0l;
+    mag = -99.99;
+    trail_len = 0.0;
+    trail_PA = 90.0;
+    sigmag = 9.999;
+    sig_across = sig_along = 1.0;
+    idstring = "";
+    obscode = "500";
+    band = "V";
+    image = -1;
+    known_obj = det_qual = index = -1;
+    getline(instream1,lnfromfile);
+    lct++;
+    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) ; // Read on.
+    else if(instream1.eof()) reachedeof=1; //End of file, fine.
+    else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+    else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+    if(lnfromfile.size()>=80) {
+      status = mpc80_parseline(lnfromfile, idstring, &MJD, &RA, &Dec, &mag, band, obscode);
+      if(reachedeof == 0 && status!=0) {
+	cerr << "ERROR reading line " << lct << " of input detection file " << indetfile << "!\n";
+	cerr << "Here is the line: " << lnfromfile << "\n";
+	return(2);
+      }
+      o1=hldet(MJD, RA, Dec, mag, trail_len, trail_PA, sigmag, sig_across, sig_along, image, idstring, band, obscode, known_obj, det_qual, detvec.size());
+      detvec.push_back(o1);
+    }
+  }
+  instream1.close();
+  
+  if(reachedeof==1) { 
+    cout << "Input file " << indetfile << " read successfully to the end.\n";
+    return(0);
+  } else if(reachedeof==0) {
+    cerr << "ERROR: Stopped reading file " << indetfile << " before the end\n";
+    return(1);
+  } else if(reachedeof==-1) {
+    cerr << "Warning: file read failed\n";
+    return(1);
+  } else if(reachedeof==-2) {
+    cerr << "Warning: file possibly corrupted\n";
+    return(2);
+  } else return(reachedeof);
+}
+
+  
 // read_pairdet_file: April 20, 2023:
 // Read a paired detection file produced by make_tracklets_new.
 int read_pairdet_file(string pairdetfile, vector <hldet> &detvec, int verbose)
@@ -14876,6 +14964,111 @@ int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double
   return(0);
 }
 
+// load_image_indices2: May 11, 2023: Exactly like load_image_indices,
+// but does not reset detvec.index.
+// Load the starting and
+// ending indices in an image table of the form used in the
+// python-wrapped version of make_tracklets. 
+int load_image_indices2(vector <hlimage> &img_log, vector <hldet> &detvec, double imagetimetol, int forcerun)
+{
+  long imnum = img_log.size();
+  long detnum = detvec.size();
+  long imct,detct,startind,endind,i;
+  imct = detct = startind = endind = i = 0;
+
+  detct=0;
+  for(imct=0;imct<imnum;imct++) {
+    if(detct<detnum && fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)==0) {
+      // This should be the first detection on image imct.
+      img_log[imct].startind = detct;
+      detvec[detct].image = imct;
+      detct++;
+      while(detct<detnum && fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)==0) {
+	// Still on this same image
+	detvec[detct].image = imct;
+	detct++;
+      }
+      // This should be the first detection on the next image
+      img_log[imct].endind = detct;
+    } else if(detct<detnum && detvec[detct].MJD > img_log[imct].MJD+imagetimetol) {
+      // The next detection is after this image in the ordered time sequence.
+      // Therefore, no detections were found on this image
+      img_log[imct].startind = img_log[imct].endind = 0;
+    } else if(detct<detnum && fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)>0) {
+      // The next detection overlaps this image in the ordered time sequence,
+      // but comes after it in the alphabetical listing of obscodes.
+      // Therefore, no detections were found on this image.
+      img_log[imct].startind = img_log[imct].endind = 0;
+    } else if(detct<detnum && (detvec[detct].MJD < img_log[imct].MJD-imagetimetol ||
+			       (fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)<0))) {
+      // The next detection is before this image in the ordered sequence, either
+      // before it in time OR overlapping in time but before it in the alphabetical listing of obscodes.
+      // Therefore, this detection must not appear on any image in the sequence.
+      if(forcerun) {
+	// With forcerun, we allow detections that aren't on any image,
+	// even though the caller really should have made sure this couldn't happen.
+	while(detct<detnum && (detvec[detct].MJD < img_log[imct].MJD-imagetimetol ||
+			       (fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)<0))) {
+	  detvec[detct].image = -1;
+	  detct++;
+	}
+	// Now we must consider the possibility that we've advanced to
+	// a detection that is on the current image.
+	// This is the case where we advanced through a series of
+	// bad detections until we arrived at a good detection.
+	if(detct<detnum && fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)==0) {
+	  // This should be the first detection on image imct.
+	  img_log[imct].startind = detct;
+	  detvec[detct].image = imct;
+	  detct++;
+	  while(detct<detnum && fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)==0) {
+	    // Still on this same image
+	    detvec[detct].image = imct;
+	    detct++;
+	  }
+	  // This should be the first detection on the next image
+	  img_log[imct].endind = detct;
+	  // End special case that we advanced through a series of bad detections
+	  // to arrive at a good detection.
+	}
+      } else {
+	// forcerun is not on, meaning that it's not acceptable
+	// for the image catalog not to span all the detections.
+	cerr << "ERROR in load_image_indices: detection " << detct << " not on any image!\n";
+	return(1);
+      }
+    } else if(detct<detnum) {
+      // Logically excluded case
+      cerr << "ERROR: logically excluded case 1 in load_image_indices\n";
+      cerr << "Detection " << detct << " time, obscode: " << detvec[detct].MJD << " " << detvec[detct].obscode << "\n";
+      cerr << "Image " << imct << " time, obscode: " << img_log[imct].MJD << " " << img_log[imct].obscode << "\n";
+      if(!forcerun) return(1);
+    } else if(detct>=detnum) {
+      // We ran past the end of the detection catalog, apparently without running out of images
+      // All remaining images will have no detections.
+      cerr << "WARNING: The image log continues past the end of the detection catalog\n";
+      img_log[imct].startind = img_log[imct].endind = 0;
+    } else {
+      cerr << "ERROR: logically excluded case 2 in load_image_indices\n";
+      cerr << "Detection " << detct << " time, obscode: " << detvec[detct].MJD << " " << detvec[detct].obscode << "\n";
+      cerr << "Image " << imct << " time, obscode: " << img_log[imct].MJD << " " << img_log[imct].obscode << "\n";
+      if(!forcerun) return(1);
+    }
+  }
+  // Deal with any left-over detections after the last image.
+  if(detct<detnum) {
+    cerr << "ERROR: Ran out of images at detection " << detct << ", short of the last detection at " << detnum << "\n";
+    if(!forcerun) return(1);
+    else {
+      while(detct<detnum) {
+	detvec[detct].image = -1;
+	detct++;
+      }
+    }
+  }
+  return(0);
+}
+
 
 //find_pairs: March 24, 2023:  Create pairs, output a vector pairdets of type hldet;
 // a vector indvecs of type vector <long>, with the same length as pairdets,
@@ -15448,6 +15641,17 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
 	  // Calculate total angular arc
 	  distradec02(outra1, outdec1, outra2, outdec2, &dist, &pa);
 	  dist *= 3600.0l;
+	  // Note: it can be argued that the dist calculated above is not really the total
+	  // angular arc, because it's the span between the two representative points instead
+	  // of all the way from the beginning of the tracklet to its end. There are at
+	  // least two alternative ways of calculating such a value: use the actual
+	  // extreme points, or just multiply the total time span by the angular velocity.
+	  // I haven't been able to convince myself that either of them is a better idea
+	  // than the above. Here's how one might do them, just in case:
+	  // distradec02(pairdets[detindexvec[0]].RA, pairdets[detindexvec[0]].Dec, pairdets[detindexvec[detindexvec.size()-1]].RA, pairdets[detindexvec[detindexvec.size()-1]].Dec, &dist, &pa);
+	  // dist *= 3600.0l
+	  // OR:
+	  // dist = angvel*(pairdets[detindexvec[detindexvec.size()-1]].MJD - pairdets[detindexvec[0]].MJD)*3600.0l;
 	  if(dist>=minarc && angvel>=minvel && angvel<=maxvel) {
 	    // Write out representative pair, followed by RA, Dec and the total number of constituent points
 	    // representative pair
@@ -15500,8 +15704,172 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
   return(0);
 }
 
-// make_tracklets: April 07, 2023: dummy wrapper for make_tracklets
+// record_pairs: May 10, 2023: For use in remake_tracklets, record
+// already trackletized vectors in the formats used by make_tracklets_new,
+// so that heliolinc can process them.
+// record_pairs(detvec, detvec_fixed, tracklets, trk2det, verbose);
+int record_pairs(vector <hldet> &detvec, vector <hldet> &detvec_fixed, vector <tracklet> &tracklets, vector <longpair> &trk2det, int verbose)
+{
+  long detnum = detvec.size();
+  long i = 0;
+  long j = 0;
+  tracklet track1 = tracklet(0,0.0l,0.0l,0,0.0l,0.0l,0,0);
+  longpair onepair = longpair(0,0);
+  vector <point3d_index>   track_mrdi_vec;
+  long image1=0;
+  long image2=0;
+  vector <double> timevec;
+  vector <double> xvec;
+  vector <double> yvec;
+  double slopex,slopey,interceptx,intercepty;
+  slopex = slopey = interceptx = intercepty = 0.0l;
+  double dx,dy,angvel,dist,pa;
+  dx = dy = angvel = dist = pa = 0.0l;
+  double outra1,outdec1,outra2,outdec2;
+  outra1 = outdec1 = outra2 = outdec2 = 0.0l;
+  int rp1,rp2,instep;
+  rp1=rp2=instep=0;
+  hldet lastdet = hldet(0.0l, 0.0l, 0.0l, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, "null", "w", "500", 0, 0, -1);
+  vector <hldet> trackdetvec = {};
+  long crossindex=0;
+  long pdct=0;
+  
+  tracklets={};
+  trk2det={}; // Wipe output vectors.
 
+  // Loop on detvec_fixed, which is supposed to be ordered by tracklet
+  trackdetvec={};
+  lastdet=detvec_fixed[0];
+  trackdetvec.push_back(lastdet);
+  for(i=1; i<detnum; i++) {
+    if(stringnmatch01(detvec_fixed[i].idstring,lastdet.idstring,SHORTSTRINGLEN)==0 && stringnmatch01(detvec_fixed[i].obscode,lastdet.obscode,MINSTRINGLEN)==0) {
+      // This is another point in the same tracklet
+      lastdet=detvec_fixed[i];
+      trackdetvec.push_back(lastdet);
+    } else {
+      // We've just finished with a tracklet
+      // Time-sort the tracklet vector
+      sort(trackdetvec.begin(), trackdetvec.end(), early_hldet());
+      if(trackdetvec.size() <=1) {
+	// The tracklet is no good, don't record it
+	cerr << "Warning: encountered invalid tracklet (only " << trackdetvec.size() << " points) on line" << i << " of the detvec_fixed input vector\n";
+      } else if (trackdetvec.size()==2) {
+	// It's a two-point tracklet: no need for fancy fitting
+	// Map from detvec_fixed to the properly ordered detvec
+	crossindex = trackdetvec[0].index;
+	image1 = detvec[crossindex].image;
+	onepair = longpair(tracklets.size(),crossindex);
+	trk2det.push_back(onepair);
+	crossindex = trackdetvec[1].index;
+	image2 = detvec[crossindex].image;
+	onepair = longpair(tracklets.size(),crossindex);
+	trk2det.push_back(onepair);
+	track1 = tracklet(image1,trackdetvec[0].RA,trackdetvec[0].Dec,image2,outra2,outdec2,trackdetvec.size(),tracklets.size());
+	distradec02(trackdetvec[0].RA, trackdetvec[0].Dec, trackdetvec[1].RA, trackdetvec[1].Dec, &dist, &pa);
+	angvel = dist/(trackdetvec[1].MJD-trackdetvec[0].MJD);
+	dist*=3600.0l;
+	cout << "Saving tracklet " << tracklets.size() << ", desig " << trackdetvec[0].idstring << ", " << trackdetvec.size() << " points, pa " << pa << " degrees, angvel " << angvel << "deg/day, arc " << dist << " arcsec\n";
+	tracklets.push_back(track1);
+      } else {
+	// It's a multi-point tracklet, must perform a linear fit and
+	// find representative points, etc.	
+	pdct = (trackdetvec.size()+1)/2; // Take the 'middle' point of the tracklet as a reference
+	// Load fitting vectors for time, x, and y.
+	timevec=xvec=yvec={};
+	for(j=0; j<long(trackdetvec.size()); j++) {
+	  if(j==pdct) {
+	    timevec.push_back(0.0l);
+	    xvec.push_back(0.0l);
+	    yvec.push_back(0.0l);
+	  } else {
+	    timevec.push_back(trackdetvec[j].MJD - trackdetvec[pdct].MJD);
+	    distradec02(trackdetvec[pdct].RA, trackdetvec[pdct].Dec, trackdetvec[j].RA, trackdetvec[j].Dec, &dist, &pa);
+	    dist *= 3600.0l; // Convert distance from degrees to arcsec.
+	    xvec.push_back(dist*sin(pa/DEGPRAD));
+	    yvec.push_back(dist*cos(pa/DEGPRAD));
+	  }
+	}
+	// Finished loading timevec, xvec, and yvec: perform linear fits
+	// Perform fit to projected x coordinate as a function of time
+	linfituw01(timevec, xvec, slopex, interceptx);
+ 	// Perform fit to projected y coordinate as a function of time
+	linfituw01(timevec, yvec, slopey, intercepty);
+	// Select points that will represent this tracklet.
+	instep = (timevec.size()-1)/4;
+	rp1 = instep;
+	rp2 = timevec.size()-1-instep;
+	if(rp1==rp2) {
+	  cerr << "ERROR: both representative points for a tracklet are the same!\n";
+	  cerr << "size, instep, rp1, rp2: " << timevec.size() << " " << instep << " " << rp1 << " " << rp2 << "\n";
+	  return(5);
+	}
+	// Calculate angular velocity in deg/day. The slope values
+	// correspond to velocities in arcsec/day.
+	angvel = sqrt(slopex*slopex + slopey*slopey)/3600.0l;
+	  
+	// Determine improved RA, Dec based on tracklet fit for the representative points
+	// Calculated projected x, y at rp1
+	dx = timevec[rp1]*slopex + interceptx;
+	dy = timevec[rp1]*slopey + intercepty;
+	// Calculate equivalent celestial position angle.
+	if(dx==0l && dy>=0l) pa = 0.0l;
+	else if(dx==0l && dy<0l) pa = M_PI;
+	else if(dx>0l) pa = M_PI/2.0l - atan(dy/dx);
+	else if(dx<0l) pa = 3.0l*M_PI/2.0l - atan(dy/dx);
+	else {
+	  cerr << "ERROR: logical impossibility while trying to solve for PA\n";
+	  cerr << "dx = " << dx << " dy = " << dy << "\n";
+	}
+	dist = sqrt(dx*dx + dy*dy)/3600.0l; // renders distance in degrees, not arcsec.
+	pa*=DEGPRAD; // position angle in degrees, not radians.
+	arc2cel01(trackdetvec[pdct].RA, trackdetvec[pdct].Dec, dist, pa, outra1, outdec1);
+	if(!isnormal(outra1)) {
+	  cerr << "NAN WARNING: dx, dy, dist, pa: " << dx << " " << dy << " " << dist << " " << pa << "\n";
+	}
+	// Calculated projected x, y at rp2
+	dx = timevec[rp2]*slopex + interceptx;
+	dy = timevec[rp2]*slopey + intercepty;
+	// Calculate equivalent celestial position angle.
+	if(dx==0l && dy>=0l) pa = 0.0l;
+	else if(dx==0l && dy<0l) pa = M_PI;
+	else if(dx>0l) pa = M_PI/2.0l - atan(dy/dx);
+	else if(dx<0l) pa = 3.0l*M_PI/2.0l - atan(dy/dx);
+	else {
+	  cerr << "ERROR: logical impossibility while trying to solve for PA\n";
+	  cerr << "dx = " << dx << " dy = " << dy << "\n";
+	}
+	dist = sqrt(dx*dx + dy*dy)/3600.0l; // renders distance in degrees, not arcsec.
+	pa*=DEGPRAD; // position angle in degrees, not radians.
+	arc2cel01(trackdetvec[pdct].RA, trackdetvec[pdct].Dec, dist, pa, outra2, outdec2);
+	// Calculate total angular arc
+	distradec02(trackdetvec[0].RA, trackdetvec[0].Dec, trackdetvec[trackdetvec.size()-1].RA, trackdetvec[trackdetvec.size()-1].Dec, &dist, &pa);
+	dist*=3600.0l;
+	crossindex = trackdetvec[rp1].index;
+	image1 = detvec[crossindex].image;
+	crossindex = trackdetvec[rp2].index;
+	image2 = detvec[crossindex].image;
+	track1 = tracklet(image1,outra1,outdec1,image2,outra2,outdec2,trackdetvec.size(),tracklets.size());
+	// Load points to output trk2det vector.
+	for(j=0; j<long(trackdetvec.size()); j++) {
+	  onepair = longpair(tracklets.size(),trackdetvec[j].index);
+	  trk2det.push_back(onepair);
+	}
+	cout << "Saving tracklet " << tracklets.size() << ", desig " << trackdetvec[0].idstring << ", " << trackdetvec.size() << " points, pa " << pa << " degrees, angvel " << angvel << "deg/day, arc " << dist << " arcsec\n";
+	tracklets.push_back(track1);
+      }
+      // Reset for the next tracklet
+      trackdetvec={};
+      lastdet=detvec_fixed[i];
+      trackdetvec.push_back(lastdet);
+    }
+    // Close loop over all detections
+  }
+
+  return(0);
+}
+
+
+// make_tracklets: April 07, 2023: dummy wrapper for make_tracklets
 int make_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrackletsConfig config, vector <hldet> &pairdets,vector <tracklet> &tracklets, vector <longpair> &trk2det)
 {
  
@@ -15574,6 +15942,57 @@ int make_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrac
   } else cout << "merge_pairs finished OK\n";
   return(0);
 }
+
+// remake_tracklets: May 10, 2023:
+// Given an already-trackletized input detection vector,
+// record the pre-existing tracklets in the standard make_tracklets
+// format that can be ingested by heliolinc_new, etc.
+int remake_tracklets(vector <hldet> &detvec, vector <hldet> &detvec_fixed, vector <hlimage> &image_log,vector <tracklet> &tracklets, vector <longpair> &trk2det, int verbose)
+{
+ 
+  long i=0;
+  std::vector <longpair> pairvec;
+  std::vector <vector <long>> indvecs;
+  long crossindex=0;
+  int forcerun=0;
+    
+  int status = load_image_indices2(image_log, detvec, IMAGETIMETOL/SOLARDAY, forcerun);
+  if(status!=0) {
+    cerr << "ERROR: failed to load_image_indices from detection vector\n";
+    return(status);
+  }
+  
+  // Echo image log
+  for(i=0;i<long(image_log.size());i++) {
+    cout << "image " << i << " " << image_log[i].MJD << " " << image_log[i].RA << " " << image_log[i].Dec << " " << image_log[i].X << " " << image_log[i].obscode  << " " << image_log[i].startind  << " " << image_log[i].endind << "\n";
+  }
+  cout << "In remake_tracklets, finished echoing image log\n";
+  
+  // Get indices of the sorted vector into the fixed vector
+  for(i=0; i<long(detvec.size()); i++) {
+    // Operating from the sorted vector, find the index of the
+    // corresponding point in the fixed vector
+    crossindex = detvec[i].index;
+    // Assign the index in the fixed vector so that points
+    // in the sorted vector can be looked up from the fixed vector
+    if(crossindex<0 || crossindex>=long(detvec_fixed.size())) {
+      cerr << "at i = " << i << ", crossindex = " << crossindex << ", max allowed should be " << detvec_fixed.size() << "\n";
+      return(2);
+    }
+    detvec_fixed[crossindex].index = i;
+  }
+  cout << "About to run record_pairs\n";
+
+  status = record_pairs(detvec, detvec_fixed, tracklets, trk2det, verbose);
+  cout << "Done with record_pairs\n";
+  if(status!=0) {
+    cerr << "ERROR: record_pairs reports failure status " << status << "\n";
+    return(status);
+  } else cout << "record_pairs finished OK\n";
+  return(0);
+}
+
+
 
 int trk2statevec(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar)
 {
@@ -15738,6 +16157,213 @@ int trk2statevec(const vector <hlimage> &image_log, const vector <tracklet> &tra
   return(0);
 }
 
+
+void lastroot(const vector <double> &intvec, vector <double> &rootvec, long N)
+{
+  long i=0;
+#pragma omp parallel shared(intvec,rootvec) private(i)
+  {
+#pragma omp for schedule(dynamic) nowait
+    for(i=0; i<N; i++) {
+      double d1 = sqrt(intvec[i]);
+      rootvec[i] = d1;
+    }
+  }
+}
+
+// trk2statevec_omp: May 17, 2023:
+// An attempt at a parallel version of trk2statevec
+int trk2statevec_omp(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar)
+{
+  long imnum = image_log.size();
+  long imct=0;
+  long j=0;
+  long pairnum = tracklets.size();
+  vector <double> heliodistvec;
+  int bp=0;
+  double delta1 = 0.0l;
+  long pairct=0;
+  vector <vector <point6ix2>> statematrix;
+
+  // Calculate approximate heliocentric distances from the
+  // input quadratic approximation.
+  heliodistvec={};
+  for(imct=0;imct<imnum;imct++) {
+    delta1 = image_log[imct].MJD - mjdref;
+      heliodistvec.push_back(heliodist + heliovel*delta1 + 0.5*helioacc*delta1*delta1);
+      if(heliodistvec[imct]<=0.0l) {
+	bp=1;
+	return(1);
+      }
+  }
+  if(bp==0 && long(heliodistvec.size())!=imnum) {
+    cerr << "ERROR: number of heliocentric distance values does\n";
+    cerr << "not match the number of input images!\n";
+    return(2);
+  }
+
+  // Load statematrix with empty vectors
+  cout << "Loading statematrix with empty vectors\n";
+  statematrix = {};
+  for(j=0;j<pairnum;j++) {
+    statematrix.push_back({});
+  } // The point of this is that now we have a place
+  // to put any state vector, but it does not need much memory.
+  cout << "Finished loading statematrix with empty vectors\n";
+
+#pragma omp parallel shared(tracklets,image_log,statematrix) private(pairct)
+  {
+#pragma omp for schedule(dynamic) nowait
+    for(pairct=0; pairct<pairnum; pairct++) {
+      int badpoint=0;
+      int status1=0;
+      int status2=0;
+      int num_dist_solutions=0;
+      int solnct=0;
+      double mjdavg=0l;
+      double RA,Dec;
+      long i1,i2;
+      i1=i2=0;
+      point6dx2 statevec1 = point6dx2(0l,0l,0l,0l,0l,0l,0,0);
+      point6ix2 stateveci = point6ix2(0,0,0,0,0,0,0,0);
+      point3d observerpos1 = point3d(0l,0l,0l);
+      point3d observerpos2 = point3d(0l,0l,0l);
+      point3d targpos1 = point3d(0l,0l,0l);
+      point3d targpos2 = point3d(0l,0l,0l);
+      point3d targvel1 = point3d(0l,0l,0l);
+      point3d targvel2 = point3d(0l,0l,0l);
+      point3d unitbary = point3d(0l,0l,0l);
+      vector <point3d> targposvec1;
+      vector <point3d> targposvec2;
+      int glob_warning=0;
+      vector <double> deltavec1;
+      vector <double> deltavec2;
+      double absvelocity=0l;
+      double impactpar=0l;
+      double timediff=0l;
+      vector <point6ix2> statedummy;
+
+      // Obtain indices to the image_log and heliocentric distance vectors.
+      i1=tracklets[pairct].Img1;
+      i2=tracklets[pairct].Img2;
+      // Project the first point
+      RA = tracklets[pairct].RA1;
+      Dec = tracklets[pairct].Dec1;
+      celestial_to_stateunit(RA,Dec,unitbary);
+      observerpos1 = point3d(image_log[i1].X,image_log[i1].Y,image_log[i1].Z);
+      targposvec1={};
+      deltavec1={};
+      status1 = helioproj02(unitbary,observerpos1, heliodistvec[i1], deltavec1, targposvec1);
+      RA = tracklets[pairct].RA2;
+      Dec = tracklets[pairct].Dec2;
+      celestial_to_stateunit(RA,Dec,unitbary);
+      observerpos2 = point3d(image_log[i2].X,image_log[i2].Y,image_log[i2].Z);
+      targposvec2={};
+      deltavec2={};
+      status2 = helioproj02(unitbary, observerpos2, heliodistvec[i2], deltavec2, targposvec2);
+      if(status1 > 0 && status2 > 0 && badpoint==0) {
+	// Calculate time difference between the observations
+	timediff = (image_log[i2].MJD - image_log[i1].MJD)*SOLARDAY;
+	// Did helioproj find two solutions in both cases, or only one?
+	num_dist_solutions = status1;
+	if(num_dist_solutions > status2) num_dist_solutions = status2;
+	// Loop over solutions (num_dist_solutions can only be 1 or 2).
+	statedummy = {};
+	for(solnct=0; solnct<num_dist_solutions; solnct++) {
+	  // Begin new stuff added to eliminate 'globs'
+	  // These are spurious linkages of unreasonably large numbers (typically tens of thousands)
+	  // of detections that arise when the hypothetical heliocentric distance at a time when
+	  // many observations are acquired is extremely close to, but slightly greater than,
+	  // the heliocentric distance of the observer. Then detections over a large area of sky
+	  // wind up with projected 3-D positions in an extremely small volume -- and furthermore,
+	  // they all have similar velocities because the very small geocentric distance causes
+	  // the inferred velocities to be dominated by the observer's motion and the heliocentric
+	  // hypothesis, with only a negligible contribution from the on-sky angular velocity.
+	  glob_warning=0;
+	  if(deltavec1[solnct]<mingeoobs*AU_KM && deltavec2[solnct]<mingeoobs*AU_KM) {
+	    // New-start
+	    // Load target positions
+	    targpos1 = targposvec1[solnct];
+	    targpos2 = targposvec2[solnct];
+	    // Calculate positions relative to observer
+	    targpos1.x -= observerpos1.x;
+	    targpos1.y -= observerpos1.y;
+	    targpos1.z -= observerpos1.z;
+	    
+	    targpos2.x -= observerpos2.x;
+	    targpos2.y -= observerpos2.y;
+	    targpos2.z -= observerpos2.z;
+	    
+	    // Calculate velocity relative to observer
+	    targvel1.x = (targpos2.x - targpos1.x)/timediff;
+	    targvel1.y = (targpos2.y - targpos1.y)/timediff;
+	    targvel1.z = (targpos2.z - targpos1.z)/timediff;
+   
+	    // Calculate impact parameter (past or future).
+	    absvelocity = vecabs3d(targvel1);
+	    impactpar = dotprod3d(targpos1,targvel1)/absvelocity;
+	    // Effectively, we've projected targpos1 onto the velocity
+	    // vector, and impactpar temporarily holds the magnitude of this projection.
+	    // Subtract off the projection of the distance onto the velocity unit vector
+	    targpos1.x -= impactpar*targvel1.x/absvelocity;
+	    targpos1.y -= impactpar*targvel1.y/absvelocity;
+	    targpos1.z -= impactpar*targvel1.z/absvelocity;
+	    // Now targpos1 is the impact parameter vector at projected closest approach.
+	    impactpar  = vecabs3d(targpos1); // Now impactpar is really the impact parameter
+	    if(impactpar<=minimpactpar) {
+	      // The hypothesis implies the object already passed with minimpactpar km of the Earth
+	      // in the likely case that minimpactpar has been set to imply an actual impact,
+	      // it's not our problem anymore.
+	      glob_warning=1;
+	    }
+	  }
+	  if(!glob_warning) {
+	    targpos1 = targposvec1[solnct];
+	    targpos2 = targposvec2[solnct];
+	  
+	    targvel1.x = (targpos2.x - targpos1.x)/timediff;
+	    targvel1.y = (targpos2.y - targpos1.y)/timediff;
+	    targvel1.z = (targpos2.z - targpos1.z)/timediff;
+
+	    targpos1.x = 0.5L*targpos2.x + 0.5L*targpos1.x;
+	    targpos1.y = 0.5L*targpos2.y + 0.5L*targpos1.y;
+	    targpos1.z = 0.5L*targpos2.z + 0.5L*targpos1.z;
+      
+	    // Integrate orbit to the reference time.
+	    mjdavg = 0.5l*image_log[i1].MJD + 0.5l*image_log[i2].MJD;
+	    status1 = Keplerint(GMSUN_KM3_SEC2,mjdavg,targpos1,targvel1,mjdref,targpos2,targvel2);
+	    if(status1 == 0 && badpoint==0) {
+	      statevec1 = point6dx2(targpos2.x,targpos2.y,targpos2.z,chartimescale*targvel2.x,chartimescale*targvel2.y,chartimescale*targvel2.z,pairct,0);
+	      // Note that the multiplication by chartimescale converts velocities in km/sec
+	      // to units of km, for apples-to-apples comparison with the positions.
+	      stateveci = conv_6d_to_6i(statevec1,INTEGERIZING_SCALEFAC);
+	      statedummy.push_back(stateveci);
+	    }
+	  }
+	}
+	if(statedummy.size()>0) {
+	  statematrix[pairct]=statedummy;
+	}
+      } else {
+	badpoint=1;
+	// Heliocentric projection found no physical solution.
+      }
+    }
+  }
+  // Now we have loaded statematrix with all the valid state vectors
+  cout << "Loading allstatevecs from statematrix\n";
+  allstatevecs={};
+  for(pairct=0; pairct<pairnum; pairct++) {
+    for(j=0; j<long(statematrix[pairct].size()); j++) {
+      allstatevecs.push_back(statematrix[pairct][j]);
+    }
+  }
+  cout << "Done loading allstatevecs from statematrix\n";
+  return(0);
+}
+
+
+
 // tracklet_lookup: Given a vector of type longpair that is a catalog
 // of the form trk2det, find and return all of the entries corresponding
 // to tracklet number trknum. The form of the input catalog is that it
@@ -15810,7 +16436,7 @@ point3d earthpos01(const vector <EarthState> &earthpos, double mjd)
   }
 }
 
-#define LOOPY 1
+#define LOOPY 0
 
 int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const point3d &Earthrefpos, double heliodist, double heliovel, double helioacc, double chartimescale, vector <hlclust> &outclust, vector <longpair> &clust2det, long &realclusternum, double cluster_radius, double dbscan_npt, double mingeodist, double geologstep, double maxgeodist, int mintimespan, int minobsnights, int verbose)
 {
@@ -15876,7 +16502,7 @@ int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &
   while(georadcen<=maxgeodist && georadct<=georadnum) {
     georadct++;
     georadcen = mingeodist*intpowD(geologstep,geobinct);
-    if(verbose>=1) cout << "Geocentric distance step " << georadct << ", bin-center distance is " << georadcen << " AU\n";
+    cout << "Geocentric distance step " << georadct << ", bin-center distance is " << georadcen << " AU\n";
     georadmin = georadcen/geologstep;
     georadmax = georadcen*geologstep;
     // Load new array of state vectors, limited to those in the current geocentric bin
@@ -16025,6 +16651,7 @@ int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &
       }
     }
     if(LOOPY) cerr << "Finished clusterct loop\n";
+    
     // Move on to the next bin in geocentric distance
     geobinct++;
   }
@@ -16134,6 +16761,110 @@ int heliolinc_alg(const vector <hlimage> &image_log, const vector <hldet> &detve
   }
   return(0);    
 }
+
+// heliolinc_alg_omp: May 17, 2023:
+// Attempt to parallelize tracklet-to-state-vector step
+int heliolinc_alg_omp(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det)
+{
+  outclust = {};
+  clust2det = {};
+   
+  point3d Earthrefpos = point3d(0l,0l,0l);
+  long imnum = image_log.size();
+  long pairnum = tracklets.size();
+  long trk2detnum = trk2det.size();
+  long accelnum = radhyp.size();
+  long accelct=0;
+
+  vector <double> heliodist;
+  vector <double> heliovel;
+  vector <double> helioacc;
+  long realclusternum, gridpoint_clusternum, status;
+  realclusternum = gridpoint_clusternum = status = 0;
+  vector <point6ix2> allstatevecs;
+
+  // Echo config struct
+  cout << "Configuration parameters:\n";
+  cout << "MJD of reference time: " << config.MJDref << "\n";
+  cout << "DBSCAN clustering radius: " << config.clustrad << " km\n";
+  cout << "DBSCAN npt: " << config.dbscan_npt << "\n";
+  cout << "Min number of distinct observing nights for a valid linkage: " << config.minobsnights << "\n";
+  cout << "Min time span for a valid linkage: " << config.mintimespan << " days\n";
+  cout << "Min geocentric distance (center of innermost bin): " << config.mingeodist << " AU\n";
+  cout << "Max geocentric distance (will be exceeded by center only of the outermost bin): " << config.maxgeodist << " AU\n";
+  cout << "Logarthmic step size (and bin width) for geocentric distance bins: " << config.geologstep << "\n";
+  cout << "Minimum inferred geocentric distance for a valid tracklet: " << config.mingeoobs << " AU\n";
+  cout << "Minimum inferred impact parameter (w.r.t. Earth) for a valid tracklet: " << config.minimpactpar << " Earth radii\n";
+  if(config.verbose) cout << "Verbose output selected\n";
+  
+  if(imnum<=0) {
+    cerr << "ERROR: heliolinc supplied with empty image catalog\n";
+    return(1);
+  } else if(pairnum<=0) {
+    cerr << "ERROR: heliolinc supplied with empty tracklet array\n";
+    return(1);
+  } else if(trk2detnum<=0) {
+    cerr << "ERROR: heliolinc supplied with empty trk2det array\n";
+    return(1);
+  } else if(accelnum<=0) {
+    cerr << "ERROR: heliolinc supplied with empty heliocentric hypothesis array\n";
+    return(1);
+  }
+  
+  double MJDmin = image_log[0].MJD;
+  double MJDmax = image_log[imnum-1].MJD;
+  if(config.MJDref<MJDmin || config.MJDref>MJDmax) {
+    // Input reference MJD is invalid. Suggest a better value before exiting.
+    cerr << "\nERROR: reference MJD, supplied as " << config.MJDref << ",\n";
+    cerr << "must fall in the time interval spanned by the data (" << MJDmin << " to " << MJDmax << "\n";
+    cerr << fixed << setprecision(2) << "Suggested value is " << MJDmin*0.5l + MJDmax*0.5l << "\n";
+    cout << "based on your input image catalog\n";
+    return(2);
+  }
+
+  double chartimescale = (MJDmax - MJDmin)*SOLARDAY/TIMECONVSCALE; // Note that the units are seconds.
+  Earthrefpos = earthpos01(earthpos, config.MJDref);
+
+  // Convert heliocentric radial motion hypothesis matrix
+  // from units of AU, AU/day, and GMSun/R^2
+  // to units of km, km/day, and km/day^2.
+  heliodist = heliovel = helioacc = {};
+  for(accelct=0; accelct<accelnum; accelct++) {
+    heliodist.push_back(radhyp[accelct].HelioRad * AU_KM);
+    heliovel.push_back(radhyp[accelct].R_dot * AU_KM);
+    helioacc.push_back(radhyp[accelct].R_dubdot * (-GMSUN_KM3_SEC2*SOLARDAY*SOLARDAY/heliodist[accelct]/heliodist[accelct]));
+  }
+
+  // Begin master loop over heliocentric hypotheses
+  outclust={};
+  clust2det={};
+  realclusternum=0;  
+  for(accelct=0;accelct<accelnum;accelct++) {
+    gridpoint_clusternum=0;
+    cout << "Working on hypothesis " << accelct << ": " << radhyp[accelct].HelioRad << " AU, " << radhyp[accelct].R_dot*AU_KM/SOLARDAY << " km/sec " << radhyp[accelct].R_dubdot << " GMsun/r^2\n";
+    
+    // Covert all tracklets into state vectors at the reference time, under
+    // the assumption that the heliocentric distance hypothesis is correct.
+    status = trk2statevec_omp(image_log, tracklets, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, allstatevecs, config.MJDref, config.mingeoobs, config.minimpactpar);
+    
+    if(status==1) {
+      cerr << "WARNING: hypothesis " << accelct << ": " << radhyp[accelct].HelioRad << " " << radhyp[accelct].R_dot << " " << radhyp[accelct].R_dubdot << " led to\nnegative heliocentric distance or other invalid result: SKIPPING\n";
+      continue;
+    } else if(status==2) {
+      // This is a weirder error case and is fatal.
+      cerr << "Fatal error case from trk2statevec.\n";
+      return(3);
+    }
+    // If we get here, trk2statevec probably ran OK.
+    if(allstatevecs.size()<=1) continue; // No clusters possible, skip to the next step.
+    if(config.verbose>=0) cout << pairnum << " input pairs/tracklets led to " << allstatevecs.size() << " physically reasonable state vectors\n";
+
+    status = form_clusters(allstatevecs, detvec, tracklets, trk2det, Earthrefpos, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, outclust, clust2det, realclusternum, config.clustrad, config.dbscan_npt, config.mingeodist, config.geologstep, config.maxgeodist, config.mintimespan, config.minobsnights, config.verbose);
+  }
+  return(0);    
+}
+
+
 
 // link_refine_Herget: April 11, 2023:
 // Algorithmic portion to be called by wrappers.

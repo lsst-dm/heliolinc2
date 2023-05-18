@@ -23,6 +23,8 @@
 #include <cstdio>
 #include <cassert>
 
+#include <omp.h>
+
 using namespace std;
 
 #define DEGPRAD (180.0L/M_PI) /*Degrees per radian*/
@@ -1438,6 +1440,7 @@ int read_obscode_file(string obscodefile,  vector <observatory> &observatory_lis
 int read_obscode_file2(string obscodefile,  vector <observatory> &observatory_list, int verbose);
 int read_detection_filemt(string indetfile, int idcol, int mjdcol, int racol, int deccol, int magcol,int bandcol, int obscodecol, vector <det_obsmag_indvec> &detvec, int forcerun);
 int read_detection_filemt2(string indetfile, int mjdcol, int racol, int deccol, int magcol, int idcol, int bandcol, int obscodecol, int trail_len_col, int trail_PA_col, int sigmag_col, int sig_across_col, int sig_along_col, int known_obj_col, int det_qual_col, vector <hldet> &detvec, int verbose, int forcerun);
+int read_detection_file_MPC80(string indetfile, vector <hldet> &detvec);
 int read_pairdet_file(string pairdetfile, vector <hldet> &detvec, int verbose);
 int read_tracklet_file(string trackletfile, vector <tracklet> &tracklets, int verbose);
 int read_longpair_file(string pairfile, vector <longpair> &pairvec, int verbose);
@@ -1450,14 +1453,20 @@ int read_image_file2(string inimfile, vector <hlimage> &img_log);
 int load_image_table(vector <img_log03> &img_log, const vector <det_obsmag_indvec> &detvec);
 int load_image_table(vector <hlimage> &img_log, const vector <hldet> &detvec, const vector <observatory> &observatory_list, const vector <double> &Earthmjd, const vector <point3d> &Earthpos, const vector <point3d> &Earthvel);
 int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double imagetimetol, int forcerun);
+int load_image_indices2(vector <hlimage> &img_log, vector <hldet> &detvec, double imagetimetol, int forcerun);
 int find_pairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <hldet> &pairdets, vector <vector <long>> &indvecs, vector <longpair> &pairvec, double mintime, double maxtime, double imrad, double maxvel, int verbose);
 int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs, const vector <longpair> &pairvec, vector <tracklet> &tracklets, vector <longpair> &trk2det, int mintrkpts, double maxgcr, double minarc, double minvel, double maxvel, int verbose);
+int record_pairs(vector <hldet> &detvec, vector <hldet> &detvec_fixed, vector <tracklet> &tracklets, vector <longpair> &trk2det, int verbose);
 int make_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrackletsConfig config, vector <hldet> &pairdets,vector <tracklet> &tracklets, vector <longpair> &trk2det);
+int remake_tracklets(vector <hldet> &detvec, vector <hldet> &detvec_fixed, vector <hlimage> &image_log,vector <tracklet> &tracklets, vector <longpair> &trk2det, int verbose);
 int trk2statevec(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar);
+void lastroot(const vector <double> &intvec, vector <double> &rootvec, long N);
+int trk2statevec_omp(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar);
 vector <long> tracklet_lookup(const vector <longpair> &trk2det, long trknum);
 point3d earthpos01(const vector <EarthState> &earthpos, double mjd);
 int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const point3d &Earthrefpos, double heliodist, double heliovel, double helioacc, double chartimescale, vector <hlclust> &outclust, vector <longpair> &clust2det, long &realclusternum, double cluster_radius, double dbscan_npt, double mingeodist, double geologstep, double maxgeodist, int mintimespan, int minobsnights, int verbose);
 int heliolinc_alg(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
+int heliolinc_alg_omp(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
 int link_refine_Herget(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
 int parse_clust2det(const vector <hldet> &detvec, const vector <longpair> &inclust2det, vector <hldet> &clustdet);
 int greatcircfit(const vector <hldet> &trackvec, double &poleRA, double &poleDec,double &angvel,double &pa,double &crosstrack,double &alongtrack);
