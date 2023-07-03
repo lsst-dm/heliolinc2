@@ -923,6 +923,545 @@ int kdrange01(const vector <kdpoint> &kdvec,double x,double y,double range,vecto
   return(0);
 }
 
+// medind_3d_index: January 31, 2023: Calculate the median of
+// a vector of points of type point3d_index in x (dim=1), y (dim=2), or z (dim=3)
+long medind_3d_index(const vector <point3d_index> &pointvec, int dim)
+{
+  vector <point3d_index> pvec = pointvec; //Mutable copy of immutable input vector
+  for(long i=0; i<long(pvec.size()); i++) pvec[i].index=i; //Redefine indices
+  long medpt = pvec.size()/2; // Central point of vector (it will be off by one half
+                              // for a vector with even length, but we don't care).
+  if(dim%3 == 1) sort(pvec.begin(), pvec.end(), lower_point3d_index_x()); // Sort vector by x
+  else if(dim%3 == 2) sort(pvec.begin(), pvec.end(), lower_point3d_index_y()); // Sort vector by y
+  else if(dim%3 == 0) sort(pvec.begin(), pvec.end(), lower_point3d_index_z()); // Sort vector by z
+  else {
+    cerr << "ERROR: medind_3d_index recieved invalid dimension " << dim << "\n";
+    return(-1);
+  }
+  return(pvec[medpt].index); // Output the index of the median point in
+                             // the original, unsorted input vector.
+}
+
+// split3d_index: January 31, 2023:
+// Given a vector of type point3d_index, split it into two halves,
+// a left half with all the points lower than or equal to a specified
+// split point along the chosen dimension (use dim = 1, 2, or 3 to
+// split along x, y, z, respectively).
+int split3d_index(const vector <point3d_index> &pointvec, int dim, long splitpoint, vector <point3d_index> &left, vector <point3d_index> &right)
+{
+  long i=0;
+  long double splitval = 0.0L;
+
+  if(dim%3==1) {
+    // split on x
+    splitval = pointvec[splitpoint].x;
+    for(i=0 ; i<long(pointvec.size()); i++) {
+      if(i!=splitpoint && pointvec[i].x<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%3==2) {
+    // split on y
+    splitval = pointvec[splitpoint].y;
+    for(i=0 ; i<long(pointvec.size()); i++) {
+      if(i!=splitpoint && pointvec[i].y<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%3==0) {
+    // split on z
+    splitval = pointvec[splitpoint].z;
+    for(i=0 ; i<long(pointvec.size()); i++) {
+      if(i!=splitpoint && pointvec[i].z<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else {
+      cerr << "ERROR: split3d_index asked to split on undefined dimension " << dim << "\n";
+      return(1);
+  } 
+  return(0);
+}
+
+// kdtree_3d_index: January 31, 2023
+// Given an input root point, presumed to have null
+// right and left branches, load the branches and then
+// call kdtree_3d_index on them recursively.
+int kdtree_3d_index(const vector <point3d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point3d_index> &kdvec)
+{
+  int lmed=0;
+  int rmed=0;
+  int kdct = kdvec.size()-1;
+  long leftrootkd=-1;
+  long rightrootkd=-1;
+  point3d_index point0 = point3d_index(0.0l,0.0l,0.0l,0);
+  KD_point3d_index lp = KD_point3d_index(point0,-1,-1,0,0);
+  KD_point3d_index rp = KD_point3d_index(point0,-1,-1,0,0);
+  vector <point3d_index> leftvec = {};
+  vector <point3d_index> rightvec = {};
+
+  // Basic outline: split the input vector into a left and a right
+  // half, where the left half is below (or level with) splitpoint
+  // in the dimension specified by dim, and the right half is above
+  // splitpoint. Find the median of the left and right vectors,
+  // and make the left and right branches from kdroot point to
+  // these medians. Then call kdtree_6D01 itself recursively on
+  // each of these median points, to peform a new split along a
+  // different dimension.
+  split3d_index(invec,dim,splitpoint,leftvec,rightvec);
+
+  dim+=1;
+  while(dim>3) dim-=3;
+
+  if(leftvec.size()==1) {
+    // Left branch is just a single leaf
+    lp = KD_point3d_index(leftvec[0],-1,-1,dim,0); // Define new point as a leaf: branches point nowhere
+    kdvec.push_back(lp); // Add this new point to the KD tree.
+    kdct++; // Keep track of how many point are in the tree
+    kdvec[kdroot].left = kdct; // Stick the new point on the left branch of the input root.
+  } else if(leftvec.size()<=0) {
+    // There is no left branch
+    kdvec[kdroot].left = -1;
+  }
+  if(rightvec.size()==1) {
+    // Right branch is just a single leaf
+    rp = KD_point3d_index(rightvec[0],-1,-1,dim,0);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[kdroot].right = kdct;
+  } else if(rightvec.size()<=0) {
+    // There is no right branch
+    kdvec[kdroot].right = -1;
+  }
+   
+ if(leftvec.size()>1) {
+    lmed = medind_3d_index(leftvec,dim);
+    lp = KD_point3d_index(leftvec[lmed],-1,-1,dim,0);
+    kdvec.push_back(lp);
+    kdct++;
+    kdvec[kdroot].left = kdct;
+    leftrootkd = kdct;
+ }
+ 
+  if(rightvec.size()>1) {
+    rmed = medind_3d_index(rightvec,dim);
+    rp = KD_point3d_index(rightvec[rmed],-1,-1,dim,0);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[kdroot].right = kdct;
+    rightrootkd = kdct;
+  }
+  // I moved these down out of the above loops, because I thought
+  // that otherwise, a bunch of stuff might get pushed down by the
+  // left loop that the right loop didn't know about.
+  if(leftvec.size()>1 && leftrootkd>=0) kdtree_3d_index(leftvec,dim,lmed,leftrootkd,kdvec);
+  else if(leftvec.size()>1 && leftrootkd<0)
+    {
+      cerr << "Error, kdtree_3d_index finds leftroot less than zero with leftvec.size() = " << leftvec.size() << "\n";
+    }
+  if(rightvec.size()>1 && rightrootkd>=0) kdtree_3d_index(rightvec,dim,rmed,rightrootkd,kdvec);
+  else if(rightvec.size()>1 && rightrootkd<0)
+    {
+      cerr << "Error, kdtree_3d_index finds rightroot less than zero with rightvec.size() = " << rightvec.size() << "\n";
+    }
+
+  return(0);
+}
+
+// point3d_index_dist2: January 31, 2023:
+// Calculate the squared distance in 3-dimensional parameter space
+// between two points of class point3d_index.
+double point3d_index_dist2(const point3d_index &p1, const point3d_index &p2)
+{
+  return(DSQUARE(p1.x - p2.x) + DSQUARE(p1.y - p2.y) + DSQUARE(p1.z - p2.z));
+}	 
+
+// kdrange_3d_index: January 31, 2023:
+// Given a k-d tree vector kdvec created by kdtree_3d_index,
+// perform a range-query about the specified point. Returns
+// a vector indexing all of the points in the input k-d tree
+// that lie within the specified range of the input coordinates.
+// Assumes that kdvec[0] is the root of the k-d tree.
+int kdrange_3d_index(const vector <KD_point3d_index> &kdvec, const point3d_index &querypoint, double range, vector <long> &indexvec)
+{
+  double rng2 = range*range;
+  int notdone=1;
+  int dim=1;
+  int currentpoint=0;
+  int leftpoint=0;
+  int rightpoint=0;
+  int goleft=0;
+  int goright=0;
+  double pointdiff = 0.0l;
+  double pdist2 = 0.0l;
+  vector <long> checkit={};
+  int checknum=0;
+
+  while(notdone>0) {
+    // Climb to the top of the k-d tree, keeping track
+    // of potentially interesting unexplored branches
+    // in the vector checkit.
+    while(leftpoint>=0 || rightpoint>=0) {
+      // Previous step did not end on a leaf.
+      leftpoint = kdvec[currentpoint].left;
+      rightpoint = kdvec[currentpoint].right;
+      dim = kdvec[currentpoint].dim;
+      if(dim%3==1) pointdiff = kdvec[currentpoint].point.x - querypoint.x;
+      else if(dim%3==2) pointdiff = kdvec[currentpoint].point.y - querypoint.y;
+      else if(dim%3==0) pointdiff = kdvec[currentpoint].point.z - querypoint.z;
+
+      goright = (pointdiff <= range); // possible hits lie to the left;
+      goleft = (pointdiff >= -range); // possible hits lie to the right;
+      if(goleft && goright) {
+	// Current point might be within range.
+	pdist2 = point3d_index_dist2(querypoint,kdvec[currentpoint].point);
+	if(pdist2 <= rng2) {
+	  // Current point is within range. Add it to the output vector
+	  indexvec.push_back(currentpoint);
+	}
+	if(leftpoint>=0) {
+	  //Explore leftward first.
+	  currentpoint = leftpoint;
+	  if(rightpoint>=0) {
+	    // Rightward branch will also be explored later
+	    checknum++;
+	    if(checknum>long(checkit.size())) {
+	      checkit.push_back(rightpoint);
+	    }
+	    else {
+	      checkit[checknum-1] = rightpoint;
+	    }
+	  }
+	}
+	else if(rightpoint>=0) {
+	  // Leftward branch is a dead end: explore rightward branch
+	  currentpoint = rightpoint;
+	}
+      }
+      else if(goleft) {
+	// Current point cannot be in range, but points that
+	// are in range may lie along the left branch.
+	if(leftpoint>=0) {
+	  currentpoint = leftpoint;
+	} else rightpoint=-1; // Dead end, make sure while-loop exits.
+      } else if(goright) {
+	// Current point cannot be in range, but points that
+	// are in range may lie along the right branch.
+	if(rightpoint>=0) {
+	  currentpoint = rightpoint;
+	} else leftpoint=-1;  // Dead end, make sure while-loop exits.
+      } else {
+	// Program concluded it should go neither left nor right.
+	// The likely cause is that it encountered a NAN. Give up on this point.
+	leftpoint=rightpoint=-1;
+	cerr << "WARNING: ENCOUNTERED NAN CASE!\n";
+	cerr << "Query point:\n";
+	cerr << querypoint.x << ", " << querypoint.y << ", " << querypoint.z << "\n";
+	cerr << "Target point:\n";
+ 	cerr << kdvec[currentpoint].point.x << ", " << kdvec[currentpoint].point.y << ", " << kdvec[currentpoint].point.z << "\n";
+     }
+      // Close while-loop checking if we've hit a leaf.
+    }
+    // We have climbed up the tree to a leaf. Go backwards through
+    // the checkit vector and see if there is anything to check.
+    checknum=checkit.size();
+    while(checknum>=1 && checkit[checknum-1]<0) checknum--;
+    if(checknum<=0) {
+      //There were no valid entries to check: we're done.
+      notdone=0;
+    } else {
+      //Set currentpoint to the last valid entry in checkit
+      currentpoint = checkit[checknum-1];
+      //Mark this point as used.
+      checkit[checknum-1]=-1;
+      leftpoint=rightpoint=0;
+    }
+  }
+  return(0);
+}
+
+
+// medind_4d_index: January 31, 2023: Calculate the median of
+// a vector of points of type point4d_index in t (dim=1), x (dim=2), y (dim=3), or z (dim=3)
+long medind_4d_index(const vector <point4d_index> &pointvec, int dim)
+{
+  vector <point4d_index> pvec = pointvec; //Mutable copy of immutable input vector
+  for(long i=0; i<long(pvec.size()); i++) pvec[i].index=i; //Redefine indices
+  long medpt = pvec.size()/2; // Central point of vector (it will be off by one half
+                              // for a vector with even length, but we don't care).
+  if(dim%4 == 1) sort(pvec.begin(), pvec.end(), lower_point4d_index_t()); // Sort vector by t
+  else if(dim%4 == 2) sort(pvec.begin(), pvec.end(), lower_point4d_index_x()); // Sort vector by x
+  else if(dim%4 == 3) sort(pvec.begin(), pvec.end(), lower_point4d_index_y()); // Sort vector by y
+  else if(dim%4 == 0) sort(pvec.begin(), pvec.end(), lower_point4d_index_z()); // Sort vector by z
+  else {
+    cerr << "ERROR: medind_4d_index recieved invalid dimension " << dim << "\n";
+    return(-1);
+  }
+  return(pvec[medpt].index); // Output the index of the median point in
+                             // the original, unsorted input vector.
+}
+
+// split4d_index: January 31, 2023:
+// Given a vector of type point4d_index, split it into two halves,
+// a left half with all the points lower than or equal to a specified
+// split point along the chosen dimension (use dim = 1, 2, 3, or 4 to
+// split along t, x, y, or z, respectively).
+int split4d_index(const vector <point4d_index> &pointvec, int dim, long splitpoint, vector <point4d_index> &left, vector <point4d_index> &right)
+{
+  long i=0;
+  long double splitval = 0.0L;
+
+  if(dim%4==1) {
+    // split on t
+    splitval = pointvec[splitpoint].t;
+    for(i=0 ; i<long(pointvec.size()); i++) {
+      if(i!=splitpoint && pointvec[i].t<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%4==2) {
+    // split on x
+    splitval = pointvec[splitpoint].x;
+    for(i=0 ; i<long(pointvec.size()); i++) {
+      if(i!=splitpoint && pointvec[i].x<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%4==3) {
+    // split on y
+    splitval = pointvec[splitpoint].y;
+    for(i=0 ; i<long(pointvec.size()); i++) {
+      if(i!=splitpoint && pointvec[i].y<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else if(dim%4==0) {
+    // split on z
+    splitval = pointvec[splitpoint].z;
+    for(i=0 ; i<long(pointvec.size()); i++) {
+      if(i!=splitpoint && pointvec[i].z<=splitval) {
+	left.push_back(pointvec[i]);
+      } else if (i!=splitpoint) {
+	right.push_back(pointvec[i]);
+      }
+    }
+  } else {
+      cerr << "ERROR: split4d_index asked to split on undefined dimension " << dim << "\n";
+      return(1);
+  } 
+  return(0);
+}
+
+// kdtree_4d_index: January 31, 2023
+// Given an input root point, presumed to have null
+// right and left branches, load the branches and then
+// call kdtree_4d_index on them recursively.
+int kdtree_4d_index(const vector <point4d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point4d_index> &kdvec)
+{
+  int lmed=0;
+  int rmed=0;
+  long kdct = kdvec.size()-1;
+  long leftrootkd=-1;
+  long rightrootkd=-1;
+  point4d_index point0 = point4d_index(0.0l,0.0l,0.0l,0.0l,0);
+  KD_point4d_index lp = KD_point4d_index(point0,-1,-1,0,0);
+  KD_point4d_index rp = KD_point4d_index(point0,-1,-1,0,0);
+  vector <point4d_index> leftvec = {};
+  vector <point4d_index> rightvec = {};
+
+  // Basic outline: split the input vector into a left and a right
+  // half, where the left half is below (or level with) splitpoint
+  // in the dimension specified by dim, and the right half is above
+  // splitpoint. Find the median of the left and right vectors,
+  // and make the left and right branches from kdroot point to
+  // these medians. Then call kdtree_6D01 itself recursively on
+  // each of these median points, to peform a new split along a
+  // different dimension.
+  split4d_index(invec,dim,splitpoint,leftvec,rightvec);
+
+  dim+=1;
+  while(dim>4) dim-=4;
+
+  if(leftvec.size()==1) {
+    // Left branch is just a single leaf
+    lp = KD_point4d_index(leftvec[0],-1,-1,dim,0); // Define new point as a leaf: branches point nowhere
+    kdvec.push_back(lp); // Add this new point to the KD tree.
+    kdct++; // Keep track of how many point are in the tree
+    kdvec[kdroot].left = kdct; // Stick the new point on the left branch of the input root.
+  } else if(leftvec.size()<=0) {
+    // There is no left branch
+    kdvec[kdroot].left = -1;
+  }
+  if(rightvec.size()==1) {
+    // Right branch is just a single leaf
+    rp = KD_point4d_index(rightvec[0],-1,-1,dim,0);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[kdroot].right = kdct;
+  } else if(rightvec.size()<=0) {
+    // There is no right branch
+    kdvec[kdroot].right = -1;
+  }
+   
+ if(leftvec.size()>1) {
+    lmed = medind_4d_index(leftvec,dim);
+    lp = KD_point4d_index(leftvec[lmed],-1,-1,dim,0);
+    kdvec.push_back(lp);
+    kdct++;
+    kdvec[kdroot].left = kdct;
+    leftrootkd = kdct;
+ }
+ 
+  if(rightvec.size()>1) {
+    rmed = medind_4d_index(rightvec,dim);
+    rp = KD_point4d_index(rightvec[rmed],-1,-1,dim,0);
+    kdvec.push_back(rp);
+    kdct++;
+    kdvec[kdroot].right = kdct;
+    rightrootkd = kdct;
+  }
+  // I moved these down out of the above loops, because I thought
+  // that otherwise, a bunch of stuff might get pushed down by the
+  // left loop that the right loop didn't know about.
+  if(leftvec.size()>1 && leftrootkd>=0) kdtree_4d_index(leftvec,dim,lmed,leftrootkd,kdvec);
+  else if(leftvec.size()>1 && leftrootkd<0)
+    {
+      cerr << "Error, kdtree_4d_index finds leftroot less than zero with leftvec.size() = " << leftvec.size() << "\n";
+    }
+  if(rightvec.size()>1 && rightrootkd>=0) kdtree_4d_index(rightvec,dim,rmed,rightrootkd,kdvec);
+  else if(rightvec.size()>1 && rightrootkd<0)
+    {
+      cerr << "Error, kdtree_4d_index finds rightroot less than zero with rightvec.size() = " << rightvec.size() << "\n";
+    }
+
+  return(0);
+}
+
+// point4d_index_dist2: January 31, 2023:
+// Calculate the squared distance in 4-dimensional parameter space
+// between two points of class point4d_index.
+double point4d_index_dist2(const point4d_index &p1, const point4d_index &p2)
+{
+  return(DSQUARE(p1.t - p2.t) + DSQUARE(p1.x - p2.x) + DSQUARE(p1.y - p2.y) + DSQUARE(p1.z - p2.z));
+}	 
+
+// kdrange_4d_index: January 31, 2023:
+// Given a k-d tree vector kdvec created by kdtree_4d_index,
+// perform a range-query about the specified point. Returns
+// a vector indexing all of the points in the input k-d tree
+// that lie within the specified range of the input coordinates.
+// Assumes that kdvec[0] is the root of the k-d tree.
+int kdrange_4d_index(const vector <KD_point4d_index> &kdvec, const point4d_index &querypoint, double range, vector <long> &indexvec)
+{
+  long double rng2 = range*range;
+  int notdone=1;
+  int dim=1;
+  int currentpoint=0;
+  int leftpoint=0;
+  int rightpoint=0;
+  int goleft=0;
+  int goright=0;
+  long double pointdiff = 0.0L;
+  long double pdist2 = 0.0L;
+  vector <long> checkit={};
+  int checknum=0;
+
+  while(notdone>0) {
+    // Climb to the top of the k-d tree, keeping track
+    // of potentially interesting unexplored branches
+    // in the vector checkit.
+    while(leftpoint>=0 || rightpoint>=0) {
+      // Previous step did not end on a leaf.
+      leftpoint = kdvec[currentpoint].left;
+      rightpoint = kdvec[currentpoint].right;
+      dim = kdvec[currentpoint].dim;
+      if(dim%4==1) pointdiff = kdvec[currentpoint].point.t - querypoint.t;
+      else if(dim%4==2) pointdiff = kdvec[currentpoint].point.x - querypoint.x;
+      else if(dim%4==3) pointdiff = kdvec[currentpoint].point.y - querypoint.y;
+      else if(dim%4==0) pointdiff = kdvec[currentpoint].point.z - querypoint.z;
+
+      goright = (pointdiff <= range); // possible hits lie to the left;
+      goleft = (pointdiff >= -range); // possible hits lie to the right;
+      if(goleft && goright) {
+	// Current point might be within range.
+	pdist2 = point4d_index_dist2(querypoint,kdvec[currentpoint].point);
+	if(pdist2 <= rng2) {
+	  // Current point is within range. Add it to the output vector
+	  indexvec.push_back(currentpoint);
+	}
+	if(leftpoint>=0) {
+	  //Explore leftward first.
+	  currentpoint = leftpoint;
+	  if(rightpoint>=0) {
+	    // Rightward branch will also be explored later
+	    checknum++;
+	    if(checknum>long(checkit.size())) {
+	      checkit.push_back(rightpoint);
+	    }
+	    else {
+	      checkit[checknum-1] = rightpoint;
+	    }
+	  }
+	}
+	else if(rightpoint>=0) {
+	  // Leftward branch is a dead end: explore rightward branch
+	  currentpoint = rightpoint;
+	}
+      }
+      else if(goleft) {
+	// Current point cannot be in range, but points that
+	// are in range may lie along the left branch.
+	if(leftpoint>=0) {
+	  currentpoint = leftpoint;
+	} else rightpoint=-1; // Dead end, make sure while-loop exits.
+      } else if(goright) {
+	// Current point cannot be in range, but points that
+	// are in range may lie along the right branch.
+	if(rightpoint>=0) {
+	  currentpoint = rightpoint;
+	} else leftpoint=-1;  // Dead end, make sure while-loop exits.
+      } else {
+	// Program concluded it should go neither left nor right.
+	// The likely cause is that it encountered a NAN. Give up on this point.
+	leftpoint=rightpoint=-1;
+	cerr << "WARNING: ENCOUNTERED NAN CASE!\n";
+	cerr << "Query point:\n";
+	cerr << querypoint.t << ", " << querypoint.x << ", " << querypoint.y << ", " << querypoint.z << "\n";
+	cerr << "Target point:\n";
+ 	cerr << kdvec[currentpoint].point.t << ", " << kdvec[currentpoint].point.x << ", " << kdvec[currentpoint].point.y << ", " << kdvec[currentpoint].point.z << "\n";
+     }
+      // Close while-loop checking if we've hit a leaf.
+    }
+    // We have climbed up the tree to a leaf. Go backwards through
+    // the checkit vector and see if there is anything to check.
+    checknum=checkit.size();
+    while(checknum>=1 && checkit[checknum-1]<0) checknum--;
+    if(checknum<=0) {
+      //There were no valid entries to check: we're done.
+      notdone=0;
+    } else {
+      //Set currentpoint to the last valid entry in checkit
+      currentpoint = checkit[checknum-1];
+      //Mark this point as used.
+      checkit[checknum-1]=-1;
+      leftpoint=rightpoint=0;
+    }
+  }
+  return(0);
+}
+
 long medind_6LDx2(const vector <point6LDx2> &pointvec, int dim)
 {
   vector <point6LDx2> pvec = pointvec; //Mutable copy of immutable input vector
@@ -2154,7 +2693,6 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
   return(clusternum);
 }
 
-		
 int celestial_to_statevec(double RA, double Dec,double delta,point3d &baryvec)
 {
   double x,y,z,theta,phi,thetapole,phipole;
@@ -5838,6 +6376,155 @@ int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD
   return(0);
 }
 
+// Kepler2dyn: June 20, 2023:
+// Overloading the previous Kepler2dyn function, this version
+// uses double precision rather than long double, and accepts as
+// input the asteroid_orbit class rather than the keplerian_orbit
+// class. Besides using doubles rather than long doubles, asteroid_orbit
+// differs from keplerian_orbit in that it includes a string designation,
+// the absolute magnitude H, and the phase paramter G.
+// Convert the Keplerian orbital parameters to barycentric
+// Cartesian state vectors at the instant of the MJD.
+int Kepler2dyn(const double mjdnow, const asteroid_orbit &keporb, point3d &outpos,  point3d &outvel)
+{
+  double meananom,theta,psi,cospsi,costheta;
+  double heliodist,ellipsearea,Period,sweeprate;
+  double radvel,angvel,tanvel,poleRA,poleDec,oldpoleRA;
+  double newRA,newDec,totalvel,thetaoc;
+  double vtheta1,vtheta2,posRA,posDec,velRA,velDec;
+  vtheta1 = vtheta2 = posRA = posDec = velRA = velDec = 0l;
+  
+  // keporb.semimaj_axis        in AU
+  // keporb.eccentricity        unitless
+  // keporb.inclination         in degrees
+  // keporb.long_ascend_node    Longitude of the ascending node, in degrees
+  // keporb.arg_perihelion      Argument of perihelion, in degrees
+  // keporb.mean_anom           Mean anomaly at the epoch, in degrees
+  // keporb.mjd_epoch           Epoch for the orbit in MJD
+  // keporb.mean_daily_motion   in degrees/day
+
+  meananom = keporb.mean_anom + (mjdnow-keporb.mjd_epoch)*keporb.mean_daily_motion;
+  //cout << "keporb.meananom = " << keporb.mean_anom << " meananom = " << meananom << "\n";
+  
+  // Solve Kepler's equation for psi (the true anomaly) given the mean anomaly.
+  psi = kep_transcendental(double(meananom/DEGPRAD),keporb.eccentricity,double(KEPTRANSTOL));
+  //cout << "New psi = " << psi*DEGPRAD;
+  cospsi = cos(psi);
+  //cout << " New cospsi = " << cospsi << "\n";
+  // Calculate theta from psi
+  if(1.0l - keporb.eccentricity*cospsi != 0.0l) {
+    costheta = (cospsi - keporb.eccentricity)/(1.0l - keporb.eccentricity*cospsi);
+    if(costheta >= -1.0l && costheta <= 1.0l) theta = acos(costheta);
+    else if(costheta < -1.0l) {
+      cout << "Warning: costheta = " << costheta << "\n";
+      theta = M_PI;
+    } else {
+      cout << "Warning: costheta = " << costheta << "\n";
+      theta = 0.0L;
+    }
+    if(psi>M_PI && theta<=M_PI) theta = 2.0l*M_PI - theta;
+  } else {
+    cerr << "Warning: e*cos(psi) = " << keporb.eccentricity*cospsi << " so 1 - e*cos(psi) = " << 1.0l - keporb.eccentricity*cospsi << "\n";
+    theta = 0.0L;
+  }
+  while(theta<0.0l) theta += 2.0l*M_PI;
+  while(theta>=2.0l*M_PI) theta -= 2.0l*M_PI;
+
+  // Calculate heliodist from psi
+  heliodist = keporb.semimaj_axis*(1.0l - keporb.eccentricity*cospsi);
+  //cout << "keporb.semimaj_axis = " << keporb.semimaj_axis << " keporb.eccentricity = " << keporb.eccentricity << " heliodist = " << heliodist <<"\n";
+  // Now effectively we have the asteroid's position fully
+  //  specified in a coordinate system for which the asteroid's
+  //  orbit defines the equatorial plane and its perihelion defines
+  //  zero longitude. The current longitude is theta1, the 
+  //  latitude is zero by definition, and heliodist
+  //  is the radius. Two steps remain: (1) Calculate the velocity
+  //  in this orbital coordinate system, and (2) tranform both
+  //  position and velocity into heliocentric coordinates.
+
+  // Calculate the Velocity
+  ellipsearea = M_PI*keporb.semimaj_axis*keporb.semimaj_axis*sqrt(1.0l - DSQUARE(keporb.eccentricity));
+  // This area is in AU^2. The period of the orbit is:
+  Period = 360.0l/keporb.mean_daily_motion;
+  //cout << "Period = " << Period << " days\n";
+  // This is the period in days, because keporb.mean_daily_motion is the
+  //  mean daily motion in degrees/day
+  sweeprate = ellipsearea/Period;
+  // This is the rate at which area is swept out, in terms
+  //  of AU^2/day. This will allow us to find the instantaneous
+  //  angular velocity
+  // Area of triangle swept out in time dt is r^2 * dt * angvel / 2.0
+  //cout << "heliodist = " << heliodist << "\n";
+  angvel = sweeprate*2.0L/DSQUARE(heliodist);
+  //cout << "angvel = " << angvel << " rad/day = " << angvel*DEGPRAD << " deg/day = " << angvel*DEGPRAD*150.0L << "arcsec/hr\n";
+  // This is the angular velocity in radians/day 
+  // All we need now is the radial component. 
+  radvel = angvel*keporb.semimaj_axis*(1.0L - DSQUARE(keporb.eccentricity))*(keporb.eccentricity*sin(theta)/DSQUARE(1.0L + keporb.eccentricity*cos(theta)));
+  // This is the radial velocity in AU/day. The formula is 
+  //  derived in my October 05, 2016 notebook entry.
+  tanvel = angvel*heliodist;
+  //cout << "radvel, tanvel = " << radvel << " " << tanvel << "\n";
+  // Calculate the angle of the velocity relative
+  //  to the position vector
+  if(tanvel>0.0) vtheta1 = M_PI/2.0l - atan(radvel/tanvel);
+  else if(tanvel==0.0 && radvel>=0.0) vtheta1 = 0.0;
+  else if(tanvel==0.0 && radvel<0.0) vtheta1 = M_PI;
+  else if(tanvel<0.0) vtheta1 = 3.0l*M_PI/2.0l - atan(radvel/tanvel);
+
+  // Convert to degrees
+  vtheta1*=DEGPRAD;
+  // Add in the angle of the position vector
+  vtheta1 += theta*DEGPRAD;
+  // Calculate the total velocity
+  totalvel = sqrt(radvel*radvel + tanvel*tanvel);
+  // Note that at this point, vtheta1 is in degrees
+  //  and total vel is in AU/day.
+
+  // Reckon from the line of nodes (intersection of the
+  //  asteroidal orbit with the plane of the ecliptic)
+  
+  // Position vector:
+  thetaoc = keporb.arg_perihelion+theta*DEGPRAD;
+  while(thetaoc>=360.0l) thetaoc-=360.0l;
+  // Velocity vector
+  vtheta2 = keporb.arg_perihelion+vtheta1;
+  while(vtheta2>=360.0l) vtheta2-=360.0l;
+
+  //cout << "The angle from perihelion is " << theta*DEGPRAD << " degrees.\n";
+  //cout << "The angle from the line of nodes is " << thetaoc << " degrees.\n";
+  // Now in orbital coordinates, the asteroid's position
+  //  has a 'declination' of zero (by definition) and a
+  //  'right ascension' equal to thetaoc
+  // RA in orbital coords
+  posRA = thetaoc/DEGPRAD;
+  velRA = vtheta2/DEGPRAD;
+  // Dec in orbital coords
+  posDec = 0l;
+  velDec = 0l;
+  // Now I need the orbital coordinates of the ecliptic pole.
+  //  Since I have defined the line of nodes as the RA reference
+  //  in orbital coordinates, and this line has to be perpendicular
+  //  to the vector to the ecliptic pole, it follows that the
+  //  orbital RA of the ecliptic pole is 90.0 degrees.
+  //  The orbital declination of the ecliptic pole is ninety
+  //  degrees minus the inclination.
+  poleRA = M_PI/2.0l;
+  poleDec = (90.0l - keporb.inclination)/DEGPRAD;
+  // Now I need the right ascension of the old pole
+  //  in the new coordinates.  This is equal to the
+  //  longitude of the ascending node minus 90 degrees.
+  oldpoleRA = (keporb.long_ascend_node - 90.0l)/DEGPRAD;
+  poleswitch01(posRA,posDec,poleRA,poleDec,oldpoleRA,newRA,newDec); // Output is radians
+  outpos.x = heliodist*cos(newDec)*cos(newRA);
+  outpos.y = heliodist*cos(newDec)*sin(newRA);
+  outpos.z = heliodist*sin(newDec);
+  poleswitch01(velRA,velDec,poleRA,poleDec,oldpoleRA,newRA,newDec); // Output is radians  
+  outvel.x = totalvel*cos(newDec)*cos(newRA);
+  outvel.y = totalvel*cos(newDec)*sin(newRA);
+  outvel.z = totalvel*sin(newDec);
+  
+  return(0);
+}
 
 // hyp_transcendental: April 25, 2022:
 // Solve the hyperbolic form of the trancendental
@@ -12007,544 +12694,6 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
 #undef SIMP_MAXCT_EXPAND
 #undef SIMP_MAXCT_TOTAL
 
-// medind_3d_index: January 31, 2023: Calculate the median of
-// a vector of points of type point3d_index in x (dim=1), y (dim=2), or z (dim=3)
-long medind_3d_index(const vector <point3d_index> &pointvec, int dim)
-{
-  vector <point3d_index> pvec = pointvec; //Mutable copy of immutable input vector
-  for(long i=0; i<long(pvec.size()); i++) pvec[i].index=i; //Redefine indices
-  long medpt = pvec.size()/2; // Central point of vector (it will be off by one half
-                              // for a vector with even length, but we don't care).
-  if(dim%3 == 1) sort(pvec.begin(), pvec.end(), lower_point3d_index_x()); // Sort vector by x
-  else if(dim%3 == 2) sort(pvec.begin(), pvec.end(), lower_point3d_index_y()); // Sort vector by y
-  else if(dim%3 == 0) sort(pvec.begin(), pvec.end(), lower_point3d_index_z()); // Sort vector by z
-  else {
-    cerr << "ERROR: medind_3d_index recieved invalid dimension " << dim << "\n";
-    return(-1);
-  }
-  return(pvec[medpt].index); // Output the index of the median point in
-                             // the original, unsorted input vector.
-}
-
-// split3d_index: January 31, 2023:
-// Given a vector of type point3d_index, split it into two halves,
-// a left half with all the points lower than or equal to a specified
-// split point along the chosen dimension (use dim = 1, 2, or 3 to
-// split along x, y, z, respectively).
-int split3d_index(const vector <point3d_index> &pointvec, int dim, long splitpoint, vector <point3d_index> &left, vector <point3d_index> &right)
-{
-  long i=0;
-  long double splitval = 0.0L;
-
-  if(dim%3==1) {
-    // split on x
-    splitval = pointvec[splitpoint].x;
-    for(i=0 ; i<long(pointvec.size()); i++) {
-      if(i!=splitpoint && pointvec[i].x<=splitval) {
-	left.push_back(pointvec[i]);
-      } else if (i!=splitpoint) {
-	right.push_back(pointvec[i]);
-      }
-    }
-  } else if(dim%3==2) {
-    // split on y
-    splitval = pointvec[splitpoint].y;
-    for(i=0 ; i<long(pointvec.size()); i++) {
-      if(i!=splitpoint && pointvec[i].y<=splitval) {
-	left.push_back(pointvec[i]);
-      } else if (i!=splitpoint) {
-	right.push_back(pointvec[i]);
-      }
-    }
-  } else if(dim%3==0) {
-    // split on z
-    splitval = pointvec[splitpoint].z;
-    for(i=0 ; i<long(pointvec.size()); i++) {
-      if(i!=splitpoint && pointvec[i].z<=splitval) {
-	left.push_back(pointvec[i]);
-      } else if (i!=splitpoint) {
-	right.push_back(pointvec[i]);
-      }
-    }
-  } else {
-      cerr << "ERROR: split3d_index asked to split on undefined dimension " << dim << "\n";
-      return(1);
-  } 
-  return(0);
-}
-
-// kdtree_3d_index: January 31, 2023
-// Given an input root point, presumed to have null
-// right and left branches, load the branches and then
-// call kdtree_3d_index on them recursively.
-int kdtree_3d_index(const vector <point3d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point3d_index> &kdvec)
-{
-  int lmed=0;
-  int rmed=0;
-  int kdct = kdvec.size()-1;
-  long leftrootkd=-1;
-  long rightrootkd=-1;
-  point3d_index point0 = point3d_index(0.0l,0.0l,0.0l,0);
-  KD_point3d_index lp = KD_point3d_index(point0,-1,-1,0,0);
-  KD_point3d_index rp = KD_point3d_index(point0,-1,-1,0,0);
-  vector <point3d_index> leftvec = {};
-  vector <point3d_index> rightvec = {};
-
-  // Basic outline: split the input vector into a left and a right
-  // half, where the left half is below (or level with) splitpoint
-  // in the dimension specified by dim, and the right half is above
-  // splitpoint. Find the median of the left and right vectors,
-  // and make the left and right branches from kdroot point to
-  // these medians. Then call kdtree_6D01 itself recursively on
-  // each of these median points, to peform a new split along a
-  // different dimension.
-  split3d_index(invec,dim,splitpoint,leftvec,rightvec);
-
-  dim+=1;
-  while(dim>3) dim-=3;
-
-  if(leftvec.size()==1) {
-    // Left branch is just a single leaf
-    lp = KD_point3d_index(leftvec[0],-1,-1,dim,0); // Define new point as a leaf: branches point nowhere
-    kdvec.push_back(lp); // Add this new point to the KD tree.
-    kdct++; // Keep track of how many point are in the tree
-    kdvec[kdroot].left = kdct; // Stick the new point on the left branch of the input root.
-  } else if(leftvec.size()<=0) {
-    // There is no left branch
-    kdvec[kdroot].left = -1;
-  }
-  if(rightvec.size()==1) {
-    // Right branch is just a single leaf
-    rp = KD_point3d_index(rightvec[0],-1,-1,dim,0);
-    kdvec.push_back(rp);
-    kdct++;
-    kdvec[kdroot].right = kdct;
-  } else if(rightvec.size()<=0) {
-    // There is no right branch
-    kdvec[kdroot].right = -1;
-  }
-   
- if(leftvec.size()>1) {
-    lmed = medind_3d_index(leftvec,dim);
-    lp = KD_point3d_index(leftvec[lmed],-1,-1,dim,0);
-    kdvec.push_back(lp);
-    kdct++;
-    kdvec[kdroot].left = kdct;
-    leftrootkd = kdct;
- }
- 
-  if(rightvec.size()>1) {
-    rmed = medind_3d_index(rightvec,dim);
-    rp = KD_point3d_index(rightvec[rmed],-1,-1,dim,0);
-    kdvec.push_back(rp);
-    kdct++;
-    kdvec[kdroot].right = kdct;
-    rightrootkd = kdct;
-  }
-  // I moved these down out of the above loops, because I thought
-  // that otherwise, a bunch of stuff might get pushed down by the
-  // left loop that the right loop didn't know about.
-  if(leftvec.size()>1 && leftrootkd>=0) kdtree_3d_index(leftvec,dim,lmed,leftrootkd,kdvec);
-  else if(leftvec.size()>1 && leftrootkd<0)
-    {
-      cerr << "Error, kdtree_3d_index finds leftroot less than zero with leftvec.size() = " << leftvec.size() << "\n";
-    }
-  if(rightvec.size()>1 && rightrootkd>=0) kdtree_3d_index(rightvec,dim,rmed,rightrootkd,kdvec);
-  else if(rightvec.size()>1 && rightrootkd<0)
-    {
-      cerr << "Error, kdtree_3d_index finds rightroot less than zero with rightvec.size() = " << rightvec.size() << "\n";
-    }
-
-  return(0);
-}
-
-// point3d_index_dist2: January 31, 2023:
-// Calculate the squared distance in 3-dimensional parameter space
-// between two points of class point3d_index.
-double point3d_index_dist2(const point3d_index &p1, const point3d_index &p2)
-{
-  return(DSQUARE(p1.x - p2.x) + DSQUARE(p1.y - p2.y) + DSQUARE(p1.z - p2.z));
-}	 
-
-// kdrange_3d_index: January 31, 2023:
-// Given a k-d tree vector kdvec created by kdtree_3d_index,
-// perform a range-query about the specified point. Returns
-// a vector indexing all of the points in the input k-d tree
-// that lie within the specified range of the input coordinates.
-// Assumes that kdvec[0] is the root of the k-d tree.
-int kdrange_3d_index(const vector <KD_point3d_index> &kdvec, const point3d_index &querypoint, double range, vector <long> &indexvec)
-{
-  double rng2 = range*range;
-  int notdone=1;
-  int dim=1;
-  int currentpoint=0;
-  int leftpoint=0;
-  int rightpoint=0;
-  int goleft=0;
-  int goright=0;
-  double pointdiff = 0.0l;
-  double pdist2 = 0.0l;
-  vector <long> checkit={};
-  int checknum=0;
-
-  while(notdone>0) {
-    // Climb to the top of the k-d tree, keeping track
-    // of potentially interesting unexplored branches
-    // in the vector checkit.
-    while(leftpoint>=0 || rightpoint>=0) {
-      // Previous step did not end on a leaf.
-      leftpoint = kdvec[currentpoint].left;
-      rightpoint = kdvec[currentpoint].right;
-      dim = kdvec[currentpoint].dim;
-      if(dim%3==1) pointdiff = kdvec[currentpoint].point.x - querypoint.x;
-      else if(dim%3==2) pointdiff = kdvec[currentpoint].point.y - querypoint.y;
-      else if(dim%3==0) pointdiff = kdvec[currentpoint].point.z - querypoint.z;
-
-      goright = (pointdiff <= range); // possible hits lie to the left;
-      goleft = (pointdiff >= -range); // possible hits lie to the right;
-      if(goleft && goright) {
-	// Current point might be within range.
-	pdist2 = point3d_index_dist2(querypoint,kdvec[currentpoint].point);
-	if(pdist2 <= rng2) {
-	  // Current point is within range. Add it to the output vector
-	  indexvec.push_back(currentpoint);
-	}
-	if(leftpoint>=0) {
-	  //Explore leftward first.
-	  currentpoint = leftpoint;
-	  if(rightpoint>=0) {
-	    // Rightward branch will also be explored later
-	    checknum++;
-	    if(checknum>long(checkit.size())) {
-	      checkit.push_back(rightpoint);
-	    }
-	    else {
-	      checkit[checknum-1] = rightpoint;
-	    }
-	  }
-	}
-	else if(rightpoint>=0) {
-	  // Leftward branch is a dead end: explore rightward branch
-	  currentpoint = rightpoint;
-	}
-      }
-      else if(goleft) {
-	// Current point cannot be in range, but points that
-	// are in range may lie along the left branch.
-	if(leftpoint>=0) {
-	  currentpoint = leftpoint;
-	} else rightpoint=-1; // Dead end, make sure while-loop exits.
-      } else if(goright) {
-	// Current point cannot be in range, but points that
-	// are in range may lie along the right branch.
-	if(rightpoint>=0) {
-	  currentpoint = rightpoint;
-	} else leftpoint=-1;  // Dead end, make sure while-loop exits.
-      } else {
-	// Program concluded it should go neither left nor right.
-	// The likely cause is that it encountered a NAN. Give up on this point.
-	leftpoint=rightpoint=-1;
-	cerr << "WARNING: ENCOUNTERED NAN CASE!\n";
-	cerr << "Query point:\n";
-	cerr << querypoint.x << ", " << querypoint.y << ", " << querypoint.z << "\n";
-	cerr << "Target point:\n";
- 	cerr << kdvec[currentpoint].point.x << ", " << kdvec[currentpoint].point.y << ", " << kdvec[currentpoint].point.z << "\n";
-     }
-      // Close while-loop checking if we've hit a leaf.
-    }
-    // We have climbed up the tree to a leaf. Go backwards through
-    // the checkit vector and see if there is anything to check.
-    checknum=checkit.size();
-    while(checknum>=1 && checkit[checknum-1]<0) checknum--;
-    if(checknum<=0) {
-      //There were no valid entries to check: we're done.
-      notdone=0;
-    } else {
-      //Set currentpoint to the last valid entry in checkit
-      currentpoint = checkit[checknum-1];
-      //Mark this point as used.
-      checkit[checknum-1]=-1;
-      leftpoint=rightpoint=0;
-    }
-  }
-  return(0);
-}
-
-
-// medind_4d_index: January 31, 2023: Calculate the median of
-// a vector of points of type point4d_index in t (dim=1), x (dim=2), y (dim=3), or z (dim=3)
-long medind_4d_index(const vector <point4d_index> &pointvec, int dim)
-{
-  vector <point4d_index> pvec = pointvec; //Mutable copy of immutable input vector
-  for(long i=0; i<long(pvec.size()); i++) pvec[i].index=i; //Redefine indices
-  long medpt = pvec.size()/2; // Central point of vector (it will be off by one half
-                              // for a vector with even length, but we don't care).
-  if(dim%4 == 1) sort(pvec.begin(), pvec.end(), lower_point4d_index_t()); // Sort vector by t
-  else if(dim%4 == 2) sort(pvec.begin(), pvec.end(), lower_point4d_index_x()); // Sort vector by x
-  else if(dim%4 == 3) sort(pvec.begin(), pvec.end(), lower_point4d_index_y()); // Sort vector by y
-  else if(dim%4 == 0) sort(pvec.begin(), pvec.end(), lower_point4d_index_z()); // Sort vector by z
-  else {
-    cerr << "ERROR: medind_4d_index recieved invalid dimension " << dim << "\n";
-    return(-1);
-  }
-  return(pvec[medpt].index); // Output the index of the median point in
-                             // the original, unsorted input vector.
-}
-
-// split4d_index: January 31, 2023:
-// Given a vector of type point4d_index, split it into two halves,
-// a left half with all the points lower than or equal to a specified
-// split point along the chosen dimension (use dim = 1, 2, 3, or 4 to
-// split along t, x, y, or z, respectively).
-int split4d_index(const vector <point4d_index> &pointvec, int dim, long splitpoint, vector <point4d_index> &left, vector <point4d_index> &right)
-{
-  long i=0;
-  long double splitval = 0.0L;
-
-  if(dim%4==1) {
-    // split on t
-    splitval = pointvec[splitpoint].t;
-    for(i=0 ; i<long(pointvec.size()); i++) {
-      if(i!=splitpoint && pointvec[i].t<=splitval) {
-	left.push_back(pointvec[i]);
-      } else if (i!=splitpoint) {
-	right.push_back(pointvec[i]);
-      }
-    }
-  } else if(dim%4==2) {
-    // split on x
-    splitval = pointvec[splitpoint].x;
-    for(i=0 ; i<long(pointvec.size()); i++) {
-      if(i!=splitpoint && pointvec[i].x<=splitval) {
-	left.push_back(pointvec[i]);
-      } else if (i!=splitpoint) {
-	right.push_back(pointvec[i]);
-      }
-    }
-  } else if(dim%4==3) {
-    // split on y
-    splitval = pointvec[splitpoint].y;
-    for(i=0 ; i<long(pointvec.size()); i++) {
-      if(i!=splitpoint && pointvec[i].y<=splitval) {
-	left.push_back(pointvec[i]);
-      } else if (i!=splitpoint) {
-	right.push_back(pointvec[i]);
-      }
-    }
-  } else if(dim%4==0) {
-    // split on z
-    splitval = pointvec[splitpoint].z;
-    for(i=0 ; i<long(pointvec.size()); i++) {
-      if(i!=splitpoint && pointvec[i].z<=splitval) {
-	left.push_back(pointvec[i]);
-      } else if (i!=splitpoint) {
-	right.push_back(pointvec[i]);
-      }
-    }
-  } else {
-      cerr << "ERROR: split4d_index asked to split on undefined dimension " << dim << "\n";
-      return(1);
-  } 
-  return(0);
-}
-
-// kdtree_4d_index: January 31, 2023
-// Given an input root point, presumed to have null
-// right and left branches, load the branches and then
-// call kdtree_4d_index on them recursively.
-int kdtree_4d_index(const vector <point4d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point4d_index> &kdvec)
-{
-  int lmed=0;
-  int rmed=0;
-  long kdct = kdvec.size()-1;
-  long leftrootkd=-1;
-  long rightrootkd=-1;
-  point4d_index point0 = point4d_index(0.0l,0.0l,0.0l,0.0l,0);
-  KD_point4d_index lp = KD_point4d_index(point0,-1,-1,0,0);
-  KD_point4d_index rp = KD_point4d_index(point0,-1,-1,0,0);
-  vector <point4d_index> leftvec = {};
-  vector <point4d_index> rightvec = {};
-
-  // Basic outline: split the input vector into a left and a right
-  // half, where the left half is below (or level with) splitpoint
-  // in the dimension specified by dim, and the right half is above
-  // splitpoint. Find the median of the left and right vectors,
-  // and make the left and right branches from kdroot point to
-  // these medians. Then call kdtree_6D01 itself recursively on
-  // each of these median points, to peform a new split along a
-  // different dimension.
-  split4d_index(invec,dim,splitpoint,leftvec,rightvec);
-
-  dim+=1;
-  while(dim>4) dim-=4;
-
-  if(leftvec.size()==1) {
-    // Left branch is just a single leaf
-    lp = KD_point4d_index(leftvec[0],-1,-1,dim,0); // Define new point as a leaf: branches point nowhere
-    kdvec.push_back(lp); // Add this new point to the KD tree.
-    kdct++; // Keep track of how many point are in the tree
-    kdvec[kdroot].left = kdct; // Stick the new point on the left branch of the input root.
-  } else if(leftvec.size()<=0) {
-    // There is no left branch
-    kdvec[kdroot].left = -1;
-  }
-  if(rightvec.size()==1) {
-    // Right branch is just a single leaf
-    rp = KD_point4d_index(rightvec[0],-1,-1,dim,0);
-    kdvec.push_back(rp);
-    kdct++;
-    kdvec[kdroot].right = kdct;
-  } else if(rightvec.size()<=0) {
-    // There is no right branch
-    kdvec[kdroot].right = -1;
-  }
-   
- if(leftvec.size()>1) {
-    lmed = medind_4d_index(leftvec,dim);
-    lp = KD_point4d_index(leftvec[lmed],-1,-1,dim,0);
-    kdvec.push_back(lp);
-    kdct++;
-    kdvec[kdroot].left = kdct;
-    leftrootkd = kdct;
- }
- 
-  if(rightvec.size()>1) {
-    rmed = medind_4d_index(rightvec,dim);
-    rp = KD_point4d_index(rightvec[rmed],-1,-1,dim,0);
-    kdvec.push_back(rp);
-    kdct++;
-    kdvec[kdroot].right = kdct;
-    rightrootkd = kdct;
-  }
-  // I moved these down out of the above loops, because I thought
-  // that otherwise, a bunch of stuff might get pushed down by the
-  // left loop that the right loop didn't know about.
-  if(leftvec.size()>1 && leftrootkd>=0) kdtree_4d_index(leftvec,dim,lmed,leftrootkd,kdvec);
-  else if(leftvec.size()>1 && leftrootkd<0)
-    {
-      cerr << "Error, kdtree_4d_index finds leftroot less than zero with leftvec.size() = " << leftvec.size() << "\n";
-    }
-  if(rightvec.size()>1 && rightrootkd>=0) kdtree_4d_index(rightvec,dim,rmed,rightrootkd,kdvec);
-  else if(rightvec.size()>1 && rightrootkd<0)
-    {
-      cerr << "Error, kdtree_4d_index finds rightroot less than zero with rightvec.size() = " << rightvec.size() << "\n";
-    }
-
-  return(0);
-}
-
-// point4d_index_dist2: January 31, 2023:
-// Calculate the squared distance in 4-dimensional parameter space
-// between two points of class point4d_index.
-double point4d_index_dist2(const point4d_index &p1, const point4d_index &p2)
-{
-  return(DSQUARE(p1.t - p2.t) + DSQUARE(p1.x - p2.x) + DSQUARE(p1.y - p2.y) + DSQUARE(p1.z - p2.z));
-}	 
-
-// kdrange_4d_index: January 31, 2023:
-// Given a k-d tree vector kdvec created by kdtree_4d_index,
-// perform a range-query about the specified point. Returns
-// a vector indexing all of the points in the input k-d tree
-// that lie within the specified range of the input coordinates.
-// Assumes that kdvec[0] is the root of the k-d tree.
-int kdrange_4d_index(const vector <KD_point4d_index> &kdvec, const point4d_index &querypoint, double range, vector <long> &indexvec)
-{
-  long double rng2 = range*range;
-  int notdone=1;
-  int dim=1;
-  int currentpoint=0;
-  int leftpoint=0;
-  int rightpoint=0;
-  int goleft=0;
-  int goright=0;
-  long double pointdiff = 0.0L;
-  long double pdist2 = 0.0L;
-  vector <long> checkit={};
-  int checknum=0;
-
-  while(notdone>0) {
-    // Climb to the top of the k-d tree, keeping track
-    // of potentially interesting unexplored branches
-    // in the vector checkit.
-    while(leftpoint>=0 || rightpoint>=0) {
-      // Previous step did not end on a leaf.
-      leftpoint = kdvec[currentpoint].left;
-      rightpoint = kdvec[currentpoint].right;
-      dim = kdvec[currentpoint].dim;
-      if(dim%4==1) pointdiff = kdvec[currentpoint].point.t - querypoint.t;
-      else if(dim%4==2) pointdiff = kdvec[currentpoint].point.x - querypoint.x;
-      else if(dim%4==3) pointdiff = kdvec[currentpoint].point.y - querypoint.y;
-      else if(dim%4==0) pointdiff = kdvec[currentpoint].point.z - querypoint.z;
-
-      goright = (pointdiff <= range); // possible hits lie to the left;
-      goleft = (pointdiff >= -range); // possible hits lie to the right;
-      if(goleft && goright) {
-	// Current point might be within range.
-	pdist2 = point4d_index_dist2(querypoint,kdvec[currentpoint].point);
-	if(pdist2 <= rng2) {
-	  // Current point is within range. Add it to the output vector
-	  indexvec.push_back(currentpoint);
-	}
-	if(leftpoint>=0) {
-	  //Explore leftward first.
-	  currentpoint = leftpoint;
-	  if(rightpoint>=0) {
-	    // Rightward branch will also be explored later
-	    checknum++;
-	    if(checknum>long(checkit.size())) {
-	      checkit.push_back(rightpoint);
-	    }
-	    else {
-	      checkit[checknum-1] = rightpoint;
-	    }
-	  }
-	}
-	else if(rightpoint>=0) {
-	  // Leftward branch is a dead end: explore rightward branch
-	  currentpoint = rightpoint;
-	}
-      }
-      else if(goleft) {
-	// Current point cannot be in range, but points that
-	// are in range may lie along the left branch.
-	if(leftpoint>=0) {
-	  currentpoint = leftpoint;
-	} else rightpoint=-1; // Dead end, make sure while-loop exits.
-      } else if(goright) {
-	// Current point cannot be in range, but points that
-	// are in range may lie along the right branch.
-	if(rightpoint>=0) {
-	  currentpoint = rightpoint;
-	} else leftpoint=-1;  // Dead end, make sure while-loop exits.
-      } else {
-	// Program concluded it should go neither left nor right.
-	// The likely cause is that it encountered a NAN. Give up on this point.
-	leftpoint=rightpoint=-1;
-	cerr << "WARNING: ENCOUNTERED NAN CASE!\n";
-	cerr << "Query point:\n";
-	cerr << querypoint.t << ", " << querypoint.x << ", " << querypoint.y << ", " << querypoint.z << "\n";
-	cerr << "Target point:\n";
- 	cerr << kdvec[currentpoint].point.t << ", " << kdvec[currentpoint].point.x << ", " << kdvec[currentpoint].point.y << ", " << kdvec[currentpoint].point.z << "\n";
-     }
-      // Close while-loop checking if we've hit a leaf.
-    }
-    // We have climbed up the tree to a leaf. Go backwards through
-    // the checkit vector and see if there is anything to check.
-    checknum=checkit.size();
-    while(checknum>=1 && checkit[checknum-1]<0) checknum--;
-    if(checknum<=0) {
-      //There were no valid entries to check: we're done.
-      notdone=0;
-    } else {
-      //Set currentpoint to the last valid entry in checkit
-      currentpoint = checkit[checknum-1];
-      //Mark this point as used.
-      checkit[checknum-1]=-1;
-      leftpoint=rightpoint=0;
-    }
-  }
-  return(0);
-}
 
 // MPCcal2MJD: Febuary 01, 2022
 // Given a calendar date in the MPC format with integer year,
@@ -16362,6 +16511,199 @@ int trk2statevec_omp(const vector <hlimage> &image_log, const vector <tracklet> 
   return(0);
 }
 
+// trk2statevec_omp2: May 31, 2023:
+// An attempt at a parallel version of trk2statevec
+int trk2statevec_omp2(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar)
+{
+  long imnum = image_log.size();
+  long imct=0;
+  long pairnum = tracklets.size();
+  vector <double> heliodistvec;
+  int bp=0;
+  double delta1 = 0.0l;
+  
+  size_t *prefix;
+  allstatevecs = {};
+  
+  // Calculate approximate heliocentric distances from the
+  // input quadratic approximation.
+  heliodistvec={};
+  for(imct=0;imct<imnum;imct++) {
+    delta1 = image_log[imct].MJD - mjdref;
+      heliodistvec.push_back(heliodist + heliovel*delta1 + 0.5*helioacc*delta1*delta1);
+      if(heliodistvec[imct]<=0.0l) {
+	bp=1;
+	return(1);
+      }
+  }
+  if(bp==0 && long(heliodistvec.size())!=imnum) {
+    cerr << "ERROR: number of heliocentric distance values does\n";
+    cerr << "not match the number of input images!\n";
+    return(2);
+  }
+
+  cout << "Launching parallel loop\n";
+
+#pragma omp parallel
+  {
+    int ithread = omp_get_thread_num();
+    int nthreads = omp_get_num_threads();
+    #pragma omp single
+    {
+      prefix = new size_t[nthreads+1];
+      prefix[0] = 0;
+    }
+    vector <point6ix2> statevecs_private;
+    #pragma omp for schedule(static) nowait
+    for(int pairct=0; pairct<pairnum; pairct++) {
+      int badpoint=0;
+      int status1=0;
+      int status2=0;
+      int num_dist_solutions=0;
+      int solnct=0;
+      double mjdavg=0l;
+      double RA,Dec;
+      long i1,i2;
+      i1=i2=0;
+      point6dx2 statevec1 = point6dx2(0l,0l,0l,0l,0l,0l,0,0);
+      point6ix2 stateveci = point6ix2(0,0,0,0,0,0,0,0);
+      point3d observerpos1 = point3d(0l,0l,0l);
+      point3d observerpos2 = point3d(0l,0l,0l);
+      point3d targpos1 = point3d(0l,0l,0l);
+      point3d targpos2 = point3d(0l,0l,0l);
+      point3d targvel1 = point3d(0l,0l,0l);
+      point3d targvel2 = point3d(0l,0l,0l);
+      point3d unitbary = point3d(0l,0l,0l);
+      vector <point3d> targposvec1;
+      vector <point3d> targposvec2;
+      int glob_warning=0;
+      vector <double> deltavec1;
+      vector <double> deltavec2;
+      double absvelocity=0l;
+      double impactpar=0l;
+      double timediff=0l;
+
+      // Obtain indices to the image_log and heliocentric distance vectors.
+      i1=tracklets[pairct].Img1;
+      i2=tracklets[pairct].Img2;
+      // Project the first point
+      RA = tracklets[pairct].RA1;
+      Dec = tracklets[pairct].Dec1;
+      celestial_to_stateunit(RA,Dec,unitbary);
+      observerpos1 = point3d(image_log[i1].X,image_log[i1].Y,image_log[i1].Z);
+      targposvec1={};
+      deltavec1={};
+      status1 = helioproj02(unitbary,observerpos1, heliodistvec[i1], deltavec1, targposvec1);
+      RA = tracklets[pairct].RA2;
+      Dec = tracklets[pairct].Dec2;
+      celestial_to_stateunit(RA,Dec,unitbary);
+      observerpos2 = point3d(image_log[i2].X,image_log[i2].Y,image_log[i2].Z);
+      targposvec2={};
+      deltavec2={};
+      status2 = helioproj02(unitbary, observerpos2, heliodistvec[i2], deltavec2, targposvec2);
+      if(status1 > 0 && status2 > 0 && badpoint==0) {
+	// Calculate time difference between the observations
+	timediff = (image_log[i2].MJD - image_log[i1].MJD)*SOLARDAY;
+	// Did helioproj find two solutions in both cases, or only one?
+	num_dist_solutions = status1;
+	if(num_dist_solutions > status2) num_dist_solutions = status2;
+	// Loop over solutions (num_dist_solutions can only be 1 or 2).
+	for(solnct=0; solnct<num_dist_solutions; solnct++) {
+	  // Begin new stuff added to eliminate 'globs'
+	  // These are spurious linkages of unreasonably large numbers (typically tens of thousands)
+	  // of detections that arise when the hypothetical heliocentric distance at a time when
+	  // many observations are acquired is extremely close to, but slightly greater than,
+	  // the heliocentric distance of the observer. Then detections over a large area of sky
+	  // wind up with projected 3-D positions in an extremely small volume -- and furthermore,
+	  // they all have similar velocities because the very small geocentric distance causes
+	  // the inferred velocities to be dominated by the observer's motion and the heliocentric
+	  // hypothesis, with only a negligible contribution from the on-sky angular velocity.
+	  glob_warning=0;
+	  if(deltavec1[solnct]<mingeoobs*AU_KM && deltavec2[solnct]<mingeoobs*AU_KM) {
+	    // New-start
+	    // Load target positions
+	    targpos1 = targposvec1[solnct];
+	    targpos2 = targposvec2[solnct];
+	    // Calculate positions relative to observer
+	    targpos1.x -= observerpos1.x;
+	    targpos1.y -= observerpos1.y;
+	    targpos1.z -= observerpos1.z;
+	    
+	    targpos2.x -= observerpos2.x;
+	    targpos2.y -= observerpos2.y;
+	    targpos2.z -= observerpos2.z;
+	    
+	    // Calculate velocity relative to observer
+	    targvel1.x = (targpos2.x - targpos1.x)/timediff;
+	    targvel1.y = (targpos2.y - targpos1.y)/timediff;
+	    targvel1.z = (targpos2.z - targpos1.z)/timediff;
+   
+	    // Calculate impact parameter (past or future).
+	    absvelocity = vecabs3d(targvel1);
+	    impactpar = dotprod3d(targpos1,targvel1)/absvelocity;
+	    // Effectively, we've projected targpos1 onto the velocity
+	    // vector, and impactpar temporarily holds the magnitude of this projection.
+	    // Subtract off the projection of the distance onto the velocity unit vector
+	    targpos1.x -= impactpar*targvel1.x/absvelocity;
+	    targpos1.y -= impactpar*targvel1.y/absvelocity;
+	    targpos1.z -= impactpar*targvel1.z/absvelocity;
+	    // Now targpos1 is the impact parameter vector at projected closest approach.
+	    impactpar  = vecabs3d(targpos1); // Now impactpar is really the impact parameter
+	    if(impactpar<=minimpactpar) {
+	      // The hypothesis implies the object already passed with minimpactpar km of the Earth
+	      // in the likely case that minimpactpar has been set to imply an actual impact,
+	      // it's not our problem anymore.
+	      glob_warning=1;
+	    }
+	  }
+	  if(!glob_warning) {
+	    targpos1 = targposvec1[solnct];
+	    targpos2 = targposvec2[solnct];
+	  
+	    targvel1.x = (targpos2.x - targpos1.x)/timediff;
+	    targvel1.y = (targpos2.y - targpos1.y)/timediff;
+	    targvel1.z = (targpos2.z - targpos1.z)/timediff;
+
+	    targpos1.x = 0.5L*targpos2.x + 0.5L*targpos1.x;
+	    targpos1.y = 0.5L*targpos2.y + 0.5L*targpos1.y;
+	    targpos1.z = 0.5L*targpos2.z + 0.5L*targpos1.z;
+      
+	    // Integrate orbit to the reference time.
+	    mjdavg = 0.5l*image_log[i1].MJD + 0.5l*image_log[i2].MJD;
+	    status1 = Keplerint(GMSUN_KM3_SEC2,mjdavg,targpos1,targvel1,mjdref,targpos2,targvel2);
+	    if(status1 == 0 && badpoint==0) {
+	      statevec1 = point6dx2(targpos2.x,targpos2.y,targpos2.z,chartimescale*targvel2.x,chartimescale*targvel2.y,chartimescale*targvel2.z,pairct,0);
+	      // Note that the multiplication by chartimescale converts velocities in km/sec
+	      // to units of km, for apples-to-apples comparison with the positions.
+	      stateveci = conv_6d_to_6i(statevec1,INTEGERIZING_SCALEFAC);
+	      statevecs_private.push_back(stateveci);
+	    }
+	  }
+	}
+      } else {
+	badpoint=1;
+	// Heliocentric projection found no physical solution.
+      }
+    }
+  prefix[ithread+1] = statevecs_private.size();
+  #pragma omp barrier
+  #pragma omp single
+  {
+    point6ix2 stateveci = point6ix2(0,0,0,0,0,0,0,0);
+    for(int i=1; i<(nthreads+1); i++) {
+      for(long j=0; j<long(prefix[i]); j++) {
+	allstatevecs.push_back(stateveci);
+      }
+      prefix[i] += prefix[i-1];
+    }
+  }
+  copy(statevecs_private.begin(), statevecs_private.end(), allstatevecs.begin() + prefix[ithread]);
+  }
+  delete[] prefix;
+  cout << "Done with parallel loop\n";
+  return(0);
+}
+
 
 
 // tracklet_lookup: Given a vector of type longpair that is a catalog
@@ -16864,6 +17206,267 @@ int heliolinc_alg_omp(const vector <hlimage> &image_log, const vector <hldet> &d
   return(0);    
 }
 
+// heliolinc_alg_omp2: May 31, 2023:
+// Attempt to parallelize tracklet-to-state-vector step
+int heliolinc_alg_omp2(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det)
+{
+  outclust = {};
+  clust2det = {};
+   
+  point3d Earthrefpos = point3d(0l,0l,0l);
+  long imnum = image_log.size();
+  long pairnum = tracklets.size();
+  long trk2detnum = trk2det.size();
+  long accelnum = radhyp.size();
+  long accelct=0;
+
+  vector <double> heliodist;
+  vector <double> heliovel;
+  vector <double> helioacc;
+  long realclusternum, gridpoint_clusternum, status;
+  realclusternum = gridpoint_clusternum = status = 0;
+  vector <point6ix2> allstatevecs;
+
+  // Echo config struct
+  cout << "Configuration parameters:\n";
+  cout << "MJD of reference time: " << config.MJDref << "\n";
+  cout << "DBSCAN clustering radius: " << config.clustrad << " km\n";
+  cout << "DBSCAN npt: " << config.dbscan_npt << "\n";
+  cout << "Min number of distinct observing nights for a valid linkage: " << config.minobsnights << "\n";
+  cout << "Min time span for a valid linkage: " << config.mintimespan << " days\n";
+  cout << "Min geocentric distance (center of innermost bin): " << config.mingeodist << " AU\n";
+  cout << "Max geocentric distance (will be exceeded by center only of the outermost bin): " << config.maxgeodist << " AU\n";
+  cout << "Logarthmic step size (and bin width) for geocentric distance bins: " << config.geologstep << "\n";
+  cout << "Minimum inferred geocentric distance for a valid tracklet: " << config.mingeoobs << " AU\n";
+  cout << "Minimum inferred impact parameter (w.r.t. Earth) for a valid tracklet: " << config.minimpactpar << " Earth radii\n";
+  if(config.verbose) cout << "Verbose output selected\n";
+  
+  if(imnum<=0) {
+    cerr << "ERROR: heliolinc supplied with empty image catalog\n";
+    return(1);
+  } else if(pairnum<=0) {
+    cerr << "ERROR: heliolinc supplied with empty tracklet array\n";
+    return(1);
+  } else if(trk2detnum<=0) {
+    cerr << "ERROR: heliolinc supplied with empty trk2det array\n";
+    return(1);
+  } else if(accelnum<=0) {
+    cerr << "ERROR: heliolinc supplied with empty heliocentric hypothesis array\n";
+    return(1);
+  }
+  
+  double MJDmin = image_log[0].MJD;
+  double MJDmax = image_log[imnum-1].MJD;
+  if(config.MJDref<MJDmin || config.MJDref>MJDmax) {
+    // Input reference MJD is invalid. Suggest a better value before exiting.
+    cerr << "\nERROR: reference MJD, supplied as " << config.MJDref << ",\n";
+    cerr << "must fall in the time interval spanned by the data (" << MJDmin << " to " << MJDmax << "\n";
+    cerr << fixed << setprecision(2) << "Suggested value is " << MJDmin*0.5l + MJDmax*0.5l << "\n";
+    cout << "based on your input image catalog\n";
+    return(2);
+  }
+
+  double chartimescale = (MJDmax - MJDmin)*SOLARDAY/TIMECONVSCALE; // Note that the units are seconds.
+  Earthrefpos = earthpos01(earthpos, config.MJDref);
+
+  // Convert heliocentric radial motion hypothesis matrix
+  // from units of AU, AU/day, and GMSun/R^2
+  // to units of km, km/day, and km/day^2.
+  heliodist = heliovel = helioacc = {};
+  for(accelct=0; accelct<accelnum; accelct++) {
+    heliodist.push_back(radhyp[accelct].HelioRad * AU_KM);
+    heliovel.push_back(radhyp[accelct].R_dot * AU_KM);
+    helioacc.push_back(radhyp[accelct].R_dubdot * (-GMSUN_KM3_SEC2*SOLARDAY*SOLARDAY/heliodist[accelct]/heliodist[accelct]));
+  }
+
+  // Begin master loop over heliocentric hypotheses
+  outclust={};
+  clust2det={};
+  realclusternum=0;  
+  for(accelct=0;accelct<accelnum;accelct++) {
+    gridpoint_clusternum=0;
+    cout << "Working on hypothesis " << accelct << ": " << radhyp[accelct].HelioRad << " AU, " << radhyp[accelct].R_dot*AU_KM/SOLARDAY << " km/sec " << radhyp[accelct].R_dubdot << " GMsun/r^2\n";
+    
+    // Covert all tracklets into state vectors at the reference time, under
+    // the assumption that the heliocentric distance hypothesis is correct.
+    status = trk2statevec_omp2(image_log, tracklets, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, allstatevecs, config.MJDref, config.mingeoobs, config.minimpactpar);
+    
+    if(status==1) {
+      cerr << "WARNING: hypothesis " << accelct << ": " << radhyp[accelct].HelioRad << " " << radhyp[accelct].R_dot << " " << radhyp[accelct].R_dubdot << " led to\nnegative heliocentric distance or other invalid result: SKIPPING\n";
+      continue;
+    } else if(status==2) {
+      // This is a weirder error case and is fatal.
+      cerr << "Fatal error case from trk2statevec.\n";
+      return(3);
+    }
+    // If we get here, trk2statevec probably ran OK.
+    if(allstatevecs.size()<=1) continue; // No clusters possible, skip to the next step.
+    if(config.verbose>=0) cout << pairnum << " input pairs/tracklets led to " << allstatevecs.size() << " physically reasonable state vectors\n";
+
+    status = form_clusters(allstatevecs, detvec, tracklets, trk2det, Earthrefpos, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, outclust, clust2det, realclusternum, config.clustrad, config.dbscan_npt, config.mingeodist, config.geologstep, config.maxgeodist, config.mintimespan, config.minobsnights, config.verbose);
+  }
+  return(0);    
+}
+
+// heliolinc_alg_omp3: June 30, 2023:
+// Attempt to parallelize over heliocentric hypotheses.
+int heliolinc_alg_omp3(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det)
+{
+  outclust = {};
+  clust2det = {};
+   
+  point3d Earthrefpos = point3d(0l,0l,0l);
+  long imnum = image_log.size();
+  long pairnum = tracklets.size();
+  long trk2detnum = trk2det.size();
+  long accelnum = radhyp.size();
+
+  vector <double> heliodist;
+  vector <double> heliovel;
+  vector <double> helioacc;
+  long realclusternum=0;
+  long acct=0;
+  
+  // Echo config struct
+  cout << "Configuration parameters:\n";
+  cout << "MJD of reference time: " << config.MJDref << "\n";
+  cout << "DBSCAN clustering radius: " << config.clustrad << " km\n";
+  cout << "DBSCAN npt: " << config.dbscan_npt << "\n";
+  cout << "Min number of distinct observing nights for a valid linkage: " << config.minobsnights << "\n";
+  cout << "Min time span for a valid linkage: " << config.mintimespan << " days\n";
+  cout << "Min geocentric distance (center of innermost bin): " << config.mingeodist << " AU\n";
+  cout << "Max geocentric distance (will be exceeded by center only of the outermost bin): " << config.maxgeodist << " AU\n";
+  cout << "Logarthmic step size (and bin width) for geocentric distance bins: " << config.geologstep << "\n";
+  cout << "Minimum inferred geocentric distance for a valid tracklet: " << config.mingeoobs << " AU\n";
+  cout << "Minimum inferred impact parameter (w.r.t. Earth) for a valid tracklet: " << config.minimpactpar << " Earth radii\n";
+  if(config.verbose) cout << "Verbose output selected\n";
+  
+  if(imnum<=0) {
+    cerr << "ERROR: heliolinc supplied with empty image catalog\n";
+    return(1);
+  } else if(pairnum<=0) {
+    cerr << "ERROR: heliolinc supplied with empty tracklet array\n";
+    return(1);
+  } else if(trk2detnum<=0) {
+    cerr << "ERROR: heliolinc supplied with empty trk2det array\n";
+    return(1);
+  } else if(accelnum<=0) {
+    cerr << "ERROR: heliolinc supplied with empty heliocentric hypothesis array\n";
+    return(1);
+  }
+  
+  double MJDmin = image_log[0].MJD;
+  double MJDmax = image_log[imnum-1].MJD;
+  if(config.MJDref<MJDmin || config.MJDref>MJDmax) {
+    // Input reference MJD is invalid. Suggest a better value before exiting.
+    cerr << "\nERROR: reference MJD, supplied as " << config.MJDref << ",\n";
+    cerr << "must fall in the time interval spanned by the data (" << MJDmin << " to " << MJDmax << "\n";
+    cerr << fixed << setprecision(2) << "Suggested value is " << MJDmin*0.5l + MJDmax*0.5l << "\n";
+    cout << "based on your input image catalog\n";
+    return(2);
+  }
+
+  double chartimescale = (MJDmax - MJDmin)*SOLARDAY/TIMECONVSCALE; // Note that the units are seconds.
+  Earthrefpos = earthpos01(earthpos, config.MJDref);
+
+  // Convert heliocentric radial motion hypothesis matrix
+  // from units of AU, AU/day, and GMSun/R^2
+  // to units of km, km/day, and km/day^2.
+  heliodist = heliovel = helioacc = {};
+  for(acct=0; acct<accelnum; acct++) {
+    heliodist.push_back(radhyp[acct].HelioRad * AU_KM);
+    heliovel.push_back(radhyp[acct].R_dot * AU_KM);
+    helioacc.push_back(radhyp[acct].R_dubdot * (-GMSUN_KM3_SEC2*SOLARDAY*SOLARDAY/heliodist[acct]/heliodist[acct]));
+  }
+
+  // Begin master loop over heliocentric hypotheses
+  outclust={};
+  clust2det={};
+  realclusternum=0;
+
+  int nt = 0;
+  #pragma omp parallel
+  {
+  nt = omp_get_num_threads();
+  } 
+  cout << "nthreads = " << nt << "\n";
+  long cyclenum = accelnum/nt;
+  while(nt*cyclenum < accelnum) cyclenum++;
+
+  vector <vector <hlclust>> outclust_mat;
+  vector <vector <longpair>> clust2det_mat;
+  vector <hlclust> ov1;
+  vector <longpair> ov2;
+  long threadct=0;
+  // Load completely empty matrices of the correct size.
+  for(threadct=0; threadct<nt; threadct++) {
+    ov1={};
+    ov2={};
+    outclust_mat.push_back(ov1);
+    clust2det_mat.push_back(ov2);
+  }
+  for(long cyclect=0; cyclect<cyclenum; cyclect++) {
+    for(threadct=0; threadct<nt; threadct++) {
+      outclust_mat[threadct]={};
+      clust2det_mat[threadct]={};
+      acct = threadct + cyclect*nt;
+      if(acct<accelnum) {
+	cout << "Thread number " << threadct << " will check hypothesis " << acct << ": " << radhyp[acct].HelioRad << " AU, " << radhyp[acct].R_dot*AU_KM/SOLARDAY << " km/sec " << radhyp[acct].R_dubdot << " GMsun/r^2\n";
+      }
+    }
+    #pragma omp parallel
+    {
+    vector <point6ix2> allstatevecs;
+    long gridpoint_clusternum = 0;
+    int status=0;
+    int ithread = omp_get_thread_num();
+    int nthreads = omp_get_num_threads();
+    long accelct = ithread + cyclect*nthreads;
+    if(accelct<accelnum) {
+      //cout << "Working on hypothesis " << accelct << ": " << radhyp[accelct].HelioRad << " AU, " << radhyp[accelct].R_dot*AU_KM/SOLARDAY << " km/sec " << radhyp[accelct].R_dubdot << " GMsun/r^2\n";
+    
+      // Covert all tracklets into state vectors at the reference time, under
+      // the assumption that the heliocentric distance hypothesis is correct.
+      status = trk2statevec(image_log, tracklets, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, allstatevecs, config.MJDref, config.mingeoobs, config.minimpactpar);
+    
+      if(status==1) {
+	cerr << "FAILURE IN THREAD " << ithread << "\n";
+      } else if(status==2) {
+	// This is a weirder error case and is fatal.
+	cerr << "Fatal error case from trk2statevec.\n";
+     }
+      if(status==0 && allstatevecs.size()>1) {
+	// trk2statevec probably ran OK, and some clusters possible.
+	if(config.verbose>=0) cout << pairnum << " input pairs/tracklets led to " << allstatevecs.size() << " physically reasonable state vectors\n";
+
+	status = form_clusters(allstatevecs, detvec, tracklets, trk2det, Earthrefpos, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, outclust_mat[ithread], clust2det_mat[ithread], gridpoint_clusternum, config.clustrad, config.dbscan_npt, config.mingeodist, config.geologstep, config.maxgeodist, config.mintimespan, config.minobsnights, config.verbose);
+      }
+    }
+    }
+    // Parallel section is done, load the results.
+    for(threadct=0; threadct<nt; threadct++) {
+      // Determine the number of clusters already loaded
+      realclusternum = outclust.size();
+      // Redefine the cluster index number clusternum in outclust_mat[threadct]
+      for(long i=0; i<long(outclust_mat[threadct].size()); i++) {
+	outclust_mat[threadct][i].clusternum += realclusternum;
+      }
+      // Redefine the cluster index number in clust2det_mat[threadct]
+      for(long i=0; i<long(clust2det_mat[threadct].size()); i++) {
+	clust2det_mat[threadct][i].i1 += realclusternum;
+      }
+      // Load new points into master outclust vector
+      for(long i=0; i<long(outclust_mat[threadct].size()); i++) {
+	outclust.push_back(outclust_mat[threadct][i]);
+      }
+      // Load new points into master clust2det vector
+      for(long i=0; i<long(clust2det_mat[threadct].size()); i++) {
+	clust2det.push_back(clust2det_mat[threadct][i]);
+      }
+    }
+  }
+  return(0);    
+}
 
 
 // link_refine_Herget: April 11, 2023:
@@ -17423,3 +18026,187 @@ int greatcircfit(const vector <hldet> &trackvec, double &poleRA, double &poleDec
   }
   return(0);
 }
+
+// read_orbline: June 20, 2023:
+// Read one line from a file using the format of the MPCORB.DAT file,
+// and store the data in oneorb.
+int read_orbline(ifstream &instream1, asteroid_orbit &oneorb)
+{
+  long double semimaj_axis = 0L; // in AU
+  long double eccentricity = 0L; // unitless
+  long double inclination = 0L;  // in degrees
+  long double long_ascend_node = 0L; // Longitude of the ascending node, in degrees
+  long double arg_perihelion = 0L;   // Argument of perihelion, in degrees
+  long double mean_anom = 0L;        // Mean anomaly at the epoch, in degrees
+  long double mjd_epoch = 0L;        // Epoch for the orbit in MJD
+  long double mean_daily_motion = 0L; // in degrees/day
+  string desig,epoch,lnfromfile;
+  double H = 0l;
+  double G = 0l;
+  int year=0;
+  int month=0;
+  double day = 0l;
+  
+  instream1 >> desig >> H >> G >> epoch >> mean_anom >> arg_perihelion >> long_ascend_node;
+  instream1 >> inclination >> eccentricity >> mean_daily_motion >> semimaj_axis;
+  if(instream1.eof() || instream1.fail() || instream1.bad()) {
+    return(1);
+  }
+  // Clear out the rest of the line
+  getline(instream1,lnfromfile);
+  
+  // Parse the packed epoch string
+  if(epoch[0]=='I') year = 1800;
+  else if(epoch[0]=='J') year = 1900;
+  else if(epoch[0]=='K') year = 2000;
+  else {
+    cerr << "Warning read_orbline has invalid epoch string " << epoch << "\n";
+    return(2);
+  }
+  year += 10*(epoch[1]-'0');
+  year += epoch[2]-'0';
+  if( (epoch[3]-'0')  >= 0 && (epoch[3]-'0') <=9) month = epoch[3]-'0';
+  else if( (epoch[3]-'A')  >= 0 && (epoch[3]-'A') <=2) month = 10 + epoch[3]-'A';
+  else {
+    cerr << "Warning read_orbline has invalid epoch string " << epoch << "\n";
+    return(2);
+  }
+  if( (epoch[4]-'0')  >= 0 && (epoch[4]-'0') <=9) day = epoch[4]-'0';
+  else if( (epoch[4]-'A')  >= 0 && (epoch[4]-'A') <=21) day = 10 + epoch[4]-'A';
+  else {
+    cerr << "Warning read_orbline has invalid epoch string " << epoch << "\n";
+    return(2);
+  }
+  
+  mjd_epoch = MPCcal2MJD(year, month, day);
+  oneorb = asteroid_orbit(desig,semimaj_axis, eccentricity, inclination, long_ascend_node, arg_perihelion, mean_anom, mjd_epoch, mean_daily_motion,H,G);
+  return(0);
+}
+	   
+// read_orbline: June 20, 2023:
+// Parse a line read from a file using the format of the MPCORB.DAT file,
+// and store the data in oneorb.
+int read_orbline(string lnfromfile, asteroid_orbit &oneorb)
+{
+  double semimaj_axis = 0L; // in AU
+  double eccentricity = 0L; // unitless
+  double inclination = 0L;  // in degrees
+  double long_ascend_node = 0L; // Longitude of the ascending node, in degrees
+  double arg_perihelion = 0L;   // Argument of perihelion, in degrees
+  double mean_anom = 0L;        // Mean anomaly at the epoch, in degrees
+  double mjd_epoch = 0L;        // Epoch for the orbit in MJD
+  double mean_daily_motion = 0L; // in degrees/day
+  string desig,epoch,readstring;
+  double H = 0l;
+  double G = 0l;
+  int year=0;
+  int month=0;
+  double day = 0l;
+  int i=0;
+
+  if(lnfromfile.size()<104) {
+    cerr << "Line input to read_orbline is too short; aborting";
+    return(1);
+  }
+  // Read designation, characters 0-7
+  desig=""; 
+  for(i=0;i<8;i++) {
+    if(lnfromfile[i] != ' ') desig.push_back(lnfromfile[i]);
+  }
+  // Read absolute magnitude H, characters 8-14
+  readstring="";
+  H = 0l;
+  for(i=8;i<15;i++) {
+    if(lnfromfile[i] != ' ') readstring.push_back(lnfromfile[i]);
+  }
+  if(readstring.size()>0) H = stod(readstring);
+  // Read phase slope G, characters 15-19
+  readstring="";
+  G = 0l;
+  for(i=15;i<20;i++) {
+    if(lnfromfile[i] != ' ') readstring.push_back(lnfromfile[i]);
+  }
+  if(readstring.size()>0) G = stod(readstring);
+  // Read the packed epoch, characters 20-25
+  epoch="";
+  for(i=20;i<25;i++) {
+    if(lnfromfile[i] != ' ') epoch.push_back(lnfromfile[i]);
+  }
+  // Read mean anomaly at the epoch, characters 25-35
+  readstring="";
+  mean_anom = 0l;
+  for(i=25;i<36;i++) {
+    if(lnfromfile[i] != ' ') readstring.push_back(lnfromfile[i]);
+  }
+  if(readstring.size()>0) mean_anom = stod(readstring);
+   // Read argument of perihelion, characters 36-46
+  readstring="";
+  arg_perihelion = 0l;
+  for(i=36;i<47;i++) {
+    if(lnfromfile[i] != ' ') readstring.push_back(lnfromfile[i]);
+  }
+  if(readstring.size()>0) arg_perihelion = stod(readstring);
+ // Read longitude of the ascending node, characters 47-57
+  readstring="";
+  long_ascend_node = 0l;
+  for(i=47;i<58;i++) {
+    if(lnfromfile[i] != ' ') readstring.push_back(lnfromfile[i]);
+  }
+  if(readstring.size()>0) long_ascend_node = stod(readstring);
+  // Read inclination, characters 58-68
+  readstring="";
+  inclination = 0l;
+  for(i=58;i<69;i++) {
+    if(lnfromfile[i] != ' ') readstring.push_back(lnfromfile[i]);
+  }
+  if(readstring.size()>0) inclination = stod(readstring);
+  // Read eccentricity, characters 69-79
+  readstring="";
+  eccentricity = 0l;
+  for(i=69;i<80;i++) {
+    if(lnfromfile[i] != ' ') readstring.push_back(lnfromfile[i]);
+  }
+  if(readstring.size()>0) eccentricity = stod(readstring);
+  // Read mean daily motion, characters 80-91
+  readstring="";
+  mean_daily_motion = 0l;
+  for(i=80;i<92;i++) {
+    if(lnfromfile[i] != ' ') readstring.push_back(lnfromfile[i]);
+  }
+  if(readstring.size()>0) mean_daily_motion = stod(readstring);
+  // Read semimajor axis, characters 92-103
+  readstring="";
+  semimaj_axis = 0l;
+  for(i=92;i<104;i++) {
+    if(lnfromfile[i] != ' ') readstring.push_back(lnfromfile[i]);
+  }
+  if(readstring.size()>0) semimaj_axis = stod(readstring);
+  
+  // Parse the packed epoch string
+  if(epoch[0]=='I') year = 1800;
+  else if(epoch[0]=='J') year = 1900;
+  else if(epoch[0]=='K') year = 2000;
+  else {
+    cerr << "Warning read_orbline has invalid epoch string " << epoch << "\n";
+    return(2);
+  }
+  year += 10*(epoch[1]-'0');
+  year += epoch[2]-'0';
+  if( (epoch[3]-'0')  >= 0 && (epoch[3]-'0') <=9) month = epoch[3]-'0';
+  else if( (epoch[3]-'A')  >= 0 && (epoch[3]-'A') <=2) month = 10 + epoch[3]-'A';
+  else {
+    cerr << "Warning read_orbline has invalid epoch string " << epoch << "\n";
+    return(2);
+  }
+  if( (epoch[4]-'0')  >= 0 && (epoch[4]-'0') <=9) day = epoch[4]-'0';
+  else if( (epoch[4]-'A')  >= 0 && (epoch[4]-'A') <=21) day = 10 + epoch[4]-'A';
+  else {
+    cerr << "Warning read_orbline has invalid epoch string " << epoch << "\n";
+    return(2);
+  }
+  
+  mjd_epoch = MPCcal2MJD(year, month, day);
+  oneorb = asteroid_orbit(desig,semimaj_axis, eccentricity, inclination, long_ascend_node, arg_perihelion, mean_anom, mjd_epoch, mean_daily_motion,H,G);
+  return(0);
+}
+	   

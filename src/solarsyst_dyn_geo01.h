@@ -1244,6 +1244,27 @@ public:
   keplerian_orbit(long double semimaj_axis, long double eccentricity, long double inclination, long double long_ascend_node, long double arg_perihelion, long double mean_anom, long double mjd_epoch, long double mean_daily_motion) :semimaj_axis(semimaj_axis), eccentricity(eccentricity), inclination(inclination), long_ascend_node(long_ascend_node), arg_perihelion(arg_perihelion), mean_anom(mean_anom), mjd_epoch(mjd_epoch), mean_daily_motion(mean_daily_motion) {}
 };
 
+// asteroid_orbit is the same as keplerian_orbit, except that
+// it uses doubles rather than long doubles, and
+// it also holds a string designation, the absolute magnitude H,
+// and the phase parameter G.
+
+class asteroid_orbit{
+public:
+  string desig;
+  double semimaj_axis; // in AU
+  double eccentricity; // unitless
+  double inclination;  // in degrees
+  double long_ascend_node; // Longitude of the ascending node, in degrees
+  double arg_perihelion;   // Argument of perihelion, in degrees
+  double mean_anom;        // Mean anomaly at the epoch, in degrees
+  double mjd_epoch;        // Epoch for the orbit in MJD
+  double mean_daily_motion; // in degrees/day
+  double H;                // absolute magnitude
+  double G;                // phase slope parameter
+  asteroid_orbit(string desig, double semimaj_axis, double eccentricity, double inclination, double long_ascend_node, double arg_perihelion, double mean_anom, double mjd_epoch, double mean_daily_motion, double H, double G) :desig(desig), semimaj_axis(semimaj_axis), eccentricity(eccentricity), inclination(inclination), long_ascend_node(long_ascend_node), arg_perihelion(arg_perihelion), mean_anom(mean_anom), mjd_epoch(mjd_epoch), mean_daily_motion(mean_daily_motion), H(H), G(G) {}
+};
+
 struct EarthState {
     double MJD;
     double x;
@@ -1296,6 +1317,16 @@ long medindex(const vector <xy_index> &xyvec, int dim);
 int splitxy(const vector <xy_index> &xyvec, int dim, long unsigned int splitpoint, vector <xy_index> &left, vector <xy_index> &right);
 int kdtree01(const vector <xy_index> &xyvec, int dim, long unsigned int rootptxy, long unsigned int rootptkd, vector <kdpoint> &kdvec);
 int kdrange01(const vector <kdpoint> &kdvec,double x,double y,double range,vector <long> &indexvec);
+long medind_3d_index(const vector <point3d_index> &pointvec, int dim);
+int split3d_index(const vector <point3d_index> &pointvec, int dim, long splitpoint, vector <point3d_index> &left, vector <point3d_index> &right);
+int kdtree_3d_index(const vector <point3d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point3d_index> &kdvec);
+double point3d_index_dist2(const point3d_index &p1, const point3d_index &p2);
+int kdrange_3d_index(const vector <KD_point3d_index> &kdvec, const point3d_index &querypoint, double range, vector <long> &indexvec);
+long medind_4d_index(const vector <point4d_index> &pointvec, int dim);
+int split4d_index(const vector <point4d_index> &pointvec, int dim, long splitpoint, vector <point4d_index> &left, vector <point4d_index> &right);
+int kdtree_4d_index(const vector <point4d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point4d_index> &kdvec);
+double point4d_index_dist2(const point4d_index &p1, const point4d_index &p2);
+int kdrange_4d_index(const vector <KD_point4d_index> &kdvec, const point4d_index &querypoint, double range, vector <long> &indexvec);
 long medind_6LDx2(const vector <point6LDx2> &pointvec, int dim);
 int splitLDx2(const vector <point6LDx2> &pointvec, int dim, long unsigned int splitpoint, vector <point6LDx2> &left, vector <point6LDx2> &right);
 int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long unsigned int splitpoint, long unsigned int kdroot, vector <KD_point6LDx2> &kdvec);
@@ -1359,6 +1390,7 @@ double kep_transcendental(double q, double e, double tol);
 int Keplerint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
 int Keplerint(const double MGsun, const double mjdstart, const point3d &startpos, const point3d &startvel, const double mjdend, point3d &endpos, point3d &endvel);
 int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD &outpos,  point3LD &outvel);
+int Kepler2dyn(const double mjdnow, const asteroid_orbit &oneorb, point3d &outpos,  point3d &outvel);
 long double hyp_transcendental(long double q, long double e, long double tol);
 int Hyper_Kepint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
 int integrate_orbit01LD(int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel);
@@ -1423,16 +1455,6 @@ double Hergetchi01(double geodist1, double geodist2, int Hergetpoint1, int Herge
 int Herget_simplex_int(long double geodist1, long double geodist2, long double simpscale, long double simplex[3][2], int simptype);
 int Herget_simplex_int(double geodist1, double geodist2, double simpscale, double simplex[3][2], int simptype);
 long double Hergetfit01(long double geodist1, long double geodist2, long double simplex_scale, int simptype, long double ftol, int point1, int point2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit, int verbose);
-long medind_3d_index(const vector <point3d_index> &pointvec, int dim);
-int split3d_index(const vector <point3d_index> &pointvec, int dim, long splitpoint, vector <point3d_index> &left, vector <point3d_index> &right);
-int kdtree_3d_index(const vector <point3d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point3d_index> &kdvec);
-double point3d_index_dist2(const point3d_index &p1, const point3d_index &p2);
-int kdrange_3d_index(const vector <KD_point3d_index> &kdvec, const point3d_index &querypoint, double range, vector <long> &indexvec);
-long medind_4d_index(const vector <point4d_index> &pointvec, int dim);
-int split4d_index(const vector <point4d_index> &pointvec, int dim, long splitpoint, vector <point4d_index> &left, vector <point4d_index> &right);
-int kdtree_4d_index(const vector <point4d_index> &invec, int dim, long splitpoint, long kdroot, vector <KD_point4d_index> &kdvec);
-double point4d_index_dist2(const point4d_index &p1, const point4d_index &p2);
-int kdrange_4d_index(const vector <KD_point4d_index> &kdvec, const point4d_index &querypoint, double range, vector <long> &indexvec);
 double MPCcal2MJD(int year, int month, double day);
 int mpc80_parseline(const string &lnfromfile, string &object, double *MJD, double *RA, double *Dec, double *mag, string &band, string &obscode);
 double mpc80_mjd(const string &lnfromfile);
@@ -1462,12 +1484,17 @@ int remake_tracklets(vector <hldet> &detvec, vector <hldet> &detvec_fixed, vecto
 int trk2statevec(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar);
 void lastroot(const vector <double> &intvec, vector <double> &rootvec, long N);
 int trk2statevec_omp(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar);
+int trk2statevec_omp2(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar);
 vector <long> tracklet_lookup(const vector <longpair> &trk2det, long trknum);
 point3d earthpos01(const vector <EarthState> &earthpos, double mjd);
 int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const point3d &Earthrefpos, double heliodist, double heliovel, double helioacc, double chartimescale, vector <hlclust> &outclust, vector <longpair> &clust2det, long &realclusternum, double cluster_radius, double dbscan_npt, double mingeodist, double geologstep, double maxgeodist, int mintimespan, int minobsnights, int verbose);
 int heliolinc_alg(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
 int heliolinc_alg_omp(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
+int heliolinc_alg_omp2(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
+int heliolinc_alg_omp3(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
 int link_refine_Herget(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
 int parse_clust2det(const vector <hldet> &detvec, const vector <longpair> &inclust2det, vector <hldet> &clustdet);
 int greatcircfit(const vector <hldet> &trackvec, double &poleRA, double &poleDec,double &angvel,double &pa,double &crosstrack,double &alongtrack);
+int read_orbline(ifstream &instream1, asteroid_orbit &oneorb);
+int read_orbline(string lnfromfile, asteroid_orbit &oneorb);
 

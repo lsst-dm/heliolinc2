@@ -1,5 +1,8 @@
-// September 14, 2022: heliolinc.cpp (created on this date by copying
-// an earlier prototype file called projectpairs06d.cpp).
+// June 30, 2023: attempts to parallelize the heliocentric
+// hypothesis loop.
+//
+// September 14, 2022: created on this date by copying
+// an earlier prototype file called projectpairs06d.cpp.
 //
 // Implements in C++ (with some modifications) the Heliolinc3D
 // algorithm developed by Siegfried Eggl, which in turn was based
@@ -581,7 +584,7 @@ int main(int argc, char *argv[])
   }
   cout << "Read " << trk2det.size() << " data lines from trk2det file " << trk2detfile << "\n";
   
-  status=heliolinc_alg_omp(image_log, detvec, tracklets, trk2det, radhyp, earthpos, config, outclust, clust2det);
+  status=heliolinc_alg_omp3(image_log, detvec, tracklets, trk2det, radhyp, earthpos, config, outclust, clust2det);
   if(status!=0) {
     cerr << "ERROR: heliolinc_alg failed with status " << status << "\n";
     return(status);
