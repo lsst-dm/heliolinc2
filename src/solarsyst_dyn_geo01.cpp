@@ -15546,8 +15546,10 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
       // to find the largest subset that lie along a consistent line.
       for(j=0; j<long(axyvec.size()); j++) {
 	dtref = ppset[j].MJD - pairdets[pdct].MJD; // Time from anchor detection pdct to pair-partner j.
-	if(dtref == 0) {
+	if(dtref == 0.0l) {
 	  cerr << "ERROR: paired detections with no time separation!\n";
+	  cerr << fixed << setprecision(6) << "timej, timepdct, dtref = " << ppset[j].MJD << " " << pairdets[pdct].MJD << " " << dtref << "\n";
+	  cerr << "idstring and image for j, pdct: " << ppset[j].idstring << " " << ppset[j].image << " " << pairdets[pdct].idstring << " " << pairdets[pdct].image << "\n";
 	  return(4);
 	}
 	// Make sure corresponding index vector in ppset is empty
