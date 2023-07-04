@@ -15243,9 +15243,9 @@ int find_pairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <
   indvecs = {};
   ivec1={};
   
-  for(long i=0;i<long(detvec.size());i++) {
-    cout  << fixed << setprecision(6) << i << ": " << detvec[i].image << " "  << detvec[i].index << " " << detvec[i].MJD << " " << detvec[i].RA << " " << detvec[i].Dec << "\n";
-  }
+  //  for(long i=0;i<long(detvec.size());i++) {
+  //    cout  << fixed << setprecision(6) << i << ": " << detvec[i].image << " "  << detvec[i].index << " " << detvec[i].MJD << " " << detvec[i].RA << " " << detvec[i].Dec << "\n";
+  //  }
   
   // Loop over images for image A
   for(imct=0;imct<imnum;imct++) {
@@ -15465,14 +15465,14 @@ int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs,
   }
   if(verbose) {
     cout << "Input vector lengths: pairdets: " << detnum << ", indvecs: " << indvecs.size() << ", pairvec: " << pairvec.size() << "\n";
-    for(i=0;i<detnum;i++) {
-      cout  << fixed << setprecision(6) << i << ": " << pairdets[i].image << " " << pairdets[i].MJD << " " << pairdets[i].RA << " " << pairdets[i].Dec << "\n";
-    }
-    for(i=0;i<detnum;i++) {
-      cout << i << ": ";
-      for(j=0;j<long(indvecs[i].size());j++) cout << indvecs[i][j] << " ";
-      cout << "\n";
-    }
+    //    for(i=0;i<detnum;i++) {
+    //      cout  << fixed << setprecision(6) << i << ": " << pairdets[i].image << " " << pairdets[i].MJD << " " << pairdets[i].RA << " " << pairdets[i].Dec << "\n";
+    //    }
+    //    for(i=0;i<detnum;i++) {
+    //      cout << i << ": ";
+    //      for(j=0;j<long(indvecs[i].size());j++) cout << indvecs[i][j] << " ";
+    //      cout << "\n";
+    //    }
   }
 
   // Sanity-check indvecs
