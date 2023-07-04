@@ -12,7 +12,7 @@ CXXFLAGS ?= -O3
 ###
 
 PROGRAMS_PATH = $(PREFIX)/bin
-PROGRAMS = heliolinc make_tracklets link_refine link_refine_multisite link_refine_Herget cluster2mpc80a pair2mpc80 make_tracklets_new heliolinc_new link_refine_Herget_new parse_clust2det_new parse_clust2det_MPC80
+PROGRAMS = heliolinc make_tracklets link_refine link_refine_multisite link_refine_Herget cluster2mpc80a pair2mpc80 make_tracklets_new heliolinc_new link_refine_Herget_new parse_clust2det_new parse_clust2det_MPC80 heliolinc_omp
 
 LIB = libhela.a
 LIB_SOURCES = solarsyst_dyn_geo01.cpp
@@ -28,7 +28,7 @@ install: $(PROGRAMS)
 	cp -p $(PROGRAMS) $(PREFIX)/bin
 
 $(PROGRAMS): %: %.o $(LIB)
-	$(CXX) $< -L. -lhela $(OUTPUT_OPTION)
+	$(CXX) $< -L. -lhela -fopenmp $(OUTPUT_OPTION)
 
 $(LIB): $(LIB_SOURCES:%.cpp=%.o)
 	$(AR) -rc $@ $^
@@ -45,7 +45,7 @@ POSTCOMPILE = mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d && touch $@
 
 %.o : %.cpp
 %.o : %.cpp $(DEPDIR)/%.d | $(DEPDIR)
-	$(CXX) $(DEPFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -std=c++11 -I../include -c $(OUTPUT_OPTION) $<
+	$(CXX) $(DEPFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -fopenmp -std=c++11 -I../include -c $(OUTPUT_OPTION) $<
 	@ $(POSTCOMPILE)
 
 $(DEPDIR): ; @mkdir -p $@
