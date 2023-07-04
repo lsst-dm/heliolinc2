@@ -17653,9 +17653,9 @@ int link_refine_Herget(const vector <hlimage> &image_log, const vector <hldet> &
 	}
 	if(config.verbose>=2) cout << "Cluster " << inclustct << " of " << inclustnum << " is good: ";
 	if(config.verbose>=2) cout << "\n";
-	cout << "Fitting cluster " << inclustct << " of " << inclustnum << ": ";
+	if(config.verbose>=1 || inclustct%1000==0) cout << "Fitting cluster " << inclustct << " of " << inclustnum << ": ";
 	chisq = Hergetfit01(geodist1, geodist2, simplex_scale, config.simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, config.verbose);
-	cout << "\n";
+	if(config.verbose>=1 || inclustct%1000==0) cout << "\n";
 	// orbit vector contains: semimajor axis [0], eccentricity [1],
 	// mjd at epoch [2], the state vectors [3-8], and the number of
 	// orbit evaluations (~iterations) required to reach convergence [9].
@@ -17765,7 +17765,6 @@ int link_refine_Herget(const vector <hlimage> &image_log, const vector <hldet> &
 // first parallelized version of link_refine.
 int link_refine_Herget_omp(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det)
 {
-  long i=0;
   long imnum = image_log.size();
   long detnum = detvec.size();
   long inclustnum = inclust.size();
@@ -17867,8 +17866,8 @@ int link_refine_Herget_omp(const vector <hlimage> &image_log, const vector <hlde
 	}
 	// Load vector of detections for this cluster
 	clusterdets={};
-	for(i=0; i<ptnum; i++) {
-	  clusterdets.push_back(detvec[clustind[i]]);
+	for(ptct=0; ptct<ptnum; ptct++) {
+	  clusterdets.push_back(detvec[clustind[ptct]]);
 	}
 	sort(clusterdets.begin(), clusterdets.end(), early_hldet());
 	istimedup=0;
@@ -17954,15 +17953,15 @@ int link_refine_Herget_omp(const vector <hlimage> &image_log, const vector <hlde
 	  }
 	  if(config.verbose>=2) {
 	    cout << "Launching Hergetfit01 for cluster " << inclustct << ":\n";
-	    for(i=0;i<=ptnum;i++) {
-	      cout << "Point " << i << ": " << obsMJD[i] << " " << obsRA[i] << " "  << obsDec[i] << " " << sigastrom[i] << "\n";
+	    for(ptct=0;ptct<=ptnum;ptct++) {
+	      cout << "Point " << ptct << ": " << obsMJD[ptct] << " " << obsRA[ptct] << " "  << obsDec[ptct] << " " << sigastrom[ptct] << "\n";
 	    }
 	  }
 	  if(config.verbose>=1) cout << "Cluster " << inclustct << " of " << inclustnum << " is good: ";
 	  if(config.verbose>=2) cout << "\n";
-	  cout << "Fitting cluster " << inclustct << " of " << inclustnum << ": ";
+	  if(config.verbose>=1 || inclustct%1000==0) cout << "Thread" << ithread << " fitting cluster " << inclustct << ", will finish at " << lastclust << ": ";
 	  chisq = Hergetfit01(geodist1, geodist2, simplex_scale, config.simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, config.verbose);
-	  cout << "\n";
+	  if(config.verbose>=1 || inclustct%1000==0) cout << "\n";
 	  // orbit vector contains: semimajor axis [0], eccentricity [1],
 	  // mjd at epoch [2], the state vectors [3-8], and the number of
 	  // orbit evaluations (~iterations) required to reach convergence [9].
@@ -18026,12 +18025,12 @@ int link_refine_Herget_omp(const vector <hlimage> &image_log, const vector <hlde
   for(threadct=0; threadct<nt; threadct++) {
     hlclust onecluster = hlclust(0, 0.0l, 0.0l, 0.0l, 0.0l, 0, 0.0l, 0, 0, 0.0l, "NULL", 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0);
     long clusternum = holdclust.size();
-    for(i=0;i<long(holdclust_mat[threadct].size());i++) {
+    for(long i=0;i<long(holdclust_mat[threadct].size());i++) {
       onecluster = holdclust_mat[threadct][i];
       onecluster.clusternum = clusternum+i;
       holdclust.push_back(onecluster);
     }
-    for(i=0;i<long(clustindmat_mat[threadct].size());i++) {
+    for(long i=0;i<long(clustindmat_mat[threadct].size());i++) {
       clustindmat.push_back(clustindmat_mat[threadct][i]);
     }
   }
