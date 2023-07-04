@@ -12681,7 +12681,7 @@ double Hergetfit01(double geodist1, double geodist2, double simplex_scale, int s
   // Perform fit with final best parameters
   chisq = Hergetchi01(global_bestd1, global_bestd2, Hergetpoint1, Hergetpoint2, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, verbose);
   
-  cout << fixed << setprecision(6) << "Best chi/N " << global_bestchi/obsMJD.size() << ", geodists " << global_bestd1 << " and " << global_bestd2 << " orbit a, e = " << orbit[0]/AU_KM << ", " << orbit[1] << "\n";
+  if(verbose>0) cout << fixed << setprecision(6) << "Best chi/N " << global_bestchi/obsMJD.size() << ", geodists " << global_bestd1 << " and " << global_bestd2 << " orbit a, e = " << orbit[0]/AU_KM << ", " << orbit[1];
 
   orbit.push_back(double(simp_total_ct));
   return(chisq);
@@ -17651,9 +17651,11 @@ int link_refine_Herget(const vector <hlimage> &image_log, const vector <hldet> &
 	    cout << "Point " << i << ": " << obsMJD[i] << " " << obsRA[i] << " "  << obsDec[i] << " " << sigastrom[i] << "\n";
 	  }
 	}
-	if(config.verbose>=1) cout << "Cluster " << inclustct << " of " << inclustnum << " is good: ";
+	if(config.verbose>=2) cout << "Cluster " << inclustct << " of " << inclustnum << " is good: ";
 	if(config.verbose>=2) cout << "\n";
+	cout << "Fitting cluster " << inclustct << " of " << inclustnum << ": ";
 	chisq = Hergetfit01(geodist1, geodist2, simplex_scale, config.simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, config.verbose);
+	cout << "\n";
 	// orbit vector contains: semimajor axis [0], eccentricity [1],
 	// mjd at epoch [2], the state vectors [3-8], and the number of
 	// orbit evaluations (~iterations) required to reach convergence [9].
@@ -17709,6 +17711,363 @@ int link_refine_Herget(const vector <hlimage> &image_log, const vector <hldet> &
     clusterct = metric_index[clusterct2].index;
     inclustct = holdclust[clusterct].clusternum;
     onecluster = holdclust[clusterct];
+    // Pull out the vector of detection indices from clustindmat
+    clustind = clustindmat[clusterct];
+    ptnum = clustind.size();
+    // Sanity-check the count of unique detections in this cluster
+    if(onecluster.uniquepoints>0 && ptnum!=onecluster.uniquepoints) {
+      cerr << "ERROR: 2nd-stage point number mismatch " << ptnum << " != " << onecluster.uniquepoints << " at input cluster " << inclustct << " (" << clusterct << ")\n";
+      return(7);
+    }
+    // See if all of them are still unused
+    detsused = 0;
+    for(ptct=1; ptct<ptnum; ptct++) {
+      if(detusedvec[clustind[ptct]]!=0) detsused+=1;
+    }
+    if(onecluster.uniquepoints>0 && onecluster.totRMS<=config.maxrms && detsused==0) {
+      // This is a good cluster not already marked as used.
+      goodclusternum++;
+      cout << "Accepted good cluster " << goodclusternum << " with metric " << onecluster.metric << "\n";
+      // See whether cluster is pure or mixed.
+      stringncopy01(rating,"PURE",SHORTSTRINGLEN);
+      for(ptct=1; ptct<ptnum; ptct++) {
+	if(stringnmatch01(detvec[clustind[ptct]].idstring,detvec[clustind[ptct-1]].idstring,SHORTSTRINGLEN) != 0) {
+	  stringncopy01(rating,"MIXED",SHORTSTRINGLEN);
+	}
+      }
+      // Figure out the time order of cluster points, so we can write them out in order.
+      sortclust = {};
+      for(ptct=0; ptct<ptnum; ptct++) {
+	dindex = double_index(detvec[clustind[ptct]].MJD,clustind[ptct]);
+	sortclust.push_back(dindex);
+	// Also mark each detection as used
+	detusedvec[clustind[ptct]]=1;
+      }
+      sort(sortclust.begin(), sortclust.end(), lower_double_index());
+      // Load new clusternumber for onecluster
+      onecluster.clusternum = outclust.size();
+      // Push back the new, vetted cluster on to outclust
+      outclust.push_back(onecluster);
+      // Push back the detection indices 
+      for(ptct=0; ptct<ptnum; ptct++) {
+	c2d = longpair(onecluster.clusternum,sortclust[ptct].index);
+	outclust2det.push_back(c2d);
+      }
+      // Close if-statement checking if this is a good, non-duplicated cluster
+    }
+    // Close loop on all clusters passing the initial cuts
+  }
+  return(0);
+}
+
+// link_refine_Herget_omp: July 04, 2023:
+// Algorithmic portion to be called by wrappers,
+// first parallelized version of link_refine.
+int link_refine_Herget_omp(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det)
+{
+  long i=0;
+  long imnum = image_log.size();
+  long detnum = detvec.size();
+  long inclustnum = inclust.size();
+  vector <hlclust> holdclust;
+  vector <int> detusedvec = {};
+  vector <vector <long>> clustindmat = {};
+  vector <double_index> metric_index;
+  
+  long clusterct,clusterct2,goodclusternum;
+  clusterct = clusterct2 = goodclusternum = 0;
+  double_index dindex = double_index(0l,0);
+  vector <double_index> sortclust;
+ 
+  make_ivec(detnum, detusedvec); // All the entries are guaranteed to be 0.
+
+  // Wipe output arrays
+  holdclust={};
+  clustindmat={};
+  outclust={};
+  outclust2det={};
+ 
+  cout << "Reference MJD: " << config.MJDref << "\n";
+  cout << "Maximum RMS in km: " << config.maxrms << "\n";
+  cout << "In calculating the cluster quality metric, the number of\nunique points will be raised to the power of " << config.ptpow << ";\n";
+  cout << "the number of unique nights will be raised to the power of " << config.nightpow << ";\n";
+  cout << "the total timespan will be raised to the power of " << config.timepow << ";\n";
+  cout << "and the astrometric RMS will be raised to the power of (negative) " << config.rmspow << "\n";
+  if(config.verbose>=1) cout << "verbose output has been selected\n";
+
+  int nt = 0;
+  #pragma omp parallel
+  {
+  nt = omp_get_num_threads();
+  } 
+  cout << "nthreads = " << nt << "\n";
+  long thread_clustnum = inclustnum/nt;
+  while(nt*thread_clustnum < inclustnum) thread_clustnum++;
+
+  vector <vector <hlclust>> holdclust_mat;
+  vector <vector <vector <long>>> clustindmat_mat;
+  vector <hlclust> ov1;
+  vector <vector <long>> ov2;
+  vector <int> error_cases;
+  
+  long threadct=0;
+  // Load completely empty matrices of the correct size.
+  for(threadct=0; threadct<nt; threadct++) {
+    ov1={};
+    ov2={};
+    holdclust_mat.push_back(ov1);
+    clustindmat_mat.push_back(ov2);
+    error_cases.push_back(0);
+  }
+  
+  #pragma omp parallel
+  {
+    int ithread = omp_get_thread_num();
+    long inclustct=0;
+    double clustmetric = 0.0l;
+    hlclust onecluster = hlclust(0, 0.0l, 0.0l, 0.0l, 0.0l, 0, 0.0l, 0, 0, 0.0l, "NULL", 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0);
+    vector <long> clustind;
+    vector <hldet> clusterdets;
+    int ptnum,ptct,istimedup;
+    ptnum=ptct=istimedup=0;
+    point3d onepoint = point3d(0.0L,0.0L,0.0L);
+    vector <point3d> observerpos;
+    vector <double> obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit;
+    double geodist1,geodist2, v_escape, v_helio, astromrms, chisq;
+    double ftol = FTOL_HERGET_SIMPLEX;
+    double simplex_scale = SIMPLEX_SCALEFAC;
+    double X, Y, Z, dt;
+    X = Y = Z = dt = 0l;
+    point3d startpos = point3d(0.0l,0.0l,0.0l);
+    point3d startvel = point3d(0.0l,0.0l,0.0l);
+    point3d endpos = point3d(0.0l,0.0l,0.0l);
+    point3d endvel = point3d(0.0l,0.0l,0.0l);
+    long imct=0;
+
+    long firstclust = thread_clustnum*ithread;
+    long lastclust = thread_clustnum*(ithread+1);
+    if(lastclust>inclustnum) lastclust=inclustnum;
+
+    // Loop over all the input clusters assigned to this thread.
+    for(inclustct=firstclust; inclustct<lastclust; inclustct++) {
+      onecluster = inclust[inclustct];
+      if(inclustct!=onecluster.clusternum) {
+	cerr << "ERROR: cluster index mismatch " << inclustct << " != " << onecluster.clusternum << " at input cluster " << inclustct << "\n";
+	error_cases[ithread] = 5;
+      }
+      if(onecluster.totRMS<=config.maxrms) {
+	// This cluster passes the initial cut. Analyze it.
+	// Load a vector with the indices to detvec
+	clustind = {};
+	clustind = tracklet_lookup(inclust2det, inclustct);
+	ptnum = clustind.size();
+	if(ptnum!=onecluster.uniquepoints) {
+	  cerr << "ERROR: point number mismatch " << ptnum << " != " << onecluster.uniquepoints << " at input cluster " << inclustct << "\n";
+	  error_cases[ithread] = 6;
+	}
+	// Load vector of detections for this cluster
+	clusterdets={};
+	for(i=0; i<ptnum; i++) {
+	  clusterdets.push_back(detvec[clustind[i]]);
+	}
+	sort(clusterdets.begin(), clusterdets.end(), early_hldet());
+	istimedup=0;
+	for(ptct=1; ptct<ptnum; ptct++) {
+	  if(clusterdets[ptct-1].MJD == clusterdets[ptct].MJD && stringnmatch01(clusterdets[ptct-1].obscode,clusterdets[ptct].obscode,3)==0) istimedup=1;
+	}
+	if(istimedup==0) {
+	  // The cluster is good so far.
+	  // Recalculate clustermetric
+	  clustmetric = intpowD(double(onecluster.uniquepoints),config.ptpow)*intpowD(double(onecluster.obsnights),config.nightpow)*intpowD(onecluster.timespan,config.timepow);
+	  // Note that the value of clustermetric just calculated
+	  // will later be divided by the reduced chi-square value of the
+	  // astrometric fit, before it is ultimately used as a selection criterion.
+	    
+	  // Perform orbit fitting using the method of Herget, to get astrometric residuals
+	  // Load observational vectors
+	  observerpos = {};
+	  obsMJD = obsRA = obsDec = sigastrom = fitRA = fitDec = resid = orbit = {};
+	  for(ptct=0; ptct<ptnum; ptct++) {
+	    obsMJD.push_back(clusterdets[ptct].MJD);
+	    obsRA.push_back(clusterdets[ptct].RA);
+	    obsDec.push_back(clusterdets[ptct].Dec);
+	    sigastrom.push_back(1.0L); // WARNING, THIS IS CRUDE AND NEEDS FIXING
+	    imct = clusterdets[ptct].image;
+	    if(imct>=imnum) {
+	      cerr << "ERROR: attempting to access image " << imct << " of only " << imnum << " available\n";
+	      error_cases[ithread] = 8;
+	    }
+	    X = image_log[imct].X;
+	    Y = image_log[imct].Y;
+	    Z = image_log[imct].Z;
+	    if(image_log[imct].MJD!=clusterdets[ptct].MJD) {
+	      // A shutter-travel correction must have been applied to the
+	      // detection time relative to the image time. Use the stored
+	      // velocity info from the image log to apply a correction to
+	      // the observer position.
+	      dt = clusterdets[ptct].MJD - image_log[imct].MJD;
+	      if(dt*SOLARDAY > MAX_SHUTTER_CORR) {
+		cerr << "ERROR: detection vs. image time mismatch of " << dt*SOLARDAY << " seconds.\n";
+		cerr << "Something has gone wrong: no shutter is that slow\n";
+		error_cases[ithread] = 4;
+	      }
+	      X += image_log[imct].VX*dt;
+	      Y += image_log[imct].VY*dt;
+	      Z += image_log[imct].VZ*dt;
+	    }
+	    onepoint = point3d(X,Y,Z);
+	    observerpos.push_back(onepoint);
+	  }
+	  // Use mean state vectors to estimate positions
+	  startpos.x = onecluster.posX;
+	  startpos.y = onecluster.posY;
+	  startpos.z = onecluster.posZ;
+	  startvel.x = onecluster.velX;
+	  startvel.y = onecluster.velY;
+	  startvel.z = onecluster.velZ;
+	    
+	  // Check if the velocity is above escape
+	  v_escape = sqrt(2.0L*GMSUN_KM3_SEC2/vecabs3d(startpos));
+	  v_helio = vecabs3d(startvel);
+	  if(v_helio>=v_escape) {
+	    cerr << "WARNING: mean state vector velocity was " << v_helio/v_escape << " times higher than solar escape\n";
+	    startvel.x *= ESCAPE_SCALE*v_escape/v_helio;
+	    startvel.y *= ESCAPE_SCALE*v_escape/v_helio;
+	    startvel.z *= ESCAPE_SCALE*v_escape/v_helio;
+	  }
+	  // Calculate position at first observation
+	  Keplerint(GMSUN_KM3_SEC2, config.MJDref, startpos, startvel, obsMJD[0], endpos, endvel);
+	  // Find vector relative to the observer by subtracting off the observer's position.
+	  endpos.x -= observerpos[0].x;
+	  endpos.y -= observerpos[0].y;
+	  endpos.z -= observerpos[0].z;
+	  geodist1 = vecabs3d(endpos)/AU_KM;
+	  // Calculate position at last observation
+	  Keplerint(GMSUN_KM3_SEC2, config.MJDref, startpos, startvel, obsMJD[ptnum-1], endpos, endvel);
+	  endpos.x -= observerpos[ptnum-1].x;
+	  endpos.y -= observerpos[ptnum-1].y;
+	  endpos.z -= observerpos[ptnum-1].z;
+	  geodist2 = vecabs3d(endpos)/AU_KM;
+	  simplex_scale = SIMPLEX_SCALEFAC;
+	  if(config.verbose>=2) {
+	    cout << "Calling Hergetfit01 with dists " << geodist1 << " and " << geodist2 << "\n";
+	  }
+	  if(config.verbose>=2) {
+	    cout << "Launching Hergetfit01 for cluster " << inclustct << ":\n";
+	    for(i=0;i<=ptnum;i++) {
+	      cout << "Point " << i << ": " << obsMJD[i] << " " << obsRA[i] << " "  << obsDec[i] << " " << sigastrom[i] << "\n";
+	    }
+	  }
+	  if(config.verbose>=1) cout << "Cluster " << inclustct << " of " << inclustnum << " is good: ";
+	  if(config.verbose>=2) cout << "\n";
+	  cout << "Fitting cluster " << inclustct << " of " << inclustnum << ": ";
+	  chisq = Hergetfit01(geodist1, geodist2, simplex_scale, config.simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, config.verbose);
+	  cout << "\n";
+	  // orbit vector contains: semimajor axis [0], eccentricity [1],
+	  // mjd at epoch [2], the state vectors [3-8], and the number of
+	  // orbit evaluations (~iterations) required to reach convergence [9].
+      
+	  chisq /= double(ptnum); // Now it's the reduced chi square value
+	  astromrms = sqrt(chisq); // This gives the actual astrometric RMS in arcseconds if all the
+	  // entries in sigastrom are 1.0. Otherwise it's a measure of the
+	  // RMS in units of the typical uncertainty.
+	  // Include this astrometric RMS value in the cluster metric and the RMS vector
+	  onecluster.astromRMS = astromrms; // rmsvec[3]: astrometric rms in arcsec.
+	  onecluster.metric = clustmetric/intpowD(astromrms,config.rmspow);
+	  // Under the default value rmspow=2, the above is equivalent
+	  // to dividing by the chi-square value rather than just
+	  // the astrometric RMS, which has the desirable effect of
+	  // prioritizing low astrometric error even more.
+	  onecluster.orbit_a = orbit[0]/AU_KM;
+	  onecluster.orbit_e = orbit[1];
+	  onecluster.orbit_MJD = orbit[2];
+	  onecluster.orbitX = orbit[3];
+	  onecluster.orbitY = orbit[4];
+	  onecluster.orbitZ = orbit[5];
+	  onecluster.orbitVX = orbit[6];
+	  onecluster.orbitVY = orbit[7];
+	  onecluster.orbitVZ = orbit[8];
+	  onecluster.orbit_eval_count = long(round(orbit[9]));
+	  // Push new cluster on to holding vector holdclust
+	  holdclust_mat[ithread].push_back(onecluster);
+	  clustindmat_mat[ithread].push_back(clustind);
+	  // Close if-statement checking for duplicate MJDs
+	}
+	// Close if-statement checking the RMS was low enough.
+      }
+      // Close loop on input cluster arrays.
+    }
+    // Close pragma omp parallel section
+  }
+  // Check for error cases
+  for(threadct=0; threadct<nt; threadct++) {
+    if(error_cases[threadct]==4) {
+      cerr << "ERROR: detection vs. image time mismatch.\n";
+      cerr << "Something has gone wrong: no shutter is that slow\n";
+      return(error_cases[threadct]);
+    } else if(error_cases[threadct] == 5) {
+      cerr << "ERROR: cluster index mismatch \n";
+      return(error_cases[threadct]);
+    } else if(error_cases[threadct] == 6) {
+      cerr << "ERROR: point number mismatch\n";
+      return(error_cases[threadct]);
+    } else if(error_cases[threadct] == 8) {
+      cerr << "ERROR: attempting to access outside valid range (0--" << imnum << ").\n";
+      return(error_cases[threadct]);
+    } else if(error_cases[threadct]!=0) {
+      cerr << "ERROR: unknown error case " << error_cases[threadct] << "in link_refine_Herget_new\n";
+    }
+  }
+
+  // Parallel section is done, load the results.
+  holdclust={};
+  clustindmat={};
+  clusterct=0;
+  for(threadct=0; threadct<nt; threadct++) {
+    hlclust onecluster = hlclust(0, 0.0l, 0.0l, 0.0l, 0.0l, 0, 0.0l, 0, 0, 0.0l, "NULL", 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0);
+    long clusternum = holdclust.size();
+    for(i=0;i<long(holdclust_mat[threadct].size());i++) {
+      onecluster = holdclust_mat[threadct][i];
+      onecluster.clusternum = clusternum+i;
+      holdclust.push_back(onecluster);
+    }
+    for(i=0;i<long(clustindmat_mat[threadct].size());i++) {
+      clustindmat.push_back(clustindmat_mat[threadct][i]);
+    }
+  }
+  // Wipe the thread vectors, which are no longer needed, to reduce memory usage
+  holdclust_mat={};
+  clustindmat_mat={};
+  
+  long clusternum = holdclust.size();
+  cout << "Finished loading input clusters: " << clusternum << " out of " << inclustnum << " passed initial screening.\n";
+
+  // Load just clustermetric values and indices from
+  // clustanvec into metric_index
+  metric_index = {};
+  // Record indices so information won't be lost on sort
+  for(clusterct=0; clusterct<clusternum; clusterct++) {
+    dindex = double_index(holdclust[clusterct].metric,clusterct);
+    metric_index.push_back(dindex);
+  }
+  // Sort metric_index
+  sort(metric_index.begin(), metric_index.end(), lower_double_index());
+  
+  // Loop on clusters, starting with the best (highest metric),
+  // and eliminating duplicates
+  goodclusternum=0;
+  for(clusterct2=clusternum-1; clusterct2>=0; clusterct2--) {
+    // Look up the correct cluster from metric_index
+    clusterct = metric_index[clusterct2].index;
+    long inclustct = holdclust[clusterct].clusternum;
+    
+    hlclust onecluster = holdclust[clusterct];
+    vector <long> clustind;
+    int ptnum,ptct,detsused;
+    ptnum=ptct=detsused=0;
+    longpair c2d = longpair(0,0);
+    char rating[SHORTSTRINGLEN];
+    
     // Pull out the vector of detection indices from clustindmat
     clustind = clustindmat[clusterct];
     ptnum = clustind.size();
