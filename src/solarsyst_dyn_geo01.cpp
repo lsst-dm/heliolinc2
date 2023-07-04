@@ -15018,7 +15018,7 @@ int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double
   // Load indices in detvec. This is incidental to the main
   // purpose of load_image_indices(), but it's necessary and
   // this is a convenient place to do it. 
-  for(detct=0;detct<detnum;detct++) detvec[detct].index = -detct;
+  for(detct=0;detct<detnum;detct++) detvec[detct].index = -detct-1; // the -1 is necessary so even detection 0 gets set negative
   
   detct=0;
   for(imct=0;imct<imnum;imct++) {
@@ -15328,7 +15328,8 @@ int find_pairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <
 	    // Record image A detection as paired, if not already recorded.
 	    if(detvec[axyvec[detct].index].index<0) {
 	      //This detection has not yet been paired with any other.
-	      detvec[axyvec[detct].index].index *= -1; // Mark as paired by changing to positive sign.
+	      // Mark as paired by changing to positive sign.
+	      detvec[axyvec[detct].index].index = -detvec[axyvec[detct].index].index - 1; 
 	      pairdets.push_back(detvec[axyvec[detct].index]); // Load into paired detection vector
 	      ivec1={};
 	      indvecs.push_back(ivec1);  // Load empty index vector
@@ -15345,7 +15346,8 @@ int find_pairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <
 	      matchpt = indexvec[matchct];
 	      if(detvec[kdvec[matchpt].point.index].index<0) {
 		//This detection has not yet been paired with any other.
-		detvec[kdvec[matchpt].point.index].index *= -1; // Mark as paired by changing to positive sign
+		// Mark as paired by changing to positive sign
+		detvec[kdvec[matchpt].point.index].index = -detvec[kdvec[matchpt].point.index].index - 1; 
 		pairdets.push_back(detvec[kdvec[matchpt].point.index]); // Load into paired detection vector
 		ivec1={};
 		indvecs.push_back(ivec1); // Load empty index vector
