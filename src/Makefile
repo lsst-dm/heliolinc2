@@ -12,7 +12,7 @@ CXXFLAGS ?= -O3
 ###
 
 PROGRAMS_PATH = $(PREFIX)/bin
-PROGRAMS = heliolinc make_tracklets link_refine link_refine_multisite link_refine_Herget cluster2mpc80a pair2mpc80 make_tracklets_new heliolinc_new link_refine_Herget_new parse_clust2det_new parse_clust2det_MPC80 heliolinc_omp
+PROGRAMS = heliolinc make_tracklets link_refine link_refine_multisite link_refine_Herget cluster2mpc80a pair2mpc80 make_tracklets_new heliolinc_new link_refine_Herget_new parse_clust2det_new parse_clust2det_MPC80 calc_accel_mat02 heliolinc_omp
 
 LIB = libhela.a
 LIB_SOURCES = solarsyst_dyn_geo01.cpp
