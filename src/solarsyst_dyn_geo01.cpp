@@ -17842,11 +17842,15 @@ int link_refine_Herget_omp(const vector <hlimage> &image_log, const vector <hlde
     point3d endpos = point3d(0.0l,0.0l,0.0l);
     point3d endvel = point3d(0.0l,0.0l,0.0l);
     long imct=0;
-
+    vector <hlclust> holdclust_private;
+    vector <vector <long>> clustindmat_private;
+    
     long firstclust = thread_clustnum*ithread;
     long lastclust = thread_clustnum*(ithread+1);
     if(lastclust>inclustnum) lastclust=inclustnum;
-
+    holdclust_private = {};
+    clustindmat_private = {};
+    
     // Loop over all the input clusters assigned to this thread.
     for(inclustct=firstclust; inclustct<lastclust; inclustct++) {
       onecluster = inclust[inclustct];
@@ -17988,8 +17992,8 @@ int link_refine_Herget_omp(const vector <hlimage> &image_log, const vector <hlde
 	  onecluster.orbitVZ = orbit[8];
 	  onecluster.orbit_eval_count = long(round(orbit[9]));
 	  // Push new cluster on to holding vector holdclust
-	  holdclust_mat[ithread].push_back(onecluster);
-	  clustindmat_mat[ithread].push_back(clustind);
+	  holdclust_private.push_back(onecluster);
+	  clustindmat_private.push_back(clustind);
 	  // Close if-statement checking for duplicate MJDs
 	}
 	// Close if-statement checking the RMS was low enough.
@@ -17997,6 +18001,9 @@ int link_refine_Herget_omp(const vector <hlimage> &image_log, const vector <hlde
       // Close loop on input cluster arrays.
     }
     // Close pragma omp parallel section
+    
+    holdclust_mat[ithread] = holdclust_private;
+    clustindmat_mat[ithread] = clustindmat_private;
   }
   // Check for error cases
   for(threadct=0; threadct<nt; threadct++) {
