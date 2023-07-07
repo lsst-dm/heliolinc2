@@ -18424,20 +18424,13 @@ int link_refine_Herget_omp2(const vector <hlimage> &image_log, const vector <hld
     int ithread = omp_get_thread_num();
     double ftol = FTOL_HERGET_SIMPLEX;
     double simplex_scale = SIMPLEX_SCALEFAC;
-    hlclust onecluster = holdclust_mat[ithread][0];
-    vector <point3d> observerpos_dummy = observerpos_mat[ithread][0];
-    vector <double> obsMJD_dummy = obsMJD_mat[ithread][0];
-    vector <double> obsRA_dummy = obsRA_mat[ithread][0];
-    vector <double> obsDec_dummy = obsDec_mat[ithread][0];
-    vector <double> sigastrom_dummy = sigastrom_mat[ithread][0];
-    long inclustnum_dummy = holdclust_mat[ithread].size();
-    
+
     // Loop over all the input clusters assigned to this thread.
-    for(long inclustct=0; inclustnum_dummy; inclustct++) {
-      int ptnum = obsMJD_dummy.size();
-      status = wrap_Hergetfit01(simplex_scale, config.simptype, ftol, 1, ptnum, observerpos_dummy, obsMJD_dummy, obsRA_dummy, obsDec_dummy, sigastrom_dummy, config.MJDref, config.rmspow, config.verbose, onecluster);
+    for(long inclustct=0; inclustct<long(holdclust_mat[ithread].size()); inclustct++) {
+      int ptnum = obsMJD_mat[ithread][inclustct].size();
+      status = wrap_Hergetfit01(simplex_scale, config.simptype, ftol, 1, ptnum, observerpos_mat[ithread][inclustct], obsMJD_mat[ithread][inclustct], obsRA_mat[ithread][inclustct], obsDec_mat[ithread][inclustct], sigastrom_mat[ithread][inclustct], config.MJDref, config.rmspow, config.verbose, holdclust_mat[ithread][inclustct]);
       if(config.verbose>=1 || inclustct%1000 == 0) {
-	cout << "Thread " << ithread << " finished cluster " << inclustct << " of " << inclustnum_dummy << "\n";
+	cout << "Thread " << ithread << " finished cluster " << inclustct << " of " << holdclust_mat[ithread].size() << "\n";
       }
       if(status!=0) cerr << "WARNING: wrap_Herget_fit01 returned error status " << status << "\n";
     }
@@ -18541,7 +18534,6 @@ int link_refine_Herget_omp2(const vector <hlimage> &image_log, const vector <hld
   }
   return(0);
 }
-
 
 #undef DEBUGB
 #undef DEBUG
