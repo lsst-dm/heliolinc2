@@ -18428,7 +18428,8 @@ int link_refine_Herget_omp2(const vector <hlimage> &image_log, const vector <hld
     // Loop over all the input clusters assigned to this thread.
     for(long inclustct=0; inclustct<long(holdclust_mat[ithread].size()); inclustct++) {
       int ptnum = obsMJD_mat[ithread][inclustct].size();
-      status = wrap_Hergetfit01(simplex_scale, config.simptype, ftol, 1, ptnum, observerpos_mat[ithread][inclustct], obsMJD_mat[ithread][inclustct], obsRA_mat[ithread][inclustct], obsDec_mat[ithread][inclustct], sigastrom_mat[ithread][inclustct], config.MJDref, config.rmspow, config.verbose, holdclust_mat[ithread][inclustct]);
+      hlclust onecluster = holdclust_mat[ithread][inclustct];
+      status = wrap_Hergetfit01(simplex_scale, config.simptype, ftol, 1, ptnum, observerpos_mat[ithread][inclustct], obsMJD_mat[ithread][inclustct], obsRA_mat[ithread][inclustct], obsDec_mat[ithread][inclustct], sigastrom_mat[ithread][inclustct], config.MJDref, config.rmspow, config.verbose, onecluster);
       if(config.verbose>=1 || inclustct%1000 == 0) {
 	cout << "Thread " << ithread << " finished cluster " << inclustct << " of " << holdclust_mat[ithread].size() << "\n";
       }
