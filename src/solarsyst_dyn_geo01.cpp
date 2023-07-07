@@ -18429,6 +18429,9 @@ int link_refine_Herget_omp2(const vector <hlimage> &image_log, const vector <hld
     for(long inclustct=0; inclustct<long(holdclust_mat[ithread].size()); inclustct++) {
       int ptnum = obsMJD_mat[ithread][inclustct].size();
       status = wrap_Hergetfit01(simplex_scale, config.simptype, ftol, 1, ptnum, observerpos_mat[ithread][inclustct], obsMJD_mat[ithread][inclustct], obsRA_mat[ithread][inclustct], obsDec_mat[ithread][inclustct], sigastrom_mat[ithread][inclustct], config.MJDref, config.rmspow, config.verbose, holdclust_mat[ithread][inclustct]);
+      if(config.verbose>=1 || inclustct%1000 == 0) {
+	cout << "Thread " << ithread << " finished cluster " << inclustct << " of " << holdclust_mat[ithread].size() << "\n";
+      }
       if(status!=0) cerr << "WARNING: wrap_Herget_fit01 returned error status " << status << "\n";
     }
     // Close pragma omp parallel section
