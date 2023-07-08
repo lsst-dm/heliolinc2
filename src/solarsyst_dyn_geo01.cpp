@@ -18705,22 +18705,22 @@ int link_refine_Herget_omp3(const vector <hlimage> &image_log, const vector <hld
 	  sigastrom_mat[batchclustnum] = sigastrom;
 	  clustind_tempmat[batchclustnum] = clustind;
 	  batchclustnum++;
-	  inclustnum++;
+	  inclustct++;
 	  // Close if-statement confirming no time duplicates
 	} else {
 	  // The cluster was rejected as a time-duplicate.
-	  inclustnum++; // We must still increment the cluster number
+	  inclustct++; // We must still increment the cluster number
 	}
 	// Close if-statment checking maxrms criterion.
       } else {
 	// The cluster was rejected because the RMS was too high.
-	inclustnum++; // We must still increment the cluster number
+	inclustct++; // We must still increment the cluster number
       }
     }
     // The orbit-fitting vectors are fully loaded for a round
     // of parallel-fitting.
     if(cyclect%1000==0) {
-      cout << "At cluster " << inclustnum << ", launching round " << cyclect << " of parallel-fitting with " << nt << " threads\n";
+      cout << "At cluster " << inclustct << ", launching round " << cyclect << " of parallel-fitting with " << nt << " threads\n";
     }
     #pragma omp parallel
     {
