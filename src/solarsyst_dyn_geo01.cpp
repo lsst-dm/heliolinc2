@@ -18720,7 +18720,7 @@ int link_refine_Herget_omp3(const vector <hlimage> &image_log, const vector <hld
     // The orbit-fitting vectors are fully loaded for a round
     // of parallel-fitting.
     if(cyclect%1000==0) {
-      cout << "Launching round " << cyclect << " of parallel-fitting with " << nt << " threads\n";
+      cout << "At cluster " << inclustnum << ", launching round " << cyclect << " of parallel-fitting with " << nt << " threads\n";
     }
     #pragma omp parallel
     {
