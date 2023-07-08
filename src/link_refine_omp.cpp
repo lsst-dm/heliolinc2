@@ -395,7 +395,7 @@ int main(int argc, char *argv[])
   cout << "Finished creating master cluster summary vector with length " << clustvecmain.size() << ",\n";
   cout << "and master cluster-to-detection vector with length " << clust2detmain.size() << "\n";
 
-  status = link_refine_Herget_omp2(image_log, detvec, clustvecmain, clust2detmain, config, outclust, outclust2det);
+  status = link_refine_Herget_omp3(image_log, detvec, clustvecmain, clust2detmain, config, outclust, outclust2det);
   if(status!=0) {
     cerr << "ERROR: link_refine_Herget failed with status " << status << "\n";
     return(status);
