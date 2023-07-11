@@ -16951,6 +16951,7 @@ int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &
   int geobinct = 0;
   long i=0;
   long statevecnum = allstatevecs.size();
+  long detnum = detvec.size();
   double georadcen = mingeodist*intpowD(geologstep,geobinct);
   double georadmin=0l;
   double georadmax=0l;
@@ -17089,6 +17090,10 @@ int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &
       // Load vector of detection MJD's
       clustmjd = {};
       for(i=0; i<long(pointind.size()); i++) {
+	if(pointind[i]<0 || pointind[i]>=detnum) {
+	  cerr << "ERROR: form_clusters trying to reference point " << pointind[i] << " of detvec! Range is 0 --" << detnum-1 << "\n";
+	  return(1);
+	}
 	clustmjd.push_back(detvec[pointind[i]].MJD);
       }
 
@@ -17266,6 +17271,10 @@ int heliolinc_alg(const vector <hlimage> &image_log, const vector <hldet> &detve
     if(config.verbose>=0) cout << pairnum << " input pairs/tracklets led to " << allstatevecs.size() << " physically reasonable state vectors\n";
 
     status = form_clusters(allstatevecs, detvec, tracklets, trk2det, Earthrefpos, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, outclust, clust2det, realclusternum, config.clustrad, config.dbscan_npt, config.mingeodist, config.geologstep, config.maxgeodist, config.mintimespan, config.minobsnights, config.verbose);
+    if(status!=0) {
+      cerr << "ERROR: form_clusters exited with error code " << status << "\n";
+      return(status);
+    }
   }
   return(0);    
 }
@@ -17368,6 +17377,10 @@ int heliolinc_alg_omp(const vector <hlimage> &image_log, const vector <hldet> &d
     if(config.verbose>=0) cout << pairnum << " input pairs/tracklets led to " << allstatevecs.size() << " physically reasonable state vectors\n";
 
     status = form_clusters(allstatevecs, detvec, tracklets, trk2det, Earthrefpos, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, outclust, clust2det, realclusternum, config.clustrad, config.dbscan_npt, config.mingeodist, config.geologstep, config.maxgeodist, config.mintimespan, config.minobsnights, config.verbose);
+    if(status!=0) {
+      cerr << "ERROR: form_clusters exited with error code " << status << "\n";
+      return(status);
+    }
   }
   return(0);    
 }
@@ -17470,6 +17483,10 @@ int heliolinc_alg_omp2(const vector <hlimage> &image_log, const vector <hldet> &
     if(config.verbose>=0) cout << pairnum << " input pairs/tracklets led to " << allstatevecs.size() << " physically reasonable state vectors\n";
 
     status = form_clusters(allstatevecs, detvec, tracklets, trk2det, Earthrefpos, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, outclust, clust2det, realclusternum, config.clustrad, config.dbscan_npt, config.mingeodist, config.geologstep, config.maxgeodist, config.mintimespan, config.minobsnights, config.verbose);
+    if(status!=0) {
+      cerr << "ERROR: form_clusters exited with error code " << status << "\n";
+      return(status);
+    }
   }
   return(0);    
 }
@@ -17606,6 +17623,9 @@ int heliolinc_alg_omp3(const vector <hlimage> &image_log, const vector <hldet> &
 	if(config.verbose>=0) cout << pairnum << " input pairs/tracklets led to " << allstatevecs.size() << " physically reasonable state vectors\n";
 
 	status = form_clusters(allstatevecs, detvec, tracklets, trk2det, Earthrefpos, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, outclust_mat[ithread], clust2det_mat[ithread], gridpoint_clusternum, config.clustrad, config.dbscan_npt, config.mingeodist, config.geologstep, config.maxgeodist, config.mintimespan, config.minobsnights, config.verbose);
+	if(status!=0) {
+	  cerr << "ERROR: form_clusters exited with error code " << status << "\n";
+	}
       }
     }
     }
