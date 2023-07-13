@@ -18829,15 +18829,17 @@ int link_refine_Herget_omp3(const vector <hlimage> &image_log, const vector <hld
 	try {
 	ptnum = obsMJD_mat[threadct].size();
 	}
-	catch (const std::bad_array_new_length &e) {
-	  cerr << "Point 1 failure in thread " << threadct << " with ptnum = " << ptnum << "\n";
-	}
+	catch (const std::bad_array_new_length &e)
+	  {
+	    cerr << "Point 1 failure " << e.what() << " in thread " << threadct << " with ptnum = " << ptnum << "\n";
+	  }
 	try {
 	  wrap_Hergetfit01(simplex_scale, config.simptype, ftol, 1, ptnum, observerpos_mat[threadct], obsMJD_mat[threadct], obsRA_mat[threadct], obsDec_mat[threadct], sigastrom_mat[threadct], config.MJDref, config.rmspow, config.verbose, incluster_vec[threadct]);
 	}
-	catch (const std::bad_array_new_length &e) {
-	  cerr << "Point 2 failure in thread " << threadct << " on cluster " << incluster_vec[threadct].clusternum << "\n";
-	}
+	catch (const std::bad_array_new_length &e)
+	  {
+	    cerr << "Point 2 failure " << e.what() << " in thread " << threadct << " on cluster " << incluster_vec[threadct].clusternum << "\n";
+	  }
       }
     }
     cyclect++;
@@ -18848,15 +18850,17 @@ int link_refine_Herget_omp3(const vector <hlimage> &image_log, const vector <hld
 	try {
 	  holdclust.push_back(incluster_vec[threadct]);
 	}
-	catch (const std::bad_array_new_length &e) {
-	  cerr << "Point 3 failure in thread " << threadct << " on cluster " << incluster_vec[threadct].clusternum << "\n";
-	}
+	catch (const std::bad_array_new_length &e)
+	  {
+	    cerr << "Point 3 failure " << e.what() << " in thread " << threadct << " on cluster " << incluster_vec[threadct].clusternum << "\n";
+	  }
 	try {
 	  clustindmat.push_back(clustind_tempmat[threadct]);
 	}
-	catch (const std::bad_array_new_length &e) {
-	  cerr << "Point 4 failure in thread " << threadct << " on cluster " << incluster_vec[threadct].clusternum << "\n";
-	}
+	catch (const std::bad_array_new_length &e)
+	  {
+	    cerr << "Point 4 failure " << e.what() << " in thread " << threadct << " on cluster " << incluster_vec[threadct].clusternum << "\n";
+	  }
       }
     }
   }
