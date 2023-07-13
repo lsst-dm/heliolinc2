@@ -18685,7 +18685,7 @@ int link_refine_Herget_omp3(const vector <hlimage> &image_log, const vector <hld
   vector <vector <double>> obsRA_mat;
   vector <vector <double>> obsDec_mat;
   vector <vector <double>> sigastrom_mat;
-  vector <vector <long>> clustind_tempmat = {};
+  vector <vector <long>> clustind_tempmat;
 
   // Make sure the matrices have the right size.
   for(long threadct=0; threadct<nt; threadct++) {
@@ -18825,17 +18825,38 @@ int link_refine_Herget_omp3(const vector <hlimage> &image_log, const vector <hld
       double ftol = FTOL_HERGET_SIMPLEX;
       double simplex_scale = SIMPLEX_SCALEFAC;
       if(obsMJD_mat[threadct].size()>0) {
-	int ptnum = obsMJD_mat[threadct].size();
-	wrap_Hergetfit01(simplex_scale, config.simptype, ftol, 1, ptnum, observerpos_mat[threadct], obsMJD_mat[threadct], obsRA_mat[threadct], obsDec_mat[threadct], sigastrom_mat[threadct], config.MJDref, config.rmspow, config.verbose, incluster_vec[threadct]);
+	int ptnum = 0;
+	try {
+	ptnum = obsMJD_mat[threadct].size();
+	}
+	catch (const std::bad_array_new_length &e) {
+	  cerr << "Point 1 failure in thread " << threadct << " with ptnum = " << ptnum << "\n";
+	}
+	try {
+	  wrap_Hergetfit01(simplex_scale, config.simptype, ftol, 1, ptnum, observerpos_mat[threadct], obsMJD_mat[threadct], obsRA_mat[threadct], obsDec_mat[threadct], sigastrom_mat[threadct], config.MJDref, config.rmspow, config.verbose, incluster_vec[threadct]);
+	}
+	catch (const std::bad_array_new_length &e) {
+	  cerr << "Point 2 failure in thread " << threadct << " on cluster " << incluster_vec[threadct].clusternum << "\n";
+	}
       }
     }
     cyclect++;
     // Done with parallel section
     // Load fit results to output
-    for(int threadct=0;threadct<=nt;threadct++) {
+    for(int threadct=0;threadct<nt;threadct++) {
       if(obsMJD_mat[threadct].size()>0) {
-    	holdclust.push_back(incluster_vec[threadct]);
-	clustindmat.push_back(clustind_tempmat[threadct]);
+	try {
+	  holdclust.push_back(incluster_vec[threadct]);
+	}
+	catch (const std::bad_array_new_length &e) {
+	  cerr << "Point 3 failure in thread " << threadct << " on cluster " << incluster_vec[threadct].clusternum << "\n";
+	}
+	try {
+	  clustindmat.push_back(clustind_tempmat[threadct]);
+	}
+	catch (const std::bad_array_new_length &e) {
+	  cerr << "Point 4 failure in thread " << threadct << " on cluster " << incluster_vec[threadct].clusternum << "\n";
+	}
       }
     }
   }
