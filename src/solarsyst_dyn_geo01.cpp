@@ -18826,20 +18826,8 @@ int link_refine_Herget_omp3(const vector <hlimage> &image_log, const vector <hld
       double simplex_scale = SIMPLEX_SCALEFAC;
       if(obsMJD_mat[threadct].size()>0) {
 	int ptnum = 0;
-	try {
 	ptnum = obsMJD_mat[threadct].size();
-	}
-	catch (const std::bad_array_new_length &e)
-	  {
-	    cerr << "Point 1 failure " << e.what() << " in thread " << threadct << " with ptnum = " << ptnum << "\n";
-	  }
-	try {
-	  wrap_Hergetfit01(simplex_scale, config.simptype, ftol, 1, ptnum, observerpos_mat[threadct], obsMJD_mat[threadct], obsRA_mat[threadct], obsDec_mat[threadct], sigastrom_mat[threadct], config.MJDref, config.rmspow, config.verbose, incluster_vec[threadct]);
-	}
-	catch (const std::bad_array_new_length &e)
-	  {
-	    cerr << "Point 2 failure " << e.what() << " in thread " << threadct << " on cluster " << incluster_vec[threadct].clusternum << "\n";
-	  }
+	wrap_Hergetfit01(simplex_scale, config.simptype, ftol, 1, ptnum, observerpos_mat[threadct], obsMJD_mat[threadct], obsRA_mat[threadct], obsDec_mat[threadct], sigastrom_mat[threadct], config.MJDref, config.rmspow, config.verbose, incluster_vec[threadct]);
       }
     }
     cyclect++;
@@ -18847,20 +18835,8 @@ int link_refine_Herget_omp3(const vector <hlimage> &image_log, const vector <hld
     // Load fit results to output
     for(int threadct=0;threadct<nt;threadct++) {
       if(obsMJD_mat[threadct].size()>0) {
-	try {
-	  holdclust.push_back(incluster_vec[threadct]);
-	}
-	catch (const std::bad_array_new_length &e)
-	  {
-	    cerr << "Point 3 failure " << e.what() << " in thread " << threadct << " on cluster " << incluster_vec[threadct].clusternum << "\n";
-	  }
-	try {
-	  clustindmat.push_back(clustind_tempmat[threadct]);
-	}
-	catch (const std::bad_array_new_length &e)
-	  {
-	    cerr << "Point 4 failure " << e.what() << " in thread " << threadct << " on cluster " << incluster_vec[threadct].clusternum << "\n";
-	  }
+	holdclust.push_back(incluster_vec[threadct]);
+	clustindmat.push_back(clustind_tempmat[threadct]);
       }
     }
   }
