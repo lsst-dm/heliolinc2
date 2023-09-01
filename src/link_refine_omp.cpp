@@ -88,10 +88,8 @@ int main(int argc, char *argv[])
 {
   string clusterlist;
   string sumfile,clust2detfile;
-  vector <hlclust> inclustvec;
   vector <hlclust> clustvecmain;
   vector <hlclust> outclust;
-  vector  <longpair> inclust2det;
   vector  <longpair> clust2detmain;
   vector  <longpair> outclust2det;
   vector <hlimage> image_log;
@@ -103,9 +101,10 @@ int main(int argc, char *argv[])
   ifstream instream1;
   ofstream outstream1;
   long i=0;
-  long clustnum=0;
   int status=0;
   long clustct=0;
+  long oldsize=0;
+  long oldc2d=0;
   int default_simptype, default_ptpow, default_nightpow, default_timepow;
   default_simptype = default_ptpow = default_nightpow = default_timepow = 1;
   int default_rmspow, default_maxrms, default_sumfile, default_clust2det;
@@ -360,33 +359,23 @@ int main(int argc, char *argv[])
   while(instream1 >> sumfile >> clust2detfile) {
     if(sumfile.size()>0 && clust2detfile.size()>0) {
       // Read cluster summary file
-      inclustvec={};
-      status=read_clustersum_file(sumfile, inclustvec, config.verbose);
+      oldsize = clustvecmain.size();
+      status=append_clustersum_file(sumfile, clustvecmain, config.verbose);
       if(status!=0) {
 	cerr << "ERROR: could not successfully read input cluster summary file " << sumfile << "\n";
 	cerr << "read_clustersum_file returned status = " << status << ".\n";
 	return(1);
       }
-      cout << "Read " << inclustvec.size() << " data lines from cluster summary file " << sumfile << "\n";
-      inclust2det={};
+      cout << "Read " << clustvecmain.size() - oldsize << " data lines from cluster summary file " << sumfile << "\n";
       // Read cluster-to-detection file
-      status=read_longpair_file(clust2detfile, inclust2det, config.verbose);
+      oldc2d = clust2detmain.size();
+      status=append_longpair_file(clust2detfile, oldsize, clust2detmain, config.verbose);
       if(status!=0) {
 	cerr << "ERROR: could not successfully read cluster-to-detection file " << clust2detfile << "\n";
 	cerr << "read_longpair_file returned status = " << status << ".\n";
 	return(1);
       }
-      cout << "Read " << inclust2det.size() << " data lines from cluster-to-detection file " << clust2detfile << "\n";
-      // Append data from the new summary file to the master list
-      clustnum = clustvecmain.size();
-      for(i=0;i<long(inclustvec.size());i++) {
-	inclustvec[i].clusternum += clustnum;
-	clustvecmain.push_back(inclustvec[i]);
-      }
-      for(i=0;i<long(inclust2det.size());i++) {
-	inclust2det[i].i1 += clustnum;
-	clust2detmain.push_back(inclust2det[i]);
-      }
+      cout << "Read " << clust2detmain.size()-oldc2d << " data lines from cluster-to-detection file " << clust2detfile << "\n";
     } else {
       cerr << "WARNING: unable to read valid file names from cluster list file " << clusterlist << "\n";
     }

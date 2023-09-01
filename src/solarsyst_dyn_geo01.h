@@ -79,6 +79,8 @@ using namespace std;
                            // trancendental Kepler Equation.
 #define KEPTRANSTOL2 (double(1e-10)) // Maximum error for an acceptable solution of the
                             // trancendental Kepler Equation.
+#define HYPTRANSTOL 1e-13l // Maximum error for an acceptable solution of the
+                           // Kepler Equation with universal variables
 #define KEP2PBVPTOL 1e-12L // Maximum error for an acceptable solution of the
                            // Kepler two-point boundary value problem.
 #define KEP2PBVPTOL2 (double(1e-8l)) // Maximum error for an acceptable solution of the
@@ -1387,12 +1389,18 @@ int accelcalc01LD(int planetnum, const vector <long double> &planetmasses, const
 int integrate_orbit_constac(int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel);
 long double kep_transcendental(long double q, long double e, long double tol);
 double kep_transcendental(double q, double e, double tol);
+int Stumpff_func(const double xc, double *c0, double *c1, double *c2, double *c3);
+int Stumpff_func_cf(const double xc, double *c0, double *c1, double *c2, double *c3);
 int Keplerint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
 int Keplerint(const double MGsun, const double mjdstart, const point3d &startpos, const point3d &startvel, const double mjdend, point3d &endpos, point3d &endvel);
+int Kepler_fg_func_int(const double MGsun, const double mjdstart, const point3d &startpos, const point3d &startvel, const double mjdend, point3d &endpos, point3d &endvel);
+int Kepler_univ_int(const double MGsun, const double mjdstart, const point3d &startpos, const point3d &startvel, const double mjdend, point3d &endpos, point3d &endvel);
 int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD &outpos,  point3LD &outvel);
 int Kepler2dyn(const double mjdnow, const asteroid_orbit &oneorb, point3d &outpos,  point3d &outvel);
 long double hyp_transcendental(long double q, long double e, long double tol);
+double hyp_transcendental(double q, double e, double tol);
 int Hyper_Kepint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
+int Hyper_Kepint(const double MGsun, const double mjdstart, const point3d &startpos, const point3d &startvel, const double mjdend, point3d &endpos, point3d &endvel);
 int integrate_orbit01LD(int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel);
 int integrate_orbit02LD(int polyorder, int planetnum, const vector <long double> &planetmjd, const vector <long double> &planetmasses, const vector <point3LD> &planetpos, long double mjdstart, point3LD startpos, point3LD startvel, long double mjdend, point3LD &endpos, point3LD &endvel);
 int iswhitespace(int c);
@@ -1432,8 +1440,11 @@ double gaussian_deviate_mt(mt19937_64 &generator);
 int multilinfit01(const vector <double> &yvec, const vector <double> &sigvec, const vector <vector <double>> &xmat, int pnum, int fitnum, vector <double> &avec);
 int polyfit01(const vector <double> &yvec, const vector <double> &sigvec, const vector <double> &xvec, int pnum, int polyorder, vector <double> &avec);
 int vaneproj01LD(point3LD unitbary, point3LD obsbary, long double ecliplon, long double &geodist, point3LD &projbary);
-long double Twopoint_KepQ(long double theta);
-int Twopoint_Kepler_vel(const long double MGsun, const point3LD startpoint, const point3LD endpoint, const long double timediff, point3LD &startvel, int itmax);
+double Twopoint_KepQ(double x);
+//int Twopoint_Qf(double z, double MGsun, double lambda1, double lambda2, double X, double Y, double deltat, double *f, double *fprime);
+int Twopoint_Kepler_vel(const double MGsun, const point3d startpoint, const point3d endpoint, const double timediff, point3d &startvel, double *semimaj, int itmax);
+double Twopoint_KepQstar(double x);
+int Twopoint_Kepler_vstar(const double MGsun, const point3d startpoint, const point3d endpoint, const double timediff, point3d &startvel, int itmax);
 int Keplerint_multipoint01(const long double MGsun, const long double mjdstart, const vector <long double> &obsMJD, const point3LD &startpos, const point3LD &startvel, vector <point3LD> &obspos, vector <point3LD> &obsvel);
 int Keplerint_multipoint02(const long double MGsun, const long double mjdstart, const vector <long double> &obsMJD, const point3LD &startpos, const point3LD &startvel, vector <point3LD> &obspos, vector <point3LD> &obsvel, long double *semimajor_axis, long double *eccen, long double *angperi);
 int Keplerint_multipoint02(const double MGsun, const double mjdstart, const vector <double> &obsMJD, const point3d &startpos, const point3d &startvel, vector <point3d> &obspos, vector <point3d> &obsvel, double *semimajor_axis, double *eccen, double *angperi);
@@ -1468,8 +1479,10 @@ int read_detection_file_MPC80(string indetfile, vector <hldet> &detvec);
 int read_pairdet_file(string pairdetfile, vector <hldet> &detvec, int verbose);
 int read_tracklet_file(string trackletfile, vector <tracklet> &tracklets, int verbose);
 int read_longpair_file(string pairfile, vector <longpair> &pairvec, int verbose);
+int append_longpair_file(string pairfile, long oldsize, vector <longpair> &pairvec, int verbose);
 int read_radhyp_file(string hypfile, vector <hlradhyp> &accelmat, int verbose);
 int read_clustersum_file(string sumfile, vector <hlclust> &clustvec, int verbose);
+int append_clustersum_file(string sumfile, vector <hlclust> &clustvec, int verbose);
 double avg_extrema(const vector <double> &x);
 int read_image_file(string inimfile, vector <img_log03> &img_log);
 int read_image_file(string inimfile, vector <hlimage> &img_log);

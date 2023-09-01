@@ -779,9 +779,9 @@ int kdrange01(const vector <kdpoint> &kdvec,double x,double y,double range,vecto
   double rng2 = range*range;
   int notdone=1;
   int dim=1;
-  int currentpoint=0;
-  int leftpoint=0;
-  int rightpoint=0;
+  long currentpoint=0;
+  long leftpoint=0;
+  long rightpoint=0;
   int goleft=0;
   int goright=0;
   double xdiff=0.0;
@@ -1093,9 +1093,9 @@ int kdrange_3d_index(const vector <KD_point3d_index> &kdvec, const point3d_index
   double rng2 = range*range;
   int notdone=1;
   int dim=1;
-  int currentpoint=0;
-  int leftpoint=0;
-  int rightpoint=0;
+  long currentpoint=0;
+  long leftpoint=0;
+  long rightpoint=0;
   int goleft=0;
   int goright=0;
   double pointdiff = 0.0l;
@@ -1368,9 +1368,9 @@ int kdrange_4d_index(const vector <KD_point4d_index> &kdvec, const point4d_index
   long double rng2 = range*range;
   int notdone=1;
   int dim=1;
-  int currentpoint=0;
-  int leftpoint=0;
-  int rightpoint=0;
+  long currentpoint=0;
+  long leftpoint=0;
+  long rightpoint=0;
   int goleft=0;
   int goright=0;
   long double pointdiff = 0.0L;
@@ -1571,8 +1571,8 @@ int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long unsigned int spl
   long leftrootkd=-1;
   long rightrootkd=-1;
   point6LDx2 point0 = point6LDx2(0.0L,0.0L,0.0L,0.0L,0.0L,0.0L,0,0);
-  KD_point6LDx2 lp = KD_point6LDx2(point0,-1,-1,0,0);
-  KD_point6LDx2 rp = KD_point6LDx2(point0,-1,-1,0,0);
+  KD_point6LDx2 lp = KD_point6LDx2(point0,-1,-1,0,-1);
+  KD_point6LDx2 rp = KD_point6LDx2(point0,-1,-1,0,-1);
   vector <point6LDx2> leftvec = {};
   vector <point6LDx2> rightvec = {};
 
@@ -1591,7 +1591,7 @@ int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long unsigned int spl
 
   if(leftvec.size()==1) {
     // Left branch is just a single leaf
-    lp = KD_point6LDx2(leftvec[0],-1,-1,dim,0); // Define new point as a leaf: branches point nowhere
+    lp = KD_point6LDx2(leftvec[0],-1,-1,dim,-1); // Define new point as a leaf: branches point nowhere
     kdvec.push_back(lp); // Add this new point to the KD tree.
     kdct++; // Keep track of how many point are in the tree
     kdvec[kdroot].left = kdct; // Stick the new point on the left branch of the input root.
@@ -1601,7 +1601,7 @@ int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long unsigned int spl
   }
   if(rightvec.size()==1) {
     // Right branch is just a single leaf
-    rp = KD_point6LDx2(rightvec[0],-1,-1,dim,0);
+    rp = KD_point6LDx2(rightvec[0],-1,-1,dim,-1);
     kdvec.push_back(rp);
     kdct++;
     kdvec[kdroot].right = kdct;
@@ -1612,7 +1612,7 @@ int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long unsigned int spl
    
  if(leftvec.size()>1) {
     lmed = medind_6LDx2(leftvec,dim);
-    lp = KD_point6LDx2(leftvec[lmed],-1,-1,dim,0);
+    lp = KD_point6LDx2(leftvec[lmed],-1,-1,dim,-1);
     kdvec.push_back(lp);
     kdct++;
     kdvec[kdroot].left = kdct;
@@ -1621,7 +1621,7 @@ int kdtree_6D01(const vector <point6LDx2> &invec, int dim, long unsigned int spl
  
   if(rightvec.size()>1) {
     rmed = medind_6LDx2(rightvec,dim);
-    rp = KD_point6LDx2(rightvec[rmed],-1,-1,dim,0);
+    rp = KD_point6LDx2(rightvec[rmed],-1,-1,dim,-1);
     kdvec.push_back(rp);
     kdct++;
     kdvec[kdroot].right = kdct;
@@ -1671,9 +1671,9 @@ int kdrange_6D01(const vector <KD_point6LDx2> &kdvec, const point6LDx2 &querypoi
   long double rng2 = range*range;
   int notdone=1;
   int dim=1;
-  int currentpoint=0;
-  int leftpoint=0;
-  int rightpoint=0;
+  long currentpoint=0;
+  long leftpoint=0;
+  long rightpoint=0;
   int goleft=0;
   int goright=0;
   long double pointdiff = 0.0L;
@@ -1888,7 +1888,7 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 
   // Loop on points
   for(kdct=0; kdct<kdnum; kdct++) {
-    if(kdtree[kdct].flag == 0) {
+    if(kdtree[kdct].flag == -1) {
       // Current point has not yet been assigned.
       // Range-query current point.
       querypoint = kdtree[kdct].point;
@@ -1896,9 +1896,10 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
       cluster = {};
       clusterind = {};
       kdrange_6D01(kdtree, querypoint, clustrad, queryout);
+      if(long(queryout.size()) > kdnum) return(-1);
       // If it's alone, mark it as noise.
       if(queryout.size()<=1) {
-	kdtree[kdct].flag = -1; // Noise point.
+	kdtree[kdct].flag = -3; // Noise point.
 	// cout << "Point " << kdct << ": noise\n";
       }
       else if(long(queryout.size()) >= npt) {
@@ -1912,7 +1913,11 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 	// Loop on points in cluster.
 	clustptct=0;
 	while(clustptct<long(queryout.size())) {
-	  if(kdtree[queryout[clustptct]].flag != 0) {
+	  if(queryout[clustptct]<0 || queryout[clustptct]>=long(kdtree.size())) {
+	    cerr << "ERROR: queryout[" << clustptct << "] trying to reference kdtree point " << queryout[clustptct] << ": valid range is 0 to " << long(kdtree.size()) << "\n";
+	    return(2);
+	  }
+	  if(kdtree[queryout[clustptct]].flag >= 0) {
 	    // Current point has already been considered: skip to the next.
 	    clustptct++;
 	  } else {
@@ -1927,7 +1932,15 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 	      cluster.push_back(kdtree[queryout[clustptct]]);
 	      // Add additional points to queryout as appropriate
 	      for(i=0;i<long(subquery.size());i++) {
-		if(kdtree[subquery[i]].flag == 0) queryout.push_back(subquery[i]);
+		if(subquery[i]<0 || subquery[i]>=long(kdtree.size())) {
+		  cerr << "ERROR: subquery[" << i << "] trying to reference kdtree point " << subquery[i] << ": valid range is 0 to " << long(kdtree.size()) << "\n";
+		  return(3);
+		}
+		if(kdtree[subquery[i]].flag == -1) {
+		  queryout.push_back(subquery[i]);
+		  kdtree[subquery[i]].flag = -2; // Marks this point as already added, don't add to queryout again.
+		}
+		if(long(queryout.size()) > kdnum) return(-1);
 	      }
 	    } else {
 	      // This is a border point. Add it to the cluster, but
@@ -1941,6 +1954,15 @@ int DBSCAN_6D01(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, c
 	    // Close statement testing points for core vs. border status
 	  }
 	  // Close loop over the whole cluster
+	}
+	// De-flag any unused points from queryout.
+	for(long k=0; k<long(queryout.size()); k++) {
+	  if(kdtree[queryout[k]].flag == -2) {
+	    // This point was considered, but never became part of the cluster
+	    // erase the mark, so that evaluation for the next cluster is not
+	    // affected.
+	    kdtree[queryout[k]].flag = -1;
+	  }
 	}
 	// Just finished loading a cluster.
 	// Calculate some cluster statistics.
@@ -2044,7 +2066,7 @@ int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, v
 
   // Loop on points
   for(kdct=0; kdct<kdnum; kdct++) {
-    if(kdtree[kdct].flag == 0) {
+    if(kdtree[kdct].flag == -1) {
       // Current point has not yet been assigned.
       // Range-query current point.
       querypoint = kdtree[kdct].point;
@@ -2054,7 +2076,7 @@ int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, v
       kdrange_6D01(kdtree, querypoint, clustrad, queryout);
       // If it's alone, mark it as noise.
       if(queryout.size()<=1) {
-	kdtree[kdct].flag = -1; // Noise point.
+	kdtree[kdct].flag = -3; // Noise point.
 	// cout << "Point " << kdct << ": noise\n";
       }
       else if(long(queryout.size()) >= npt) {
@@ -2062,13 +2084,24 @@ int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, v
 	cout << "Point " << kdct << ": cluster core with " << queryout.size() << " neighbors.\n";
 	clusternum++;
 	kdtree[kdct].flag = clusternum;
+	// Mark all the points in queryout, so we don't add duplicate points
+	for(long k=0; k<long(queryout.size()); k++) {
+	  if(kdtree[queryout[k]].flag == -1) {
+	    // This point is untouched. Mark that we are adding it to queryout.
+	    kdtree[queryout[k]].flag = -2;
+	  }
+	}
 	// Begin loading cluster
 	clusterind.push_back(kdct);
 	cluster.push_back(kdtree[kdct]);
 	// Loop on points in cluster.
 	clustptct=0;
 	while(clustptct<long(queryout.size())) {
-	  if(kdtree[queryout[clustptct]].flag != 0) {
+	  if(queryout[clustptct]<0 || queryout[clustptct]>=long(kdtree.size())) {
+	    cerr << "ERROR: queryout[" << clustptct << "] trying to reference kdtree point " << queryout[clustptct] << ": valid range is 0 to " << long(kdtree.size()) << "\n";
+	    return(2);
+	  }
+	  if(kdtree[queryout[clustptct]].flag >= 0) {
 	    // Current point has already been considered: skip to the next.
 	    clustptct++;
 	  } else {
@@ -2083,7 +2116,15 @@ int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, v
 	      cluster.push_back(kdtree[queryout[clustptct]]);
 	      // Add additional points to queryout as appropriate
 	      for(i=0;i<long(subquery.size());i++) {
-		if(kdtree[subquery[i]].flag == 0) queryout.push_back(subquery[i]);
+		if(subquery[i]<0 || subquery[i]>=long(kdtree.size())) {
+		  cerr << "ERROR: subquery[" << i << "] trying to reference kdtree point " << subquery[i] << ": valid range is 0 to " << long(kdtree.size()) << "\n";
+		  return(3);
+		}
+		if(kdtree[subquery[i]].flag == -1) {
+		  queryout.push_back(subquery[i]);
+		  kdtree[subquery[i]].flag = -2; // Marks this point as already added, don't add to queryout again.
+		}
+		if(long(queryout.size()) > kdnum) return(-1);
 	      }
 	    } else {
 	      // This is a border point. Add it to the cluster, but
@@ -2097,6 +2138,15 @@ int DBSCAN_6D02(vector <KD_point6LDx2> &kdtree, long double clustrad, int npt, v
 	    // Close statement testing points for core vs. border status
 	  }
 	  // Close loop over the whole cluster
+	}
+	// De-flag any unused points from queryout.
+	for(long k=0; k<long(queryout.size()); k++) {
+	  if(kdtree[queryout[k]].flag == -2) {
+	    // This point was considered, but never became part of the cluster
+	    // erase the mark, so that evaluation for the next cluster is not
+	    // affected.
+	    kdtree[queryout[k]].flag = -1;
+	  }
 	}
 	// Just finished loading a cluster.
 	// Calculate some cluster statistics.
@@ -2203,7 +2253,6 @@ point6dx2 conv_6i_to_6d(point6ix2 p1, double scale)
   return(p2);
 }
 
-
 long medind_6ix2(const vector <point6ix2> &pointvec, int dim)
 {
   vector <point6ix2> pvec = pointvec; //Mutable copy of immutable input vector
@@ -2217,7 +2266,7 @@ long medind_6ix2(const vector <point6ix2> &pointvec, int dim)
   else if(dim%6 == 5) sort(pvec.begin(), pvec.end(), lower_point6ix2_vy()); // Sort vector by vy
   else if(dim%6 == 0) sort(pvec.begin(), pvec.end(), lower_point6ix2_vz()); // Sort vector by vz
   else {
-    cerr << "ERROR: medind_6ix2 recieved invalid dimension " << dim << "\n";
+    cerr << "ERROR: medind_6ix2 received invalid dimension " << dim << "\n";
     return(-1);
   }
   return(pvec[medpt].i1); // Output the index of the median point in
@@ -2313,8 +2362,8 @@ int kdtree_6i01(const vector <point6ix2> &invec, int dim, long unsigned int spli
   long leftrootkd=-1;
   long rightrootkd=-1;
   point6ix2 point0 = point6ix2(0,0,0,0,0,0,0,0);
-  KD_point6ix2 lp = KD_point6ix2(point0,-1,-1,0,0);
-  KD_point6ix2 rp = KD_point6ix2(point0,-1,-1,0,0);
+  KD_point6ix2 lp = KD_point6ix2(point0,-1,-1,0,-1);
+  KD_point6ix2 rp = KD_point6ix2(point0,-1,-1,0,-1);
   vector <point6ix2> leftvec = {};
   vector <point6ix2> rightvec = {};
 
@@ -2333,7 +2382,7 @@ int kdtree_6i01(const vector <point6ix2> &invec, int dim, long unsigned int spli
 
   if(leftvec.size()==1) {
     // Left branch is just a single leaf
-    lp = KD_point6ix2(leftvec[0],-1,-1,dim,0); // Define new point as a leaf: branches point nowhere
+    lp = KD_point6ix2(leftvec[0],-1,-1,dim,-1); // Define new point as a leaf: branches point nowhere
     kdvec.push_back(lp); // Add this new point to the KD tree.
     kdct++; // Keep track of how many point are in the tree
     kdvec[kdroot].left = kdct; // Stick the new point on the left branch of the input root.
@@ -2343,7 +2392,7 @@ int kdtree_6i01(const vector <point6ix2> &invec, int dim, long unsigned int spli
   }
   if(rightvec.size()==1) {
     // Right branch is just a single leaf
-    rp = KD_point6ix2(rightvec[0],-1,-1,dim,0);
+    rp = KD_point6ix2(rightvec[0],-1,-1,dim,-1);
     kdvec.push_back(rp);
     kdct++;
     kdvec[kdroot].right = kdct;
@@ -2354,7 +2403,7 @@ int kdtree_6i01(const vector <point6ix2> &invec, int dim, long unsigned int spli
    
  if(leftvec.size()>1) {
     lmed = medind_6ix2(leftvec,dim);
-    lp = KD_point6ix2(leftvec[lmed],-1,-1,dim,0);
+    lp = KD_point6ix2(leftvec[lmed],-1,-1,dim,-1);
     kdvec.push_back(lp);
     kdct++;
     kdvec[kdroot].left = kdct;
@@ -2363,7 +2412,7 @@ int kdtree_6i01(const vector <point6ix2> &invec, int dim, long unsigned int spli
  
   if(rightvec.size()>1) {
     rmed = medind_6ix2(rightvec,dim);
-    rp = KD_point6ix2(rightvec[rmed],-1,-1,dim,0);
+    rp = KD_point6ix2(rightvec[rmed],-1,-1,dim,-1);
     kdvec.push_back(rp);
     kdct++;
     kdvec[kdroot].right = kdct;
@@ -2405,16 +2454,18 @@ int kdrange_6i01(const vector <KD_point6ix2> &kdvec, const point6ix2 &querypoint
   long rng2 = range*range;
   int notdone=1;
   int dim=1;
-  int currentpoint=0;
-  int leftpoint=0;
-  int rightpoint=0;
+  long currentpoint=0;
+  long leftpoint=0;
+  long rightpoint=0;
   int goleft=0;
   int goright=0;
   long pointdiff = 0;
   long pdist2 = 0;
   vector <long> checkit={};
-  unsigned int checknum=0;
+  long checknum=0;
 
+  indexvec={}; // Wipe output vector, just to be safe.
+  
   while(notdone>0) {
     // Climb to the top of the k-d tree, keeping track
     // of potentially interesting unexplored branches
@@ -2446,7 +2497,7 @@ int kdrange_6i01(const vector <KD_point6ix2> &kdvec, const point6ix2 &querypoint
 	  if(rightpoint>=0) {
 	    // Rightward branch will also be explored later
 	    checknum++;
-	    if(checknum>checkit.size()) {
+	    if(checknum>long(checkit.size())) {
 	      checkit.push_back(rightpoint);
 	    }
 	    else {
@@ -2586,7 +2637,6 @@ double cluster_stats6i01(const vector <KD_point6ix2> &cluster, double intconvsca
 
   return(totalrms);
 }
-  
 
 // DBSCAN_6i01: January 07, 2022:
 // Like DBSCAN_6D02 (NOT DBSCAN_6D01), but uses integerized state
@@ -2595,7 +2645,7 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
 {
   long kdnum = kdtree.size();
   long kdct=0;
-  int clustptct=0;
+  long clustptct=0;
   long clusternum=0;
   vector <long> queryout;
   vector <long> subquery;
@@ -2609,7 +2659,7 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
 
   // Loop on points
   for(kdct=0; kdct<kdnum; kdct++) {
-    if(kdtree[kdct].flag == 0) {
+    if(kdtree[kdct].flag == -1) {
       // Current point has not yet been assigned.
       // Range-query current point.
       querypoint = kdtree[kdct].point;
@@ -2617,22 +2667,34 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
       cluster = {};
       clusterind = {};
       kdrange_6i01(kdtree, querypoint, clustrad, queryout);
+      if(long(queryout.size()) > kdnum) return(-1);
       // If it's alone, mark it as noise.
       if(queryout.size()<=1) {
-	kdtree[kdct].flag = -1; // Noise point.
+	kdtree[kdct].flag = -3; // Noise point.
       }
       else if(long(queryout.size()) >= npt) {
 	// This is a core point of a new cluster.
 	if(verbose>=1) cout << "Point " << kdct << ": cluster core with " << queryout.size() << " neighbors.\n";
 	clusternum++;
 	kdtree[kdct].flag = clusternum;
+	// Mark all the points in queryout, so we don't add duplicate points
+	for(long k=0; k<long(queryout.size()); k++) {
+	  if(kdtree[queryout[k]].flag == -1) {
+	    // This point is untouched. Mark that we are adding it to queryout.
+	    kdtree[queryout[k]].flag = -2;
+	  }
+	}
 	// Begin loading cluster
 	clusterind.push_back(kdct);
 	cluster.push_back(kdtree[kdct]);
 	// Loop on points in cluster.
 	clustptct=0;
 	while(clustptct<long(queryout.size())) {
-	  if(kdtree[queryout[clustptct]].flag != 0) {
+	  if(queryout[clustptct]<0 || queryout[clustptct]>=long(kdtree.size())) {
+	    cerr << "ERROR: queryout[" << clustptct << "] trying to reference kdtree point " << queryout[clustptct] << ": valid range is 0 to " << long(kdtree.size()) << "\n";
+	    return(2);
+	  }
+	  if(kdtree[queryout[clustptct]].flag >= 0) {
 	    // Current point has already been considered: skip to the next.
 	    clustptct++;
 	  } else {
@@ -2640,14 +2702,22 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
 	    querypoint = kdtree[queryout[clustptct]].point;
 	    subquery={};
 	    kdrange_6i01(kdtree, querypoint, clustrad, subquery);
-	    if(long(subquery.size())>=npt) {
+ 	    if(long(subquery.size())>=npt) {
 	      // This point is a core point.
 	      kdtree[queryout[clustptct]].flag = clusternum;
 	      clusterind.push_back(queryout[clustptct]);
 	      cluster.push_back(kdtree[queryout[clustptct]]);
 	      // Add additional points to queryout as appropriate
 	      for(i=0;i<long(subquery.size());i++) {
-		if(kdtree[subquery[i]].flag == 0) queryout.push_back(subquery[i]);
+		if(subquery[i]<0 || subquery[i]>=long(kdtree.size())) {
+		  cerr << "ERROR: subquery[" << i << "] trying to reference kdtree point " << subquery[i] << ": valid range is 0 to " << long(kdtree.size()) << "\n";
+		  return(3);
+		}
+		if(kdtree[subquery[i]].flag == -1) {
+		  queryout.push_back(subquery[i]);
+		  kdtree[subquery[i]].flag = -2; // Marks this point as already added, don't add to queryout again.
+		}
+		if(long(queryout.size()) > kdnum) return(-1);
 	      }
 	    } else {
 	      // This is a border point. Add it to the cluster, but
@@ -2664,13 +2734,21 @@ int DBSCAN_6i01(vector <KD_point6ix2> &kdtree, double clustrad, int npt, double 
 	  }
 	  // Close loop over the whole cluster
 	}
+	// De-flag any unused points from queryout.
+	for(long k=0; k<long(queryout.size()); k++) {
+	  if(kdtree[queryout[k]].flag == -2) {
+	    // This point was considered, but never became part of the cluster
+	    // erase the mark, so that evaluation for the next cluster is not
+	    // affected.
+	    kdtree[queryout[k]].flag = -1;
+	  }
+	}
 	// Just finished loading a cluster.
 	if(long(cluster.size())>=npt) {	  
 	  // This cluster has enough points to be considered.
 	  // Calculate some cluster statistics.
 	  meanvec = rmsvec = {};
 	  cluster_stats6i01(cluster, intconvscale, meanvec, rmsvec);
-
 	  // Load cluster into oneclust
 	  oneclust = KD6i_clust(cluster.size(),clusterind,meanvec,rmsvec);
 	  // Push oneclust onto output vector.
@@ -5837,6 +5915,97 @@ double kep_transcendental(double q, double e, double tol)
   return(psi_guess);
 }
 
+// Stumpff_func: August 29, 2023:
+// Calculate the first four Stumpff functions useful for solving
+// Keplerian orbits with universal variables (see J. M. A. Danby,
+// Fundamentals of Celestial Mechanics, Section 6.9). In this version,
+// I will use analytical forms and recursions.
+// Note: this version turns out to be faster than Stumpff_func_cf(),
+// which uses the continuing fraction forms preferred by Danby.
+// Presumably this is because of advances in implementations
+// of the analytical functions since Danby's work.
+int Stumpff_func(const double xc, double *c0, double *c1, double *c2, double *c3)
+{
+  double x=xc;
+  double sqrtx=0.0l;
+  
+  if(x==0.0l) {
+    *c0 = 1.0l;
+    *c1 = 1.0l;
+    *c2 = 1.0l/2.0l;
+    *c3 = 1.0l/6.0l;
+    return(0);
+  } else if(x>0.0l) {
+    sqrtx = sqrt(x);
+    *c0 = cos(sqrtx);
+    *c1 = sin(sqrtx)/sqrtx;
+  } else if(x<0.0l) {
+    sqrtx = sqrt(-x);
+    *c0 = cosh(sqrtx);
+    *c1 = sinh(sqrtx)/sqrtx;
+  } else if(!isnormal(x)) {
+    cerr << "ERROR: unable to evaluate Stumpff functions for x = " << x << "\n";
+    return(1);
+  }
+  *c2 = (1.0l - *c0)/x;
+  *c3 = (1.0l - *c1)/x;
+  return(0);
+}
+
+#define DANBY_XTHRESH 0.1l
+
+// Stumpff_func_cf: August 29, 2023:
+// Calculate the first four Stumpff functions useful for solving
+// Keplerian orbits with universal variables (see J. M. A. Danby,
+// Fundamentals of Celestial Mechanics, Section 6.9). In this version,
+// I will use the continuing fractions and 'half-angle identities'
+// suggested by Danby for computational speed.
+// Note: the analytical version Stumpff_func() above turns out to
+// be faster in C++, presumably because of advances in implementations
+// of the analytical functions since Danby's work.
+int Stumpff_func_cf(const double xc, double *c0, double *c1, double *c2, double *c3)
+{
+  if(xc==0.0l) {
+    *c0 = 1.0l;
+    *c1 = 1.0l;
+    *c2 = 1.0l/2.0l;
+    *c3 = 1.0l/6.0l;
+    return(0);
+  } else if(!isnormal(xc)) {
+    cerr << "ERROR: unable to evaluate Stumpff functions for x = " << xc << "\n";
+    return(1);
+  }
+  // If we reach this point, x is nonzero and is not a NAN
+  double x=xc;
+  double ci0,ci1,ci2,ci3;
+  ci0 = ci1 = ci2 = ci3 = 0.0l;
+  long N;
+  N=0;
+  while(fabs(x)>DANBY_XTHRESH) {
+    N++;
+    x/=4.0l;
+  }
+  ci2 = (1.0l-x*(1.0l-x*(1.0l-x*(1.0l-x*(1.0l-x*(1.0l-x/182.0l)/132.0l)/90.0l)/56.0l)/30.0l)/12.0l)/2.0l;
+  ci3 = (1.0l-x*(1.0l-x*(1.0l-x*(1.0l-x*(1.0l-x*(1.0l-x/210.0l)/156.0l)/110.0l)/72.0l)/42.0l)/20.0l)/6.0l;
+  ci0 = 1.0l - ci2*x;
+  ci1 = 1.0l - ci3*x;
+  while(N>0) {
+    N--;
+    ci3 = (ci2 + ci0*ci3)/4.0l;
+    ci2 = ci1*ci1/2.0l;
+    ci1 = ci0*ci1;
+    ci0 = 2.0l*ci0*ci0 - 1.0l;
+  }
+  
+  *c0 = ci0;
+  *c1 = ci1;
+  *c2 = ci2;
+  *c3 = ci3;
+  return(0);
+}
+  
+#undef DANBY_XTHRESH
+  
 // Keplerint: December 08, 2021:
 // Integrate an orbit assuming we have a Keplerian 2-body problem
 // with all the mass in the Sun, and the input position and velocity
@@ -6231,7 +6400,216 @@ int Keplerint(const double MGsun, const double mjdstart, const point3d &startpos
   return(0);
 }
 
+#define DANBYK_689 0.85l // J.M.A. Danby 'k' constant from eq 6.8.9
+#define DANBYK_6935 1.8l // J.M.A. Danby 'k' constant from eq 6.9.35
 
+// Kepler_fg_func_int: August 28, 2023: Solves the same problem as Keplerint,
+// (at double precision only), but uses the Kepler f and g functions.
+// Integrate an orbit assuming we have a Keplerian 2-body problem
+// with all the mass in the Sun, and the input position and velocity
+// are relative to the Sun.
+int Kepler_fg_func_int(const double MGsun, const double mjdstart, const point3d &startpos, const point3d &startvel, const double mjdend, point3d &endpos, point3d &endvel)
+{
+  double r0 = vecabs3d(startpos);
+  double v0 = vecabs3d(startvel);
+  double u = dotprod3d(startvel,startpos);
+  double a = r0*MGsun/(2.0l*MGsun-v0*v0*r0);
+  double n = sqrt(MGsun/a/a/a);
+  double EC = 1.0l - r0/a;
+  double ES = u/n/a/a;
+  double e = sqrt(EC*EC + ES*ES);
+  double deltat = SOLARDAY*(mjdend-mjdstart);
+
+  double sinM, x, q, dqdx, dx;
+  sinM = x = q = dqdx = dx = 0;
+  int itct=0;
+
+  // Select initial guess for x = deltaE = (E-E0)
+  if(e<0.1l) x = n*deltat;
+  else {
+    sinM = (ES*cos(n*deltat - ES) + EC*sin(n*deltat - ES))/e;
+    x = n*deltat + (sinM/fabs(sinM))*DANBYK_689*e - ES;
+  }
+
+  // Newton's Method solution for x
+  q = x - EC*sin(x) + ES*(1.0l - cos(x)) - n*deltat;
+  while(fabs(q)>KEPTRANSTOL && itct<KEPTRANSITMAX) {
+    dqdx = 1.0l - EC*cos(x) + ES*sin(x);
+    dx = -q/dqdx;
+    x += dx;
+    q = x - EC*sin(x) + ES*(1.0l - cos(x)) - n*deltat;
+    itct++;
+    // cout << "q, x, dqdx, dx: " << std::scientific << q << " " << x << " " << dqdx << " " << dx << "\n";
+  }
+
+  // Evaluate f and g functions
+  double f,g,fdot,gdot,r,v;
+  f = g = fdot = gdot = r = v = 0.0l;
+  
+  f = (a/r0)*(cos(x) - 1.0l) + 1.0l;
+  g = deltat + (sin(x) - x)/n;
+  
+  endpos.x = f*startpos.x + g*startvel.x;
+  endpos.y = f*startpos.y + g*startvel.y;
+  endpos.z = f*startpos.z + g*startvel.z;
+  r = vecabs3d(endpos);
+
+  fdot = -a*a*n*sin(x)/r/r0;
+  gdot = a*(cos(x)-1.0l)/r + 1.0l;
+  
+  endvel.x = fdot*startpos.x + gdot*startvel.x;
+  endvel.y = fdot*startpos.y + gdot*startvel.y;
+  endvel.z = fdot*startpos.z + gdot*startvel.z;
+  
+  return(0);
+}
+
+// Kepler_univ_int: August 29, 2023: Solves the same problem as Keplerint,
+// (at double precision only), but uses Keplerian universal variables as
+// described in Fundamentals of Celestial Mechanics (J. M. A. Danby),
+// Sections 6.9 and 6.10.
+// Integrate an orbit assuming we have a Keplerian 2-body problem
+// with all the mass in the Sun, and the input position and velocity
+// are relative to the Sun.
+int Kepler_univ_int(const double MGsun, const double mjdstart, const point3d &startpos, const point3d &startvel, const double mjdend, point3d &endpos, point3d &endvel)
+{
+  if(mjdend==mjdstart) {
+    endpos.x = startpos.x;
+    endpos.y = startpos.y;
+    endpos.z = startpos.z;
+    endvel.x = startvel.x;
+    endvel.y = startvel.y;
+    endvel.z = startvel.z;
+    return(0);
+  }
+  double r0 = vecabs3d(startpos);
+  double v0 = vecabs3d(startvel);
+  double u = dotprod3d(startvel,startpos);
+  //double rdot = u/r0;
+  double a = r0*MGsun/(2.0l*MGsun-v0*v0*r0);
+  if(!isnormal(a)) {
+    cerr << "ERROR: Kepler_univ_int finds a = " << a << ", unable to proceed\n";
+    return(1);
+  }
+  double n = sqrt(MGsun/a/a/a);
+  double alpha = MGsun/a;
+  double deltat = SOLARDAY*(mjdend-mjdstart);
+  double s=0.0l;
+
+  // Select an initial guess for solving the universal-variable
+  // for of the Kepler Equation.
+
+  if(alpha>0.0l) {
+    double EC = 1.0l - r0/a;
+    double ES = u/n/a/a;
+    double e = sqrt(EC*EC + ES*ES);
+    double sinM,x;
+    sinM=x=0.0l;
+    if(e<0.1l) x = n*deltat;
+    else {
+      sinM = (ES*cos(n*deltat - ES) + EC*sin(n*deltat - ES))/e;
+      x = n*deltat + (sinM/fabs(sinM))*DANBYK_689*e - ES;
+    }
+    s = x/sqrt(alpha);
+  } else if(alpha<0.0l) {
+    double CH = 1.0l - r0/a;
+    double SH = u/sqrt(-MGsun*a);
+    double e = sqrt(CH*CH - SH*SH);
+    double deltaM = deltat*sqrt(-MGsun/a/a/a);
+    double deltaF = 0.0l;
+
+    if(deltaM>0) deltaF = log((2.0l*deltaM + DANBYK_6935*e)/(CH+SH));
+    else if(deltaM<0) deltaF = -log((-2.0l*deltaM + DANBYK_6935*e)/(CH-SH));
+    else {
+      cerr << "ERROR: deltaM = " << deltaM << ": unable to proceed\n";
+      return(1);
+    }
+    s = deltaF/sqrt(-alpha);
+  }
+  if(!isnormal(s)) {
+    cerr << "WARNING: initial guess with alpha = " << alpha << " produced non-normal s = " << s << "\n";
+    s=deltat/r0;
+    cerr << "Re-assigning rescue value s = " << s << "\n";
+  }
+
+  double f,fp,ds,c0,c1,c2,c3,fold,fpold;
+  f = fp = ds = c0 = c1 = c2 = c3 = fold = fpold = 0.0l;
+  int itct=0;
+  int status=0;
+
+  // Newton's Method solution for s
+  if(!isnormal(alpha*s*s)) {
+    cerr << "input catch alpha = " << alpha << ", s = " << s << ", alpha*s^2 = " << alpha*s*s << "\n";
+  }
+  status = Stumpff_func(alpha*s*s, &c0, &c1, &c2, &c3);
+  if(status!=0) {
+    cerr << "ERROR: Stumpff_func() failed on initial run, with status " << status << ".\n";
+    cerr << "input was alpha = " << alpha << ", s = " << s << ", alpha*s^2 = " << alpha*s*s << "\n";
+    return(status);
+  } if(!isnormal(c0) ||!isnormal(c1) || !isnormal(c2) || !isnormal(c3)) {
+    cerr << "ERROR: output catch: c0,c1,c2,c3: " << c0 << "," << c1 << "," << c2 << "," << c3 << "\n";
+  }
+  f = r0*s*c1 + u*s*s*c2 + MGsun*s*s*s*c3 - deltat;
+  fp = r0*c0 + u*s*c1 + MGsun*s*s*c2;
+  while(fabs(f/fp)>HYPTRANSTOL && itct<KEPTRANSITMAX) {
+    fpold=fp;
+    fp = r0*c0 + u*s*c1 + MGsun*s*s*c2;
+    if(!isnormal(f) || !isnormal(fp)) {
+      cerr << "ERROR: universal variable minimization function f, fp = " << f << "," << fp << "\n";
+      cerr << "c0,c1,c2,c3: " << c0 << "," << c1 << "," << c2 << "," << c3 << "\n";
+      cerr << "alpha = " << alpha << ", s = " << s << ", alpha*s^2 = " << alpha*s*s << ", fold,fpold = " << fold << "," << fpold << "\n";
+      s=deltat/r0;
+      cerr << "Re-assigning rescue value s = " << s << "\n";
+      status = Stumpff_func(alpha*s*s, &c0, &c1, &c2, &c3);
+      if(status!=0) {
+	cerr << "ERROR: Stumpff_func() failed in rescue, with status " << status << ".\n";
+	cerr << "input was alpha = " << alpha << ", s = " << s << ", alpha*s^2 = " << alpha*s*s << ", f,fp = " << f << "," << fp << "\n";
+	return(status);
+      }
+      fold=f;
+      f = r0*s*c1 + u*s*s*c2 + MGsun*s*s*s*c3 - deltat;
+      fpold=fp;
+      fp = r0*c0 + u*s*c1 + MGsun*s*s*c2;
+    }
+    ds = -f/fp;
+    while(fabs(ds/s)>2.0l) ds/=2.0l; // Don't change s too much at one go.
+    s += ds;
+    // cout << "itct, f, fp, s, ds: " << itct << " " << f << " " << fp << " " << s << " " << ds << "\n";
+    status = Stumpff_func(alpha*s*s, &c0, &c1, &c2, &c3);
+    if(status!=0) {
+      cerr << "ERROR: Stumpff_func() failed within loop, with status " << status << ".\n";
+      cerr << "input was alpha = " << alpha << ", s = " << s << ", alpha*s^2 = " << alpha*s*s << ", f,fp = " << f << "," << fp << "\n";
+      return(status);
+    }
+    fold=f;
+    f = r0*s*c1 + u*s*s*c2 + MGsun*s*s*s*c3 - deltat;
+    itct++;
+  }
+  if(fabs(f/fp)>HYPTRANSTOL) {
+    cerr << "WARNING: Kepler_univ_int() failed to converge by iteration " << itct << ", f/fp = " << f/fp << " vs tolerance of " << HYPTRANSTOL << "\n";
+  }
+
+  double kepf = 1.0l - (MGsun/r0)*s*s*c2;
+  double kepg = r0*s*c1 + u*s*s*c2;
+  
+  endpos.x = kepf*startpos.x + kepg*startvel.x;
+  endpos.y = kepf*startpos.y + kepg*startvel.y;
+  endpos.z = kepf*startpos.z + kepg*startvel.z;
+  double r = vecabs3d(endpos);
+
+  double fdot = -MGsun/r/r0*s*c1;
+  double gdot = 1.0l - (MGsun/r)*s*s*c2;
+  
+  endvel.x = fdot*startpos.x + gdot*startvel.x;
+  endvel.y = fdot*startpos.y + gdot*startvel.y;
+  endvel.z = fdot*startpos.z + gdot*startvel.z;
+  
+  return(0);
+}
+
+#undef DANBYK_689
+#undef DANBYK_6935
+  
 // Kepler2dyn: May 31, 2022:
 // Given Keplerian orbital parameters and a starting MJD,
 // convert the Keplerian orbital parameters to barycentric
@@ -6565,7 +6943,48 @@ long double hyp_transcendental(long double q, long double e, long double tol)
   // cout << "hyp_transcendental obtained error of " << fpsi << " in only " << itct << " iterations\n";
   return(psi_guess);
 }
-    
+
+// hyp_transcendental: April 25, 2022:
+// Solve the hyperbolic form of the trancendental
+// Kepler Equation q = e*sinh(psi) - psi for psi given q and e,
+// returning a result guaranteed to be correct
+// within tol, unless KEPTRANSITMAX iterations
+// elapse without achieving this. This is the version
+// that uses only double precision, not long double.
+double hyp_transcendental(double q, double e, double tol)
+{
+  int itct=0;
+  double psi_guess = M_PI;
+  
+  if(tol<=0l) {
+    cerr << "ERROR: hyp_trancendental called with non-positive tolerance " << tol << "\n";
+    return(-99.9);
+  }
+
+  if(q>=0) psi_guess = 3.0;
+  else psi_guess = -3.0;
+  
+  double fpsi = e*sinh(psi_guess) - psi_guess - q;
+  double fprime = e*cosh(psi_guess) - 1.0l;
+  itct=0;
+  cout.precision(17);
+  while(itct<KEPTRANSITMAX && fabs(fpsi) > tol) {
+    psi_guess += -fpsi/fprime;
+    fpsi = e*sinh(psi_guess) - psi_guess - q;
+    fprime = e*cosh(psi_guess) - 1.0l;
+    // cout << "kep itct " << itct << "psi, fpsi, fprime: " << psi_guess << ", " << fpsi << ", " << fprime << "\n"; 
+    itct++;
+  }
+
+  if(itct>=KEPTRANSITMAX) {
+    cout.precision(21);
+    cout << "Warning: hyp_trancendental " << itct << " iters, still " << fpsi << " > tol = " << tol;
+    cout << " Call was q = " << q << ", e = " << e << "\n";
+  }
+  // cout << "hyp_transcendental obtained error of " << fpsi << " in only " << itct << " iterations\n";
+  return(psi_guess);
+}
+
 // Hyper_Kepint: April 25, 2022:
 // Integrate a hyperbolic orbit assuming we have a Keplerian 2-body problem
 // with all the mass in the Sun, and the input position and velocity
@@ -6671,7 +7090,7 @@ int Hyper_Kepint(const long double MGsun, const long double mjdstart, const poin
   
   // Calculate the angle theta1 from perihelion from H(t1).
   x = a*(cosh(H)-e);
-  y = -a*sqrt(e*e-1)*sinh(H);
+  y = -a*sqrt(e*e-1.0L)*sinh(H);
   if(y>0.0L) {
     theta1 = M_PI/2.0L - atan(x/y);
   } else if (y<0.0L) {
@@ -6726,6 +7145,178 @@ int Hyper_Kepint(const long double MGsun, const long double mjdstart, const poin
   // cout << "Psuedo-celestial coords of new position: " << r1ra*DEGPRAD << " " << r1dec*DEGPRAD << "\n";
   r1unit = celeproj01LD(r1ra*DEGPRAD,r1dec*DEGPRAD);
   v1unit =celeproj01LD(v1ra*DEGPRAD,v1dec*DEGPRAD);
+  
+  endpos.x = r1unit.x*r1;
+  endpos.y = r1unit.y*r1;
+  endpos.z = r1unit.z*r1;
+  endvel.x = v1unit.x*v1;
+  endvel.y = v1unit.y*v1;
+  endvel.z = v1unit.z*v1;
+  
+  return(0);
+}
+
+
+// Hyper_Kepint: April 25, 2022:
+// Integrate a hyperbolic orbit assuming we have a Keplerian 2-body problem
+// with all the mass in the Sun, and the input position and velocity
+// are relative to the Sun. This is the version with only double-precision, not long double.
+int Hyper_Kepint(const double MGsun, const double mjdstart, const point3d &startpos, const point3d &startvel, const double mjdend, point3d &endpos, point3d &endvel)
+{
+  double e,E,a,lscalar,r0,v0,r1,v1;
+  point3d lvec = point3d(0l,0l,0l);
+  point3d r1unit = point3d(0l,0l,0l);
+  point3d v1unit = point3d(0l,0l,0l);
+  e = E = a = lscalar = r0 = v0 = r1 = v1 = 0l;
+  double coshH,H0,theta0,theta1,radvel,H;
+  coshH = H0 = theta0 = theta1 = radvel = H = 0l;
+  double omega, t0omega, t0, t1omega, t1;
+  omega = t0omega = t0 = t1omega = t1 = 0l;
+  double lra,ldec,r0ra,r0dec,r1ra,r1dec,newra,newdec;
+  lra = ldec = r0ra = r0dec = r1ra = r1dec = newra = newdec = 0l;
+  double x,y,junkra,junkdec,sinev,thetav,v1ra,v1dec;
+  x = y = junkra = junkdec = sinev = thetav = v1ra = v1dec = 0l;
+  int debug=0;
+  
+  // Calculate scalar input position
+  r0 = sqrt(dotprod3d(startpos,startpos));
+  v0 = sqrt(dotprod3d(startvel,startvel));
+  
+  // Calculate specific energy and angular momentum
+  E = 0.5l*v0*v0 - MGsun/r0;
+  lvec = crossprod3d(startpos,startvel);
+  lscalar = sqrt(dotprod3d(lvec,lvec));
+  if(debug>=2) cout << "Energy = " << E << ", angmom = " << lscalar << "\n";
+  if(E<=0l) {
+    //cerr << "ERROR: Hyper_Kepint finds negative total energy: " << E << "\n";
+    return(1);
+  }
+		 
+  // Calculate a and e: orbital semimajor axis and eccentricity.
+  cout.precision(17);
+  a = -MGsun*0.5l/E; // By convention, semimajor axis a is negative
+                     // for hyperbolic orbits.
+  e = sqrt(1.0l + 2.0l*E*lscalar*lscalar/MGsun/MGsun);
+  if(debug>=2) cout << "a = " << a/AU_KM << ", e = " << e << "\n";
+  
+  if(e<=1.0l) {
+    cerr << "ERROR: Hyper_Kepint finds eccentricity out of range: " << e << "\n";
+    return(1);
+  }
+
+  // Calculate the value of the hyperbolic anomaly H at the starting time
+  if(e>1.0l) {
+    coshH = (a-r0)/(a*e);
+    if(coshH>=1.0l) H0 = acosh(coshH);
+    else {
+      cerr << "ERROR: Hyper_Kepint finds cosh(H) = " << coshH << "\n";
+      return(1);
+    }
+  }
+  radvel = dotprod3d(startpos,startvel)/r0;
+  if(debug>=2) cout << "H0 = " << H0 << ", radial velocity = " << radvel << " km/sec\n";
+  
+  if(radvel>=0) {
+    // We are moving outward from perihelion: H0 will be correct
+     ;
+  } else {
+    // We are moving inward towards perihelion: H0 needs adjustment.
+    H0 = -H0;
+   }
+  
+  if(debug>=2) cout << "H0 = " << H0 << ", radial velocity = " << radvel << " km/sec\n";
+
+  // Calculate the angle theta0 from perihelion using H0.
+  x = a*(cosh(H0)-e);
+  y = -a*sqrt(e*e-1)*sinh(H0);
+  if(y>0.0l) {
+    theta0 = M_PI/2.0l - atan(x/y);
+  } else if (y<0.0l) {
+    theta0 = 3.0l*M_PI/2.0l - atan(x/y);
+  } else {
+    // Presumably y==0. There's also the possibility that
+    // it could be a NAN, but we won't worry about that right here.
+    if(x<0) theta0 = M_PI;
+    else theta0 = 0.0l;
+  }
+  if(debug>=2) cout << "x = " << x/AU_KM << ", y = " << y/AU_KM << ", theta0 = " << theta0*M_PI/180.0 << "\n";
+
+  // Calculate time since perihelion using H0.
+  omega = sqrt(-MGsun/(a*a*a));
+  //cout << "omega = " << omega << "\n";
+  t0omega = e*sinh(H0) - H0;
+  //cout << "t0omega = " << t0omega << "\n";
+ 
+  // The new time t1 for which we want to re-evaluate psi is
+  // given by t0 + mjdend-mjdstart.
+  t1omega = t0omega + (mjdend-mjdstart)*SOLARDAY*omega;
+  //cout << "t1omega = " << t1omega << "\n";
+  // Solve the hyperbolic form of Kepler's equation for H(t1)
+  H = hyp_transcendental(t1omega,e,KEPTRANSTOL2);
+  //cout << "H = " << H << "\n";
+
+  // Calculate r(t1) from H(t1)
+  r1 = a*(1.0L - e*cosh(H));
+  // Calculate v1 from r1 and the known energy
+  v1 = sqrt((E +  MGsun/r1)*2.0l);
+  
+  // Calculate the angle theta1 from perihelion from H(t1).
+  x = a*(cosh(H)-e);
+  y = -a*sqrt(e*e-1.0l)*sinh(H);
+  if(y>0.0l) {
+    theta1 = M_PI/2.0l - atan(x/y);
+  } else if (y<0.0l) {
+    theta1 = 3.0L*M_PI/2.0l - atan(x/y);
+  } else {
+    // Presumably y==0. There's also the possibility that
+    // it could be a NAN, but we won't worry about that right here.
+    if(x<0) theta1 = M_PI;
+    else theta1 = 0.0l;
+  }
+
+  // Use vector algebra to find the full vector r(t1).
+  // This vector is perpendicular to lvec, and is angled by theta1-theta0
+  // relative to startpos.
+  // Convert angular momentum vector to spherical coordinates
+  celedeproj01(lvec,&lra,&ldec); // Note that output is in degrees.
+  //cout << "Psuedo-celestial coords of angular momentum vector: " << lra << " " << ldec << "\n";
+  celedeproj01(startpos,&r0ra,&r0dec); // Note that output is in degrees.
+  //cout << "Psuedo-celestial coords of original position: " << r0ra << " " << r0dec << "\n";
+  // Transform the starting unit vector into a coordinate system with
+  // the angular momentum vector at the pole, and the old pole at RA=0
+  poleswitch01(r0ra/DEGPRAD,r0dec/DEGPRAD,lra/DEGPRAD,ldec/DEGPRAD,0.0l,newra,newdec); // Output is radians
+  //cout << "Orbital plane coords of original position: " << newra*DEGPRAD << " " << newdec*DEGPRAD << "\n";
+  // Rotate starting unit vector around the angular momentum axis by
+  // the calculated angle.
+  newra += theta1-theta0;
+  // cout << "Orbital plane coords of new position " << newra*DEGPRAD << " " << newdec*DEGPRAD << "\n";
+  // The unit vector for the new position r1 is on the equator at this RA,
+  // in the coordinate system that has the angular momentum vector at the pole.
+  // Convert back to the original coordinate system.
+  poleswitch01(newra,0.0l,0.0l,ldec/DEGPRAD,lra/DEGPRAD,r1ra,r1dec); // Output is radians
+  // Now for the velocity. If the velocity is at right angle to the vector r1,
+  // the product v1*r1 is the angular momentum. Otherwise, l/(v1*r1) is the sine
+  // of the angle between v1 and r1.
+
+  sinev = lscalar/v1/r1;
+  if(sinev>=1.0l) thetav = 0.5l*M_PI;
+  else if(sinev<0.0l) {
+    cerr << "ERROR: negative angular momentum?\nv1,r1,v1*r1,lscalar,sinev = " << v1 << ", " << r1 << ", " << v1*r1 << ", " << lscalar << ", " << sinev << "\n";
+    thetav = 0.0l;
+  }
+  else thetav = asin(sinev);
+  if(theta1<=M_PI) {
+    // Outward bound from perihelion.
+    newra += thetav;
+  } else {
+    // Inward bound to perihelion
+    newra += (M_PI - thetav);
+  }
+  poleswitch01(newra,0.0l,0.0l,ldec/DEGPRAD,lra/DEGPRAD,v1ra,v1dec); // Output is radians
+
+  // cout << "Psuedo-celestial coords of new position: " << r1ra*DEGPRAD << " " << r1dec*DEGPRAD << "\n";
+  r1unit = celeproj01(r1ra*DEGPRAD,r1dec*DEGPRAD);
+  v1unit =celeproj01(v1ra*DEGPRAD,v1dec*DEGPRAD);
   
   endpos.x = r1unit.x*r1;
   endpos.y = r1unit.y*r1;
@@ -10135,7 +10726,7 @@ int uvw_to_galcoord(const double &u, const double &v, const double &w, double &R
 // may be made, not only to this function but also to any
 // others that use the mt19937_64 generator (e.g.,
 // gaussian_deviate_mt. It is an error to initialize the
-// generator more than once (e.g., in the entirely of main()).
+// generator more than once (e.g., in the entirety of main()).
 long double unitvar(mt19937_64 &generator)
 {
   long double uv = (long double)(generator())/RAND_MAX_64;
@@ -10264,26 +10855,25 @@ int vaneproj01LD(point3LD unitbary, point3LD obsbary, long double ecliplon, long
   return(0);
 }
 
-// 2pt_KepQ: October 21, 2022:
+// Twopoint_KepQ: August 30, 2023:
 // Calculate and return the value of the function Q used in Section 6.11
 // of J. M. A. Danby's Foundations of Celestial Mechanics, in the context
 // of solving the two-point boundary value problem for a Kepler orbit.
 // This function is not particularly profound or magical, as can be
 // seen in the source code below.
-long double Twopoint_KepQ(long double x)
+double Twopoint_KepQ(double x)
 {
-  if(x>0L && x<=1.0L) return(1.5L/x/sqrt(x)*(0.5L*asin(2.0L*x-1.0L)*0.5L - sqrt(x-x*x) + M_PI/4.0L));
-  else if(x<=0L) return(0.75L/(-x*sqrt(-x))*(2.0L*sqrt(x*x-x) - log(1.0L - 2.0L*x + 2.0L*sqrt(x*x-x))));
+  if(x>0L && x<=1.0l) return(1.5l/x/sqrt(x)*(0.5l*asin(2.0l*x-1.0L)*0.5l - sqrt(x-x*x) + M_PI/4.0l));
+  else if(x<0l) return(0.75l/(-x*sqrt(-x))*(2.0l*sqrt(x*x-x) - log(1.0l - 2.0l*x + 2.0l*sqrt(x*x-x))));
   else {
     cerr << "ERROR:  Twopoint_KepQ called with out-of-range argument " << x << "\n";
-    return(-99);
+    return(-LARGERR2);
   }
-  //return(0.75L*(theta - sin(theta))/intpowLD(sin(0.5L*theta),3));
 }
 
 #define DEBUG_2PTBVP 0
 
-// 2pt_Kepler_vel: October 21, 2022:
+// Twopoint_Kepler_vel: August 30, 2023:
 // Given two points in an object's orbit (as 3-D Cartesian
 // vectors relative to the sun), and the time it takes to
 // move from the first point to the second, solve for the object's
@@ -10293,63 +10883,181 @@ long double Twopoint_KepQ(long double x)
 // be in km/sec.
 // This code closely follows the derivation in Section 6.11 of
 // J. M. A. Danby's Foundations of Celestial Mechanics.
-int Twopoint_Kepler_vel(const long double MGsun, const point3LD startpoint, const point3LD endpoint, const long double timediff, point3LD &startvel, int itmax)
+int Twopoint_Kepler_vel(const double MGsun, const point3d startpoint, const point3d endpoint, const double timediff, point3d &startvel, double *semimaj, int itmax)
 {
-  long double r1 = vecabs3LD(startpoint);
-  long double r2 = vecabs3LD(endpoint);
-  point3LD pdiff = point3LD(endpoint.x - startpoint.x, endpoint.y - startpoint.y, endpoint.z - startpoint.z);
-  long double c = vecabs3LD(pdiff);
-  long double lambda1 = sqrt(r1+r2+c);
-  long double lambda2 = sqrt(r1+r2-c);
-  long double k = sqrt(MGsun);
-
-  // Determine the sign-specifier X
-  long double ac = (r1+r2+c)/4.0L;
-  long double nc = k/ac/sqrt(ac); // This is in radians per second.
-  long double dc = 2.0L*asin(sqrt(lambda2/lambda1));
-  long double dtc = (M_PI - dc + sin(dc))/nc;
-  long double X=1.0L;
-  long double Y=1.0L;
-  
-  if(timediff*SOLARDAY>dtc) X=-1.0L;
-
   cout << "Q(0.5) = " << Twopoint_KepQ(0.5) << ", Q(-0.5) = " << Twopoint_KepQ(-0.5) << "\n";
+  double k = sqrt(MGsun);
+
+  double r1 = vecabs3d(startpoint);
+  double r2 = vecabs3d(endpoint);
+  point3d pdiff = point3d(endpoint.x - startpoint.x, endpoint.y - startpoint.y, endpoint.z - startpoint.z);
+  double c = vecabs3d(pdiff);
+  double l1 = sqrt(r1+r2+c);
+  double l2 = sqrt(r1+r2-c);
+  double l12 = l1*l1;
+  double l22 = l2*l2;
+  double l13 = l12*l1;
+  double l23 = l22*l2;
+  double X=1.0L;
+  double Y=1.0L;
+  double dtp = (l13 - Y*l23)/6.0l/k;
+  double z,f,fprime,deltaz;
+  z = f = fprime = deltaz = 0.0l;
+  if(timediff*SOLARDAY>dtp) {
+    // Orbit is elliptical
+    z = 2.0/l12;
+    // Sign specifier X might be negative. Check.
+    double Q=Twopoint_KepQ(l22/l12);
+    double dtc = (l13*M_PI-Y*l23*Q)/8.0l;
+    if(timediff*SOLARDAY>dtc) X=-1.0l;
+  } else if(timediff*SOLARDAY<dtp) {
+    //Orbit is hyperbolic
+    z = -2.0/l12;
+  } else if(timediff*SOLARDAY==dtp) {
+    cerr << "WARNING: Twopoint_Kepler_vel() has apparent parabolic case: likely failure\n";
+    z = 2.0/l12;
+  } else if(!isnormal(dtp)) {
+    cerr << "ERROR: dtp calculated as " << dtp << ", Y, lambda1, lambda2, k = " << Y << " " << l1 << " " << l2 << " " << k << "\n";
+    return(2);
+  }
   
   cout << "Initial setup stuff:\n";
-  cout << "r1 = " << r1/AU_KM << ", r2 = " << r2/AU_KM << ", c = " << c/AU_KM << ", lambdas = " << lambda1 << ", " << lambda2 << ", k = " << k << ", X = " << X << "\n";
-  
-  long double z = 2.0L/lambda1/lambda1; // Initial guess for z = 1/a
-  // Calculate original value of function to be minimized.
-  long double Q1 = Twopoint_KepQ(z*lambda1*lambda1/4.0L);
-  long double Q2 = Twopoint_KepQ(z*lambda2*lambda2/4.0L);
-  long double f = (1.0L/k)*((1.0L/6.0L)*(X*Q1*lambda1*lambda1*lambda1 - Y*Q2*lambda2*lambda2*lambda2) + (1.0L-X)*M_PI/(z*sqrt(z))) - timediff*SOLARDAY;
-  long double fprime = (1.0L/(4.0L*k*z))*(X*lambda1*lambda1*lambda1*(1.0L/sqrt(1.0L - lambda1*lambda1*z/4.0L) - Q1) - Y*lambda2*lambda2*lambda2*(1.0L/sqrt(1.0L - lambda2*lambda2*z/4.0L) - Q2)) - (1.0L-X)*3.0L*M_PI/(2.0L*k)/(z*z*sqrt(z));
+  cout << "r1 = " << r1/AU_KM << ", r2 = " << r2/AU_KM << ", c = " << c/AU_KM << ", lambdas = " << l1 << ", " << l2 << ", k = " << k << ", X = " << X << "\n";
 
   int itnum=0;
-  long double deltaz = -f/fprime;
-
-  cout << "0th iteration:\n";
-  cout << "z = " << z << " = 1/" << 1.0L/z/AU_KM << " AU, Q1 = " << Q1 << ", Q2 = " << Q2 << ", f = " << f << ", fprime = " << fprime << ", deltaz = " << deltaz << "\n";
+  double Q1,Q2;
+  Q1=Twopoint_KepQ(z*l12/4.0l);
+  Q2=Twopoint_KepQ(z*l22/4.0l);
   
-  while(fabs(f) > KEPTRANSTOL && itnum<itmax) {
-    cout << itnum << " f = " << f << ": z = " << z << ", a = " << 1.0L/z << "\n";
-    z += deltaz;
-    Q1 = Twopoint_KepQ(z*lambda1*lambda1/4.0L);
-    Q2 = Twopoint_KepQ(z*lambda2*lambda2/4.0L);
-    f = (1.0L/k)*((1.0L/6.0L)*(X*Q1*lambda1*lambda1*lambda1 - Y*Q2*lambda2*lambda2*lambda2) + (1.0L-X)*M_PI/z/sqrt(z)) - timediff*86400.0L;
-    fprime = (1.0L/(4.0L*k*z))*(X*lambda1*lambda1*lambda1*(1.0L/sqrt(1.0L - lambda1*lambda1*z/4.0L) - Q1) - Y*lambda2*lambda2*lambda2*(1.0L/sqrt(1.0L - lambda2*lambda2*z/4.0L) - Q2)) - (1.0L-X)*3.0L*M_PI/(2.0L*k)/(z*z*sqrt(z));
+  f = (X*Q1*l13 - Y*Q2*l23)/6.0l/k - timediff*SOLARDAY;
+  if(z>0) f += (1.0l-X)*M_PI/z/sqrt(z)/k;
+  fprime = (X*l13*(1.0l/sqrt(1.0l-l12*z/4.0l) - Q1) - Y*l23*(1.0l/sqrt(1.0l-l22*z/4.0l) - Q2))/4.0l/k/z;
+  if(z>0) fprime -= (1.0l-X)*3.0l*M_PI/2.0l/k/z/z/sqrt(z); 
+    
+  deltaz = -f/fprime;
+  cout << "0th iteration:\n";
+  cout << "z = " << z << " = 1/" << 1.0l/z/AU_KM << " AU, f = " << f << ", fprime = " << fprime << ", deltaz = " << deltaz << "\n";
 
+  while(fabs(f) > KEPTRANSTOL && itnum<itmax) {
+    if(isnormal(deltaz) || deltaz==0.0) {
+      while(fabs(deltaz/z)>2.0l) deltaz/=2.0l; // Make sure not to change z too much
+      z += deltaz;
+    } else {
+      cerr << "ERROR: unreasonable value of deltaz = " << deltaz << ", f = " << f << ", fprime = " << fprime << "\n";
+      return(2);
+    }
+    Q1=Twopoint_KepQ(z*l12/4.0l);
+    Q2=Twopoint_KepQ(z*l22/4.0l);
+  
+    f = (X*Q1*l13 - Y*Q2*l23)/6.0l/k - timediff*SOLARDAY;
+    if(z>0) f += (1.0l-X)*M_PI/z/sqrt(z)/k;
+    fprime = (X*l13*(1.0l/sqrt(1.0l-l12*z/4.0l) - Q1) - Y*l23*(1.0l/sqrt(1.0l-l22*z/4.0l) - Q2))/4.0l/k/z;
+    if(z>0) fprime -= (1.0l-X)*3.0l*M_PI/2.0l/k/z/z/sqrt(z);
     deltaz = -f/fprime;
-    cout << "l12z = " << lambda1*lambda1*z << ", l22z = " << lambda2*lambda2*z << "\n";
-    cout << "z = " << z << " = 1/" << 1.0L/z/AU_KM << " AU, Q1 = " << Q1 << ", Q2 = " << Q2 << ", f = " << f << ", fprime = " << fprime << ", deltaz = " << deltaz << "\n";
     itnum++;
+    cout << itnum << " f = " << f << " fprime = " << fprime << ": z = " << z << " deltaz = " << deltaz << ", a = " << 1.0L/z << "\n";
   }
-  cout << itnum << " f = " << f << ": z = " << z << ", a = " << 1.0L/z << "\n";
   if(itnum==itmax) cerr << "WARNING: Twopoint_Kepler_vel reached iteration limit " << itmax << " with deltaz = " << deltaz << "\n";
-  cout << "z = " << z << ", a = " << 1.0L/z << "\n";
-  return(1);
+  cout << "Finished iterating. z = " << z << ", a = " << 1.0l/z << "\n";
+  *semimaj = 1.0l/z;
+  // Calculate the initial velocity
+  double alpha = l1/2.0l;
+  double beta = l2/2.0l;
+  double gamma = alpha * sqrt(1.0l - l22*z/4.0l) - X*Y*beta*sqrt(1.0l - l12*z/4.0l);
+  if(!isnormal(gamma)) {
+    cerr << "ERROR: gamma has unreasonable value " << gamma << "; alpha, beta, lambda1, lambda2, z = " << alpha << " " <<  beta << " " <<  l1 << " " <<  l2 << " " <<  z << "\n";
+    return(3);
+  }
+  double g=4.0l*Y*alpha*beta*gamma/k;
+  f=1.0l - 2.0*gamma*gamma/r1;
+  startvel.x = (endpoint.x - f*startpoint.x)/g;
+  startvel.y = (endpoint.y - f*startpoint.y)/g;
+  startvel.z = (endpoint.z - f*startpoint.z)/g;
+  
+  return(0);
 }
 
+// Twopoint_KepQstar: August 31, 2023:
+// Calculate and return the value of the function Q(x*) used in Section 6.11
+// of J. M. A. Danby's Foundations of Celestial Mechanics, in the context
+// of solving the two-point boundary value problem for a Kepler orbit.
+// This function is not particularly profound or magical, as can be
+// seen in the source code below.
+double Twopoint_KepQstar(double x)
+{
+  if(x>0L && x<=0.5l) return((3.0l/16.0l)*(2.0l*(2.0l*x-1.0l)*sqrt(x-x*x) + asin(2.0l*x-1.0l) + M_PI/2.0l)/(x-x*x)/sqrt(x-x*x));
+  else if(x<0l) return((3.0l/16.0l)*(2.0l*(1.0l-2.0l*x)*sqrt(x*x-x) - log(1.0 - 2.0l*x + 2.0l*sqrt(x*x-x)))/(x*x-x)/sqrt(x*x-x));
+  else {
+    cerr << "ERROR:  Twopoint_KepQstar called with out-of-range argument " << x << "\n";
+    return(-LARGERR2);
+  }
+}
+
+// Twopoint_Kepler_vstar: August 31, 2023:
+// Given two points in an object's orbit (as 3-D Cartesian
+// vectors relative to the sun), and the time it takes to
+// move from the first point to the second, solve for the object's
+// Keplerian orbit, and in particular find its vector velocity
+// when at the first point. Input positions are in units of km,
+// timediff is in units of days, and the output velocity will
+// be in km/sec.
+// This code closely follows the derivation in Section 6.12 of
+// J. M. A. Danby's Foundations of Celestial Mechanics, in
+// contrast to the function Twopoint_Kepler_vel(), which attempted
+// to implement the derivation in Section 6.11
+int Twopoint_Kepler_vstar(const double MGsun, const point3d startpoint, const point3d endpoint, const double timediff, point3d &startvel, int itmax)
+{
+  double k=sqrt(MGsun);
+  double r1 = vecabs3d(startpoint);
+  double r2 = vecabs3d(endpoint);
+  double K = sqrt(2.0l*r1*r2 + 2.0l*dotprod3d(startpoint,endpoint));
+  double m2 = DSQUARE(k*timediff*SOLARDAY)/intpowD(K,3);
+  double l = (r1+r2-K)/2.0l/K;
+  double y1,y2,y3,x1,x2,dy,Q;
+  y1=y2=y3=x1=x2=dy=Q=1.0l;
+  // Setup complete, go to optimzation loop.
+  while(fabs(dy)>KEPTRANSTOL2) {
+    x1 = m2/y1/y1 - l;
+    if(x1>0.5l || !isnormal(x1)) {
+      cerr << "ERROR: argument for Twopoint_KepQstar is " << x1 << ", out of valid range -infinity to +0.5, excluding 0.0\n";
+      return(1);
+    }
+    Q = Twopoint_KepQstar(x1);
+    if(!isnormal(Q)) {
+      cerr << "Twopoint_KepQstar returns unreasonable value " << Q << " given argument " << x1 << "\n";
+      return(2);
+    }
+    y2 = 1.0l + (m2/y1/y1)*(4.0l/3.0l)*Q;
+    x2 = m2/y2/y2 - l;
+    if(x2>0.5l || !isnormal(x2)) {
+      cerr << "ERROR: argument for Twopoint_KepQstar is " << x2 << ", out of valid range -infinity to +0.5, excluding 0.0\n";
+      return(1);
+    }
+    Q = Twopoint_KepQstar(x2);
+    if(!isnormal(Q)) {
+      cerr << "Twopoint_KepQstar returns unreasonable value " << Q << " given argument " << x2 << "\n";
+      return(2);
+    }
+    y3 = 1.0l + (m2/y2/y2)*(4.0l/3.0l)*Q;
+    if(isnormal(y1-2.0l*y2+y3)) dy = -DSQUARE(y2-y1)/(y1-2.0l*y2+y3);
+    else {
+      dy = 0.0l;
+      if(isnormal(-DSQUARE(y2-y1))) {
+	cerr << "WARNING: denominator for dy is " << (y1-2.0l*y2+y3) << " for numerator " << -DSQUARE(y2-y1) << "\n";
+	cerr << "This appears to indicate a nontrivial zero-divide\n";
+      }
+    }
+    y1 += dy;
+  }
+  //cout << "Final value y1 = " << std::setprecision(20) << y1 << "\n";
+  double g = timediff*SOLARDAY/y1;
+  double f = 1.0l - 2.0l*DSQUARE(k*timediff*SOLARDAY)/(K*K*y1*y1*r1);
+  startvel.x = (endpoint.x - f*startpoint.x)/g;
+  startvel.y = (endpoint.y - f*startpoint.y)/g;
+  startvel.z = (endpoint.z - f*startpoint.z)/g;
+  return(0);
+}   
+  
 // Keplerint_multipoint01: November 02, 2022: Like Keplerint, but does the
 // calculation for a bunch of points simultaneously. Note that
 // we assume the observation times and mjdstart are in UT1, which
@@ -11332,7 +12040,7 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
   // Determine the sign-specifier X
   long double ac = (r1+r2+c)/4.0L;
   long double nc = k/ac/sqrt(ac); // This is in radians per second.
-  long double dc = 2.0L*asin(sqrt(lambda2/lambda1));
+  long double dc = 2.0L*asin(lambda2/lambda1);
   long double dtc = (M_PI - dc + sin(dc))/nc;
   long double X=1.0L;
   long double Y=Ysign;
@@ -11429,10 +12137,8 @@ point3LD Twopoint_Kepler_v1(const long double GMsun, const point3LD startpos, co
     itnum++;
     }
     if(fabs(f) > KEP2PBVPTOL || fabs(delta_aorb) > KEP2PBVPTOL*aorb) {
-      if(verbose>=2) cerr << "ERROR: Twopoint_Kepler_v1 failed to converge\n";
-      if(verbose>=2) cerr << "Returning with velocity set to zero\n";
-      *a=-1.0L;
-      return(v1);
+      cerr << "WARNING: Twopoint_Kepler_v1 failed to converge\n";
+      cerr << "Still had f = " << f << ", delta_aorb = " << delta_aorb << " on iteration " << itnum << "\n";
     }
   }
   *a = aorb;
@@ -11478,7 +12184,7 @@ point3d Twopoint_Kepler_v1(const double GMsun, const point3d startpos, const poi
   // Determine the sign-specifier X
   double ac = (r1+r2+c)/4.0L;
   double nc = k/ac/sqrt(ac); // This is in radians per second.
-  double dc = 2.0L*asin(sqrt(lambda2/lambda1));
+  double dc = 2.0L*asin(lambda2/lambda1);
   double dtc = (M_PI - dc + sin(dc))/nc;
   double X=1.0L;
   double Y=Ysign;
@@ -11490,8 +12196,8 @@ point3d Twopoint_Kepler_v1(const double GMsun, const point3d startpos, const poi
   
   if(timediff*SOLARDAY>dtc) X=-1.0L;
 
-  if(DEBUG_2PTBVP>1) cout << "Initial setup stuff:\n";
-  if(DEBUG_2PTBVP>1) cout << "r1 = " << r1/AU_KM << ", r2 = " << r2/AU_KM << ", c = " << c/AU_KM << ", lambdas = " << lambda1 << ", " << lambda2 << ", k = " << k << ", X = " << X << ", Y = " << Y << "\n";
+  if(DEBUG_2PTBVP>=1) cout << "Initial setup stuff:\n";
+  if(DEBUG_2PTBVP>=1) cout << "r1 = " << r1/AU_KM << ", r2 = " << r2/AU_KM << ", c = " << c/AU_KM << ", lambdas = " << lambda1 << ", " << lambda2 << ", k = " << k << ", X = " << X << ", Y = " << Y << "\n";
 
   //for(ai=10;ai<=200;ai++) {
   //  aorb = (double)ai*0.01L*AU_KM;
@@ -11531,10 +12237,10 @@ point3d Twopoint_Kepler_v1(const double GMsun, const point3d startpos, const poi
     // eccen_calc_precise(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
     // cout << "iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = " << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
     //eccen_calc_fast(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
-    //if(DEBUG_2PTBVP==1) {
-    //  cout << "iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = ";
-    //  cout << scientific << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
-    // }
+    if(DEBUG_2PTBVP>=1) {
+      cout << "iteration " << itnum << ": a = " << aorb/AU_KM << " AU, f = ";
+      cout << scientific << f << ", fprime = " << fprime << " = " << fprime << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
+     }
     itnum++;
   }
   if(fabs(f) > KEP2PBVPTOL2 || fabs(delta_aorb) > KEP2PBVPTOL2*aorb) {
@@ -11568,17 +12274,15 @@ point3d Twopoint_Kepler_v1(const double GMsun, const point3d startpos, const poi
     // eccen_calc_precise(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
     // cout << "2nd try, iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = " << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
     //eccen_calc_fast(aorb, startpos, endpos, &eccen, &thetaperi, X, Y);
-    //if(DEBUG_2PTBVP==1) {
-    //  cout << "2nd try, iteration " << itnum << ": a = " << aorb/AU_KM << " AU, e,theta = " << eccen << " " << thetaperi*DEGPRAD << ", f = ";
-    //  cout << scientific << f << ", fprime = " << fprime << " = " << fprime2 << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
-    //}
+    if(DEBUG_2PTBVP>=1) {
+      cout << "2nd try, iteration " << itnum << ": a = " << aorb/AU_KM << " AU, f = ";
+      cout << scientific << f << ", fprime = " << fprime << " = " << fprime << ", delta_aorb = " << delta_aorb/AU_KM << "\n";
+    }
     itnum++;
     }
     if(fabs(f) > KEP2PBVPTOL2 || fabs(delta_aorb) > KEP2PBVPTOL2*aorb) {
-      if(verbose>=2) cerr << "ERROR: Twopoint_Kepler_v1 failed to converge\n";
-      if(verbose>=2) cerr << "Returning with velocity set to zero\n";
-      *a=-1.0L;
-      return(v1);
+      cerr << "WARNING: Twopoint_Kepler_v1 failed to converge\n";
+      cerr << "Still had f = " << f << ", delta_aorb = " << delta_aorb << ", a = " << aorb/AU_KM << " AU on iteration " << itnum << "\n";
     }
   }
   *a = aorb;
@@ -14111,6 +14815,89 @@ int read_longpair_file(string pairfile, vector <longpair> &pairvec, int verbose)
   } else return(reachedeof);
 }
 
+// append_longpair_file: August 01, 2023:
+// Read a longpair file: e.g. trk2det or clust2det, and
+// append the contents to a previously existing longpair
+// vector pairvec, with a constant offset oldsize.
+int append_longpair_file(string pairfile, long oldsize, vector <longpair> &pairvec, int verbose)
+{
+  long i1 = 0;
+  long i2 = 0;
+  longpair onepair = longpair(i1,i2);
+  ifstream instream1;
+  string stest,lnfromfile;
+  int badread=0;
+  int reachedeof=0;
+  int startpoint=0;
+  int endpoint=0;
+
+  instream1.open(pairfile);
+  if(!instream1) {
+    cerr << "can't open input file " << pairfile << "\n";
+    return(1);
+  }
+  reachedeof = 0;
+  while(reachedeof==0) {
+    getline(instream1,lnfromfile);
+    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) ; // Read on.
+    else if(instream1.eof()) reachedeof=1; //End of file, fine.
+    else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+    else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+    if(!isdigit(lnfromfile[0])) {
+      // Non-numerical: cannot be part of long pair.
+      // Skip this possible header or comment line.
+      continue;
+    }
+    if(reachedeof == 0) {
+      // Read i1
+      startpoint=0;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { i1 = stol(stest); }
+	catch(...) { cerr << "ERROR: cannot read i1 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      }
+      else badread=1;
+      // Read i2
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { i2 = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read i2 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      if(badread==0) {
+	i1+=oldsize;
+	onepair = longpair(i1,i2);
+	pairvec.push_back(onepair);
+      }
+      if(!instream1.eof() && !instream1.fail() && !instream1.bad() && badread!=0) {
+	cerr << "ERROR reading long pair file " << pairfile << "\n";
+	return(badread);
+      }
+    }
+  }
+  instream1.close();
+
+  if(badread!=0) {
+    cerr << "ERROR reading long pair file " << pairfile << "\n";
+    return(badread);
+  } 
+  if(reachedeof==1) { 
+    if(verbose>=1) cout << "Input file " << pairfile << " read successfully to the end.\n";
+    return(0);
+  } else if(reachedeof==0) {
+    cerr << "ERROR: Stopped reading file " << pairfile << " before the end\n";
+    return(1);
+  } else if(reachedeof==-1) {
+    cerr << "ERROR: file read failed\n";
+    return(1);
+  } else if(reachedeof==-2) {
+    cerr << "Warning: file possibly corrupted\n";
+    return(2);
+  } else return(reachedeof);
+}
+
 // read_radhyp_file: April 20, 2023:
 // Read a file containing heliolinc radial motion hypotheses
 int read_radhyp_file(string hypfile, vector <hlradhyp> &accelmat, int verbose)
@@ -14519,6 +15306,333 @@ int read_clustersum_file(string sumfile, vector <hlclust> &clustvec, int verbose
     return(2);
   } else return(reachedeof);
 }
+
+// append_clustersum_file: August 01, 2023:
+// Like read_clustersum_file, but appends the data read from the file
+// to an existing clustvec, rather than creating a new vector.
+// Read a cluster summary file produced by heliolinc_new or link_refine_Herget_new.
+int append_clustersum_file(string sumfile, vector <hlclust> &clustvec, int verbose)
+{
+  long input_clusternum = clustvec.size();
+  long clusternum = 0;
+  long est_clusternum = 0;
+  double posRMS,velRMS,totRMS,astromRMS;
+  posRMS = velRMS = totRMS = astromRMS = 0.0l;
+  int pairnum=0;
+  double timespan=0.0l;
+  int uniquepoints=0;
+  int obsnights=0;
+  double metric=0.0l;
+  char rating[SHORTSTRINGLEN];
+  stringncopy01(rating,"NULL",SHORTSTRINGLEN);
+  double heliohyp0,heliohyp1,heliohyp2;
+  heliohyp0 = heliohyp1 = heliohyp2 = 0.0l;
+  double posX,posY,posZ,velX,velY,velZ;
+  posX = posY = posZ = velX = velY = velZ = 0.0l;
+  double orbit_a,orbit_e,orbit_MJD;
+  orbit_a = orbit_e = orbit_MJD = 0.0l;
+  double orbitX,orbitY,orbitZ,orbitVX,orbitVY,orbitVZ;
+  orbitX = orbitY = orbitZ = orbitVX = orbitVY = orbitVZ = 0.0l;
+  long orbit_eval_count=0;
+  hlclust onecluster = hlclust(clusternum, posRMS, velRMS, totRMS, astromRMS, pairnum, timespan, uniquepoints, obsnights, metric, rating, heliohyp0, heliohyp1, heliohyp2, posX, posY, posZ, velX, velY, velZ, orbit_a, orbit_e, orbit_MJD, orbitX, orbitY, orbitZ, orbitVX, orbitVY,  orbitVZ, orbit_eval_count);
+  ifstream instream1;
+  string lnfromfile,stest;
+  int badread=0;
+  int reachedeof=0;
+  int startpoint=0;
+  int endpoint=0;
+  
+  instream1.open(sumfile);
+  if(!instream1) {
+    cerr << "can't open input file " << sumfile << "\n";
+    return(1);
+  }
+  // Skip one-line header
+  getline(instream1,lnfromfile);
+  //cout << lnfromfile << "\n";
+  reachedeof = 0;
+  while(reachedeof==0) {
+    getline(instream1,lnfromfile);
+    if(!instream1.eof() && !instream1.fail() && !instream1.bad()) {
+      // Read on.
+      // Read the clusternum
+      startpoint=0;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { clusternum = stol(stest); }
+	catch(...) { cerr << "ERROR: cannot read clusternum string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      }
+      else badread=1;
+      // Read the posRMS
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { posRMS = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read posRMS string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the velRMS
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { velRMS = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read velRMS string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+       // Read the totRMS
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { totRMS = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read totRMS string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the astromRMS
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { astromRMS = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read astromRMS string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+     // Read the pairnum
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { pairnum = stoi(stest); }
+	catch(...) { cerr << "ERROR: cannot read pairnum string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the timespan
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { timespan = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read timespan string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the number of unique points
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { uniquepoints = stoi(stest); }
+      catch(...) { cerr << "ERROR: cannot read uniquepoints " << stest << " from line " << lnfromfile << "\n";
+	badread = 1; }
+      } else badread=1;
+      // Read the obsnights
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { obsnights = stoi(stest); }
+	catch(...) { cerr << "ERROR: cannot read obsnights string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      }
+      // Read the metric
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { metric = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read metric string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the rating
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) stringncopy01(rating,stest,SHORTSTRINGLEN);
+      else badread=1;
+      // Read heliohyp0
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { heliohyp0 = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read heliohyp0 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read heliohyp1
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { heliohyp1 = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read heliohyp1 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read heliohyp2
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { heliohyp2 = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read heliohyp2 string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read posX
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { posX = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read posX string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read posY
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { posY = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read posY string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read posZ
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { posZ = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read posZ string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read velX
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { velX = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read velX string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read velY
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { velY = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read velY string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read velZ
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { velZ = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read velZ string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbit_a
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbit_a = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbit_a string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbit_e
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbit_e = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbit_e string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbit_MJD
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbit_MJD = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbit_MJD string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbitX
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbitX = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbitX string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbitY
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbitY = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbitY string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbitZ
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbitZ = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbitZ string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbitVX
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbitVX = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbitVX string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbitVY
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbitVY = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbitVY string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbitVZ
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbitVZ = stod(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbitVZ string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      // Read the orbit_eval_count
+      startpoint = endpoint+1;
+      if(badread==0) endpoint = get_csv_string01(lnfromfile,stest,startpoint);
+      if(endpoint>0) {
+	try { orbit_eval_count = stol(stest); }
+	catch(...) { cerr << "ERROR: cannot read orbit_eval_Count string " << stest << " from line " << lnfromfile << "\n";
+	  badread = 1; }
+      } else badread=1;
+      if(badread==0) {
+	est_clusternum = clustvec.size();
+	clusternum += input_clusternum;
+	if(est_clusternum != clusternum) {
+	  cerr << "ERROR in append_clustersum_file: cluster index mismatch " << est_clusternum << " vs. " << clusternum << "\n";
+	  return(3);
+	}
+	onecluster = hlclust(clusternum, posRMS, velRMS, totRMS, astromRMS, pairnum, timespan, uniquepoints, obsnights, metric, rating, heliohyp0, heliohyp1, heliohyp2, posX, posY, posZ, velX, velY, velZ, orbit_a, orbit_e, orbit_MJD, orbitX, orbitY, orbitZ, orbitVX, orbitVY,  orbitVZ, orbit_eval_count);
+	clustvec.push_back(onecluster);
+      }
+    } else if(instream1.eof()) reachedeof=1; //End of file, fine.
+    else if(instream1.fail()) reachedeof=-1; //Something wrong, warn
+    else if(instream1.bad()) reachedeof=-2; //Worse problem, warn
+    if(badread!=0) {
+      cerr << "ERROR reading cluster summary file " << sumfile << "\n";
+      cerr << "Last point was " << clustvec.size() << "; last file line was " << lnfromfile << "\n";
+      return(badread);
+    }
+  }
+  instream1.close();
+
+  if(badread!=0) {
+    cerr << "ERROR reading cluster summary file " << sumfile << "\n";
+    return(badread);
+  } 
+  if(reachedeof==1) { 
+    if(verbose>=1) cout << "Input file " << sumfile << " read successfully to the end.\n";
+    return(0);
+  } else if(reachedeof==0) {
+    cerr << "ERROR: Stopped reading file " << sumfile << " before the end\n";
+    return(1);
+  } else if(reachedeof==-1) {
+    cerr << "ERROR: file read failed\n";
+    return(1);
+  } else if(reachedeof==-2) {
+    cerr << "Warning: file possibly corrupted\n";
+    return(2);
+  } else return(reachedeof);
+}
+
 
 // avg_extrema: March 14, 2023: Given an input vector x, find and return
 // the average of the extrema: that is, (xmin + xmax)/2.
@@ -16944,13 +18058,10 @@ point3d earthpos01(const vector <EarthState> &earthpos, double mjd)
   }
 }
 
-#define LOOPY 0
 
 int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const point3d &Earthrefpos, double heliodist, double heliovel, double helioacc, double chartimescale, vector <hlclust> &outclust, vector <longpair> &clust2det, long &realclusternum, double cluster_radius, double dbscan_npt, double mingeodist, double geologstep, double maxgeodist, int mintimespan, int minobsnights, int verbose)
 {
   int geobinct = 0;
-  long i=0;
-  long statevecnum = allstatevecs.size();
   long detnum = detvec.size();
   double georadcen = mingeodist*intpowD(geologstep,geobinct);
   double georadmin=0l;
@@ -16962,7 +18073,7 @@ int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &
   long kdroot=0;
   long splitpoint=0;
   int gridpoint_clusternum=0;
-  KD_point6ix2 kdpoint = KD_point6ix2(stateveci,-1,-1,1,0);
+  KD_point6ix2 kdpoint = KD_point6ix2(stateveci,-1,-1,1,-1);
   vector <KD_point6ix2> kdvec;
   vector <KD6i_clust> kdclust;
   vector <long> pointind;
@@ -16985,7 +18096,7 @@ int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &
   double orbit_a, orbit_e, orbit_MJD, orbitX, orbitY, orbitZ, orbitVX, orbitVY, orbitVZ;
   orbit_a = orbit_e = orbit_MJD = orbitX = orbitY = orbitZ = orbitVX = orbitVY = orbitVZ = 0.0l;
   long orbit_eval_count = 0;
-  int clusterct=0;
+  long clusterct=0;
   double clustmetric=0.0l;
   string rating;
   int pairct=0;
@@ -17016,8 +18127,7 @@ int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &
     georadmax = georadcen*geologstep;
     // Load new array of state vectors, limited to those in the current geocentric bin
     binstatevecs={};
-    if(LOOPY) cerr << "Entering statevecnum loop, limits 0, " << statevecnum << "\n";
-    for(i=0; i<statevecnum; i++) {
+    for(long i=0; i<long(allstatevecs.size()); i++) {
       // Reverse integerization of the state vector.
       // This is only possible to a crude approximation, of course.
       statevec1 = conv_6i_to_6d(allstatevecs[i],INTEGERIZING_SCALEFAC);
@@ -17030,141 +18140,142 @@ int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &
       }
     }
     if(verbose>=1) cout << "Found " << binstatevecs.size() << " state vectors in geocentric bin from " << georadmin << " to " << georadmax << " AU\n";
-    if(binstatevecs.size()<=1) {
+    if(binstatevecs.size()<dbscan_npt) {
       geobinct++;
       continue; // No clusters possible, skip to the next step.
-    }
-      
-    kdvec={};
-    kdroot = splitpoint = 0;
-    splitpoint=medind_6ix2(binstatevecs,1);
-    kdpoint = KD_point6ix2(binstatevecs[splitpoint],-1,-1,1,0);
-    kdvec.push_back(kdpoint);
-    kdtree_6i01(binstatevecs,1,splitpoint,kdroot,kdvec);
-    
-    if(verbose>=1) cout << "Created a KD tree with " << kdvec.size() << " branches\n";
+    } else {      
+      kdvec={};
+      kdroot = splitpoint = 0;
+      splitpoint=medind_6ix2(binstatevecs,1);
+      kdpoint = KD_point6ix2(binstatevecs[splitpoint],-1,-1,1,-1);
+      kdvec.push_back(kdpoint);
+      kdtree_6i01(binstatevecs,1,splitpoint,kdroot,kdvec);
+      if(verbose>=1) cout << "Created a KD tree with " << kdvec.size() << " branches\n";
 
-    kdclust={};
-    int clusternum = DBSCAN_6i01(kdvec, cluster_radius*(georadcen/REF_GEODIST)/INTEGERIZING_SCALEFAC, dbscan_npt, INTEGERIZING_SCALEFAC, kdclust, verbose);
-    if(verbose>=1) cout << "DBSCAN_6i01 finished, with " << clusternum << " = " << kdclust.size() << " clusters found\n";
-    if(LOOPY) cerr << "Entering clusterct loop with limits 0, " << long(kdclust.size()) << "\n";
-    for(clusterct=0; clusterct<long(kdclust.size()); clusterct++) {
-      // Scale cluster RMS down to reference geocentric distance
-      if(DEBUG >= 2) cout << "scaling kdclust rms for cluster " << clusterct << " out of " << kdclust.size() << "\n";
-      fflush(stdout);
-      for(i=0;i<9;i++) {
-	if(DEBUG >= 2) cout << "scaling rmsvec point " << i << " out of " << kdclust[clusterct].rmsvec.size() << "\n";
-	if(DEBUG >= 2) cout << "RMS = " << kdclust[clusterct].rmsvec[i];
-	kdclust[clusterct].rmsvec[i] *= REF_GEODIST/georadcen;
-	if(DEBUG >= 2) cout << ", scales to " << kdclust[clusterct].rmsvec[i] << "\n";
-      }
-      // Note that RMS is scaled down for more distant clusters, to
-      // avoid bias against them in post-processing.
+      kdclust={};
+      long clusternum = DBSCAN_6i01(kdvec, cluster_radius*(georadcen/REF_GEODIST)/INTEGERIZING_SCALEFAC, dbscan_npt, INTEGERIZING_SCALEFAC, kdclust, verbose);
+      if(verbose>=1) cout << "DBSCAN_6i01 finished, with " << clusternum << " = " << kdclust.size() << " clusters found\n";
+      if(clusternum<0) return(8);
+      for(clusterct=0; clusterct<long(kdclust.size()); clusterct++) {
+	// Scale cluster RMS down to reference geocentric distance
+	if(DEBUG >= 2) cout << "scaling kdclust rms for cluster " << clusterct << " out of " << kdclust.size() << "\n";
+	fflush(stdout);
+	for(long i=0; i<9; i++) {
+	  if(DEBUG >= 2) cout << "scaling rmsvec point " << i << " out of " << kdclust[clusterct].rmsvec.size() << "\n";
+	  if(DEBUG >= 2) cout << "RMS = " << kdclust[clusterct].rmsvec[i];
+	  kdclust[clusterct].rmsvec[i] *= REF_GEODIST/georadcen;
+	  if(DEBUG >= 2) cout << ", scales to " << kdclust[clusterct].rmsvec[i] << "\n";
+	}
+	// Note that RMS is scaled down for more distant clusters, to
+	// avoid bias against them in post-processing.
 	
-      // Map cluster to individual detections.
-      // create vector of unique detection indices.
-      if(DEBUG >= 1) cout << "Loading pointind for " << kdclust[clusterct].numpoints << " of cluster #" << clusterct <<  " out of " << kdclust.size() << "\n";
-      fflush(stdout);
-      pointind = {};
-      for(i=0;i<kdclust[clusterct].numpoints;i++) {
-	pairct=kdvec[kdclust[clusterct].clustind[i]].point.i1;
-	if(DEBUG >= 2) cout << "Looking up tracklet " << pairct << " out of " << tracklets.size() << "\n";
-	pointjunk = {};
-	pointjunk = tracklet_lookup(trk2det, pairct);
-	if(DEBUG >= 2) cout << "Found " << pointjunk.size() << " detections for tracklet " << pairct << "\n";
-	for(j=0; j<long(pointjunk.size()); j++) {
-	  pointind.push_back(pointjunk[j]);
-	}
-      }
-      // Sort vector of detection indices
-      sort(pointind.begin(), pointind.end());
-      // Cull out duplicate entries
-      pointjunk = pointind;
-      pointind={};
-      pointind.push_back(pointjunk[0]);
-      for(i=1; i<long(pointjunk.size()); i++) {
-	if(pointjunk[i]!=pointjunk[i-1]) pointind.push_back(pointjunk[i]);
-      }
-      uniquepoints = pointind.size();
-
-      // Load vector of detection MJD's
-      clustmjd = {};
-      for(i=0; i<long(pointind.size()); i++) {
-	if(pointind[i]<0 || pointind[i]>=detnum) {
-	  cerr << "ERROR: form_clusters trying to reference point " << pointind[i] << " of detvec! Range is 0 --" << detnum-1 << "\n";
-	  return(1);
-	}
-	clustmjd.push_back(detvec[pointind[i]].MJD);
-      }
-
-      // Sort vector of MJD's
-      sort(clustmjd.begin(), clustmjd.end());
-      timespan = clustmjd[clustmjd.size()-1] - clustmjd[0];
-      // Load vector of MJD steps
-      mjdstep={};
-      for(i=1; i<long(clustmjd.size()); i++) {
-	mjdstep.push_back(clustmjd[i]-clustmjd[i-1]);
-      }
-      // Count steps large enough to suggest a daytime period between nights.
-      daysteps=0;	
-      for(i=0; i<long(mjdstep.size()); i++) {
-	if(mjdstep[i]>NIGHTSTEP) daysteps++;
-      }
-      obsnights = daysteps+1;
-      // Does cluster pass the criteria for a linked detection?
-      if(timespan >= mintimespan && obsnights >= minobsnights) {
-	if(verbose >= 1) cout << "Loading good cluster " << realclusternum << " with timespan " << timespan << " and obsnights " << obsnights << "\n";
+	// Map cluster to individual detections.
+	// create vector of unique detection indices.
+	if(DEBUG >= 1) cout << "Loading pointind for " << kdclust[clusterct].numpoints << " of cluster #" << clusterct <<  " out of " << kdclust.size() << "\n";
 	fflush(stdout);
-	if(verbose >= 1) cout << "Cluster passes discovery criteria: will be designated as cluster " << realclusternum << "\n";
-	// Check whether cluster is composed purely of detections from
-	// a single simulated object (i.e., would be a real discovery) or is a mixture
-	// of detections from two or more different simulated objects (i.e., spurious).
-	rating="PURE";
-	for(i=0; i<long(pointind.size()); i++) {
-	  if(i>0 && stringnmatch01(detvec[pointind[i]].idstring,detvec[pointind[i-1]].idstring,SHORTSTRINGLEN)!=0) rating="MIXED";
+	pointind = {};
+	for(long i=0; i<kdclust[clusterct].numpoints; i++) {
+	  pairct=kdvec[kdclust[clusterct].clustind[i]].point.i1;
+	  if(DEBUG >= 2) cout << "Looking up tracklet " << pairct << " out of " << tracklets.size() << "\n";
+	  pointjunk = {};
+	  pointjunk = tracklet_lookup(trk2det, pairct);
+	  if(pointjunk.size()<=0) {
+	    cerr << "ERROR: no detections found for tracklet " << pairct << "\n";
+	    return(3);
+	  }
+	  if(DEBUG >= 2) cout << "Found " << pointjunk.size() << " detections for tracklet " << pairct << "\n";
+	  for(j=0; j<long(pointjunk.size()); j++) {
+	    pointind.push_back(pointjunk[j]);
+	  }
 	}
-	if(DEBUG >= 1) cout << "Rating is found to be " << rating << "\n";
-	fflush(stdout);
-	// Write all individual detections in this cluster to the clust2det array
-	for(i=0; i<long(pointind.size()); i++) {
-	  c2d = longpair(realclusternum,pointind[i]);
-	  clust2det.push_back(c2d);
+	// Sort vector of detection indices
+	sort(pointind.begin(), pointind.end());
+	// Cull out duplicate entries
+	pointjunk = pointind;
+	pointind={};
+	pointind.push_back(pointjunk[0]);
+	for(long i=1; i<long(pointjunk.size()); i++) {
+	  if(pointjunk[i]!=pointjunk[i-1]) pointind.push_back(pointjunk[i]);
+	}
+	uniquepoints = pointind.size();
+
+	// Load vector of detection MJD's
+	clustmjd = {};
+	for(long i=0; i<long(pointind.size()); i++) {
+	  if(pointind[i]<0 || pointind[i]>=detnum) {
+	    cerr << "ERROR: form_clusters trying to reference point " << pointind[i] << " of detvec! Range is 0 --" << detnum-1 << "\n";
+	    return(1);
+	  }
+	  clustmjd.push_back(detvec[pointind[i]].MJD);
 	}
 
-	// Calculate values for the statistics in the output array (class hlclust) that have
-	// not been caculated already.
-	clustmetric = double(pointind.size())*double(obsnights)*timespan/kdclust[clusterct].rmsvec[8];
-	// Note contents of rmsvec: [0] xrms, [1] yrms, [2] zrms, [3] vxrms, [4] vyrms, [5] vzrms,
-	// [6] overall position rms, [7] overall velocity rms, [8] overall rms
-	posRMS = kdclust[clusterct].rmsvec[6];
-	velRMS = kdclust[clusterct].rmsvec[7];
-	totRMS = kdclust[clusterct].rmsvec[8];
-	pairnum = kdclust[clusterct].numpoints; // This is the original total number of pairs/tracklets assigned
-	                                        // to this cluster, which might have a lot of overlap in terms of 
-	                                        // individual detections (of which the non-overlapping count has
-	                                        // already been saved in 'uniquepoints').
-	// Now save the values of the mean state vectors at the reference time.
-	posX = kdclust[clusterct].meanvec[0];
-	posY = kdclust[clusterct].meanvec[1];
-	posZ = kdclust[clusterct].meanvec[2];
-	velX = kdclust[clusterct].meanvec[3]/chartimescale;
-	velY = kdclust[clusterct].meanvec[4]/chartimescale;
-	velZ = kdclust[clusterct].meanvec[5]/chartimescale;
-	// Some of the statistics in the hlclust class relate to orbit-fitting,
-	// and are meant for later use. For now, set them all to zero.
-	astromRMS = orbit_a = orbit_e = 0.0l;
-	orbit_MJD = orbitX = orbitY = orbitZ = orbitVX = orbitVY = orbitVZ = 0.0l;
-	orbit_eval_count = 0;
-	// Write overall cluster statistics to the outclust array.	
-	onecluster = hlclust(realclusternum, posRMS, velRMS, totRMS, astromRMS, pairnum, timespan, uniquepoints, obsnights, clustmetric, rating, heliodist/AU_KM, heliovel/SOLARDAY, helioacc*1000.0/SOLARDAY/SOLARDAY, posX, posY, posZ, velX, velY, velZ, orbit_a, orbit_e, orbit_MJD, orbitX, orbitY, orbitZ, orbitVX, orbitVY, orbitVZ, orbit_eval_count);
-	// cout << "kdload velrms: " << velRMS << " " << kdclust[clusterct].rmsvec[7] << " " << onecluster.velRMS << "\n";
-	outclust.push_back(onecluster);
-	realclusternum++;
-	gridpoint_clusternum++;
+	// Sort vector of MJD's
+	sort(clustmjd.begin(), clustmjd.end());
+	timespan = clustmjd[clustmjd.size()-1] - clustmjd[0];
+	// Load vector of MJD steps
+	mjdstep={};
+	for(long i=1; i<long(clustmjd.size()); i++) {
+	  mjdstep.push_back(clustmjd[i]-clustmjd[i-1]);
+	}
+	// Count steps large enough to suggest a daytime period between nights.
+	daysteps=0;	
+	for(long i=0; i<long(mjdstep.size()); i++) {
+	  if(mjdstep[i]>NIGHTSTEP) daysteps++;
+	}
+	obsnights = daysteps+1;
+	// Does cluster pass the criteria for a linked detection?
+	if(timespan >= mintimespan && obsnights >= minobsnights) {
+	  if(verbose >= 1) cout << "Loading good cluster " << realclusternum << " with timespan " << timespan << " and obsnights " << obsnights << "\n";
+	  fflush(stdout);
+	  if(verbose >= 1) cout << "Cluster passes discovery criteria: will be designated as cluster " << realclusternum << "\n";
+	  // Check whether cluster is composed purely of detections from
+	  // a single simulated object (i.e., would be a real discovery) or is a mixture
+	  // of detections from two or more different simulated objects (i.e., spurious).
+	  rating="PURE";
+	  for(long i=1; i<long(pointind.size()); i++) {
+	    if(stringnmatch01(detvec[pointind[i]].idstring,detvec[pointind[i-1]].idstring,SHORTSTRINGLEN)!=0) rating="MIXED";
+	  }
+	  if(DEBUG >= 1) cout << "Rating is found to be " << rating << "\n";
+	  fflush(stdout);
+	  // Write all individual detections in this cluster to the clust2det array
+	  for(long i=0; i<long(pointind.size()); i++) {
+	    c2d = longpair(realclusternum,pointind[i]);
+	    clust2det.push_back(c2d);
+	  }
+
+	  // Calculate values for the statistics in the output array (class hlclust) that have
+	  // not been caculated already.
+	  clustmetric = double(pointind.size())*double(obsnights)*timespan/kdclust[clusterct].rmsvec[8];
+	  // Note contents of rmsvec: [0] xrms, [1] yrms, [2] zrms, [3] vxrms, [4] vyrms, [5] vzrms,
+	  // [6] overall position rms, [7] overall velocity rms, [8] overall rms
+	  posRMS = kdclust[clusterct].rmsvec[6];
+	  velRMS = kdclust[clusterct].rmsvec[7];
+	  totRMS = kdclust[clusterct].rmsvec[8];
+	  pairnum = kdclust[clusterct].numpoints; // This is the original total number of pairs/tracklets assigned
+	                                          // to this cluster, which might have a lot of overlap in terms of 
+	                                          // individual detections (of which the non-overlapping count has
+	                                          // already been saved in 'uniquepoints').
+	  // Now save the values of the mean state vectors at the reference time.
+	  posX = kdclust[clusterct].meanvec[0];
+	  posY = kdclust[clusterct].meanvec[1];
+	  posZ = kdclust[clusterct].meanvec[2];
+	  velX = kdclust[clusterct].meanvec[3]/chartimescale;
+	  velY = kdclust[clusterct].meanvec[4]/chartimescale;
+	  velZ = kdclust[clusterct].meanvec[5]/chartimescale;
+	  // Some of the statistics in the hlclust class relate to orbit-fitting,
+	  // and are meant for later use. For now, set them all to zero.
+	  astromRMS = orbit_a = orbit_e = 0.0l;
+	  orbit_MJD = orbitX = orbitY = orbitZ = orbitVX = orbitVY = orbitVZ = 0.0l;
+	  orbit_eval_count = 0;
+	  // Write overall cluster statistics to the outclust array.	
+	  onecluster = hlclust(realclusternum, posRMS, velRMS, totRMS, astromRMS, pairnum, timespan, uniquepoints, obsnights, clustmetric, rating, heliodist/AU_KM, heliovel/SOLARDAY, helioacc*1000.0/SOLARDAY/SOLARDAY, posX, posY, posZ, velX, velY, velZ, orbit_a, orbit_e, orbit_MJD, orbitX, orbitY, orbitZ, orbitVX, orbitVY, orbitVZ, orbit_eval_count);
+	  // cout << "kdload velrms: " << velRMS << " " << kdclust[clusterct].rmsvec[7] << " " << onecluster.velRMS << "\n";
+	  outclust.push_back(onecluster);
+	  realclusternum++;
+	  gridpoint_clusternum++;
+	}
       }
     }
-    if(LOOPY) cerr << "Finished clusterct loop\n";
-    
     // Move on to the next bin in geocentric distance
     geobinct++;
   }
@@ -17205,7 +18316,7 @@ int heliolinc_alg(const vector <hlimage> &image_log, const vector <hldet> &detve
   cout << "Max geocentric distance (will be exceeded by center only of the outermost bin): " << config.maxgeodist << " AU\n";
   cout << "Logarthmic step size (and bin width) for geocentric distance bins: " << config.geologstep << "\n";
   cout << "Minimum inferred geocentric distance for a valid tracklet: " << config.mingeoobs << " AU\n";
-  cout << "Minimum inferred impact parameter (w.r.t. Earth) for a valid tracklet: " << config.minimpactpar << " Earth radii\n";
+  cout << "Minimum inferred impact parameter (w.r.t. Earth) for a valid tracklet: " << config.minimpactpar << " km\n";
   if(config.verbose) cout << "Verbose output selected\n";
   
   if(imnum<=0) {
@@ -17311,7 +18422,7 @@ int heliolinc_alg_omp(const vector <hlimage> &image_log, const vector <hldet> &d
   cout << "Max geocentric distance (will be exceeded by center only of the outermost bin): " << config.maxgeodist << " AU\n";
   cout << "Logarthmic step size (and bin width) for geocentric distance bins: " << config.geologstep << "\n";
   cout << "Minimum inferred geocentric distance for a valid tracklet: " << config.mingeoobs << " AU\n";
-  cout << "Minimum inferred impact parameter (w.r.t. Earth) for a valid tracklet: " << config.minimpactpar << " Earth radii\n";
+  cout << "Minimum inferred impact parameter (w.r.t. Earth) for a valid tracklet: " << config.minimpactpar << " km\n";
   if(config.verbose) cout << "Verbose output selected\n";
   
   if(imnum<=0) {
@@ -17417,7 +18528,7 @@ int heliolinc_alg_omp2(const vector <hlimage> &image_log, const vector <hldet> &
   cout << "Max geocentric distance (will be exceeded by center only of the outermost bin): " << config.maxgeodist << " AU\n";
   cout << "Logarthmic step size (and bin width) for geocentric distance bins: " << config.geologstep << "\n";
   cout << "Minimum inferred geocentric distance for a valid tracklet: " << config.mingeoobs << " AU\n";
-  cout << "Minimum inferred impact parameter (w.r.t. Earth) for a valid tracklet: " << config.minimpactpar << " Earth radii\n";
+  cout << "Minimum inferred impact parameter (w.r.t. Earth) for a valid tracklet: " << config.minimpactpar << " km\n";
   if(config.verbose) cout << "Verbose output selected\n";
   
   if(imnum<=0) {
@@ -17521,7 +18632,7 @@ int heliolinc_alg_omp3(const vector <hlimage> &image_log, const vector <hldet> &
   cout << "Max geocentric distance (will be exceeded by center only of the outermost bin): " << config.maxgeodist << " AU\n";
   cout << "Logarthmic step size (and bin width) for geocentric distance bins: " << config.geologstep << "\n";
   cout << "Minimum inferred geocentric distance for a valid tracklet: " << config.mingeoobs << " AU\n";
-  cout << "Minimum inferred impact parameter (w.r.t. Earth) for a valid tracklet: " << config.minimpactpar << " Earth radii\n";
+  cout << "Minimum inferred impact parameter (w.r.t. Earth) for a valid tracklet: " << config.minimpactpar << " km\n";
   if(config.verbose) cout << "Verbose output selected\n";
   
   if(imnum<=0) {
@@ -17611,7 +18722,6 @@ int heliolinc_alg_omp3(const vector <hlimage> &image_log, const vector <hldet> &
       // Covert all tracklets into state vectors at the reference time, under
       // the assumption that the heliocentric distance hypothesis is correct.
       status = trk2statevec(image_log, tracklets, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, allstatevecs, config.MJDref, config.mingeoobs, config.minimpactpar);
-    
       if(status==1) {
 	cerr << "FAILURE IN THREAD " << ithread << "\n";
       } else if(status==2) {
