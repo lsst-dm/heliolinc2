@@ -1,4 +1,8 @@
 /// July 12, 2023: interstellar_sim03a.cpp
+//
+// October 16, 2023: changed to not output an ephemeris file unless
+// requested, and to enable different prefixes for object string IDs.
+//
 // Creates simulated orbits for of interstellar objects. Models the
 // population of interstellar objects as a power law in absolute magnitude,
 // with v_infinity relative to the sun distributed according to a Gaussian
@@ -57,7 +61,7 @@
 // uncertainty must be in arcseconds.
 static void show_usage()
 {
-  cerr << "Usage: interstellar_sim03a -cfg configfile -ranseed random_number_seed -mjdstart mjdstart -mjdend mjdend -simnum simnum -outfile1 state vector file -outfile2 ephemeris file \n";
+  cerr << "Usage: interstellar_sim03a -cfg configfile -ranseed random_number_seed -mjdstart mjdstart -mjdend mjdend -prefix prefix -simnum simnum -outfile1 state vector file -outfile2 ephemeris file (optional) \n";
 }
     
 int main(int argc, char *argv[])
@@ -157,8 +161,9 @@ int main(int argc, char *argv[])
   int idnl = IDNUMLEN;
   int compfac = 1;
   string idnumstring;
+  string prefix = "iso";
   
-  if(argc<11) {
+  if(argc<9) {
     show_usage();
     return(1);
   }
@@ -527,6 +532,17 @@ int main(int argc, char *argv[])
         show_usage();
         return(1);
       }
+    } else if(string(argv[i]) == "-prefix" || string(argv[i]) == "-pf") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	prefix=argv[++i];
+	i++;
+      }
+      else {
+	cerr << "Prefix keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
     } else if(string(argv[i]) == "-out1" || string(argv[i]) == "-outfile1") {
       if(i+1 < argc) {
 	//There is still something to read;
@@ -567,16 +583,19 @@ int main(int argc, char *argv[])
   cout << "min and max H magnitudes: " << Hmin << " " << Hmax << "\n";
   cout << "power law slope for H magnitude: " << Hslope << "\n";
   cout << "number of encounters to simulate: " << simnum << "\n";
-  cout << "output state vector file " << outstate << " and ephemeris file " << outephem << "\n";
+  cout << "prefix for object identifiers: " << prefix << "\n";
+  cout << "output state vector file " << outstate;
+  if(outephem.size()>0) cout << ", and ephemeris file " << outephem << "\n";
+  else cout << ", and no output ephemeris file\n";
 
   // Initialize random number generator
   seed_seq seed (seedstring.begin(),seedstring.end());
   mt19937_64 generator (seed);   // mt19937 is a standard mersenne_twister_engine
 
   // Open output file and write header
-  outstream1.open(outephem);
+  if(outephem.size()>0) outstream1.open(outephem);
   outstream2.open(outstate);
-  outstream1 << "stringID absmag uvel vvel wvel vinf impactpar a e encounter_dist mjd_perihelion sundist obsdist sunelong phaseang MJD outRA outDec obsmag Ast-Sun(J2000x)(km) Ast-Sun(J2000y)(km) Ast-Sun(J2000z)(km) Ast-Sun(J2000vx)(km/s) Ast-Sun(J2000vy)(km/s) Ast-Sun(J2000vz)(km/s) Ast-solarbary_x(km) Ast-solarbary_y(km) Ast-solarbary_z(km) Ast-solarbary_vx(km/s) Ast-solarbary_vy(km/s) Ast-solarbary_vz(km/s) radiantRA radiantDec\n";
+  if(outephem.size()>0) outstream1 << "stringID absmag uvel vvel wvel vinf impactpar a e encounter_dist mjd_perihelion sundist obsdist sunelong phaseang MJD outRA outDec obsmag Ast-Sun(J2000x)(km) Ast-Sun(J2000y)(km) Ast-Sun(J2000z)(km) Ast-Sun(J2000vx)(km/s) Ast-Sun(J2000vy)(km/s) Ast-Sun(J2000vz)(km/s) Ast-solarbary_x(km) Ast-solarbary_y(km) Ast-solarbary_z(km) Ast-solarbary_vx(km/s) Ast-solarbary_vy(km/s) Ast-solarbary_vz(km/s) radiantRA radiantDec\n";
   outstream2 << "stringID absmag uvel vvel wvel vinf impactpar a e encounter_dist mjd_perihelion mjd_epoch sundist Ast-Sun(J2000x)(km) Ast-Sun(J2000y)(km) Ast-Sun(J2000z)(km) Ast-Sun(J2000vx)(km/s) Ast-Sun(J2000vy)(km/s) Ast-Sun(J2000vz)(km/s) Ast-solarbary_x(km) Ast-solarbary_y(km) Ast-solarbary_z(km) Ast-solarbary_vx(km/s) Ast-solarbary_vy(km/s) Ast-solarbary_vz(km/s) radiantRA radiantDec\n";
 
   // Keep track of leading zeros for string IDs
@@ -593,7 +612,7 @@ int main(int argc, char *argv[])
     xmax = exp(Hmax/acoef);
     x = xmin + (xmax-xmin)*unitvar(generator);
     absmag = acoef*log(x);
-    outstream1.precision(10);  
+    if(outephem.size()>0) outstream1.precision(10);  
     outstream2.precision(10);  
     
     // 2. Calculate maximum distance at which this object could be
@@ -758,7 +777,7 @@ int main(int argc, char *argv[])
       baryvel.z = hypvel.z + Sunvel[planetfile_startpoint].z;
  
       cout << "Hyppos: " << hyppos.x/AU_KM << " " << hyppos.y/AU_KM << " " << hyppos.z/AU_KM << " " << sundist/AU_KM << "\n";
-      outstream2 << "iso" << idnumstring << goodsimct << " " << absmag << " " << uvel << " " << vvel << " " << wvel << " " << vinf << " " << impactpar << " ";
+      outstream2 << prefix << idnumstring << goodsimct << " " << absmag << " " << uvel << " " << vvel << " " << wvel << " " << vinf << " " << impactpar << " ";
       outstream2 << a/AU_KM << " " << e << " " << encounter_dist/AU_KM << " " << mjd_perihelion << " ";
       outstream2 << mjd_epoch << " " << sundist/AU_KM << " ";
       outstream2 << hyppos.x << " " << hyppos.y << " " << hyppos.z << " ";
@@ -834,19 +853,21 @@ int main(int argc, char *argv[])
 	  // Project onto the celestial sphere.
 	  stateunitLD_to_celestial(targ_to_obs, outRA, outDec);
 	  // Write a bunch of data to the output file.
-	  outstream1 << "iso" << idnumstring << goodsimct << " " << absmag << " " << uvel << " " << vvel << " " << wvel << " " << vinf << " " << impactpar << " ";
-	  outstream1 << a/AU_KM << " " << e << " " << encounter_dist/AU_KM << " " << mjd_perihelion << " ";
-	  outstream1 << sundist/AU_KM << " " << obsdist/AU_KM << " " << sunelong*DEGPRAD << " " << phaseang*DEGPRAD << " ";
-	  outstream1 << planetmjd[ptct] << " " << outRA << " " << outDec << " " << obsmag << " ";
-	  // Note that we reverse the sign here because the previously calculated
-	  // quantities are the negatives of the true state vectors: that is, their
-	  // vector origin is at the object, pointing toward the sun. The negatives
-	  // we apply here solve this problem and produce the correct sun-to-object state vectors.
-	  outstream1 << -targ_to_sun.x << " " << -targ_to_sun.y << " " << -targ_to_sun.z << " ";
-	  outstream1 << -targvel_to_sunvel.x << " " << -targvel_to_sunvel.y << " " << -targvel_to_sunvel.z << " ";
-	  outstream1 << targpos[ptct-planetfile_startpoint].x << " " << targpos[ptct-planetfile_startpoint].y << " " << targpos[ptct-planetfile_startpoint].z << " ";
-	  outstream1 << targvel[ptct-planetfile_startpoint].x << " " << targvel[ptct-planetfile_startpoint].y << " " << targvel[ptct-planetfile_startpoint].z << " ";
-	  outstream1 << racenter << " " << deccenter << "\n";
+	  if(outephem.size()>0) {
+	    outstream1 << "iso" << idnumstring << goodsimct << " " << absmag << " " << uvel << " " << vvel << " " << wvel << " " << vinf << " " << impactpar << " ";
+	    outstream1 << a/AU_KM << " " << e << " " << encounter_dist/AU_KM << " " << mjd_perihelion << " ";
+	    outstream1 << sundist/AU_KM << " " << obsdist/AU_KM << " " << sunelong*DEGPRAD << " " << phaseang*DEGPRAD << " ";
+	    outstream1 << planetmjd[ptct] << " " << outRA << " " << outDec << " " << obsmag << " ";
+	    // Note that we reverse the sign here because the previously calculated
+	    // quantities are the negatives of the true state vectors: that is, their
+	    // vector origin is at the object, pointing toward the sun. The negatives
+	    // we apply here solve this problem and produce the correct sun-to-object state vectors.
+	    outstream1 << -targ_to_sun.x << " " << -targ_to_sun.y << " " << -targ_to_sun.z << " ";
+	    outstream1 << -targvel_to_sunvel.x << " " << -targvel_to_sunvel.y << " " << -targvel_to_sunvel.z << " ";
+	    outstream1 << targpos[ptct-planetfile_startpoint].x << " " << targpos[ptct-planetfile_startpoint].y << " " << targpos[ptct-planetfile_startpoint].z << " ";
+	    outstream1 << targvel[ptct-planetfile_startpoint].x << " " << targvel[ptct-planetfile_startpoint].y << " " << targvel[ptct-planetfile_startpoint].z << " ";
+	    outstream1 << racenter << " " << deccenter << "\n";
+	  }
 	  // Close conditional for printing
 	}
 	// Close loop over all valid times
@@ -865,7 +886,7 @@ int main(int argc, char *argv[])
     }
     // Close loop on count of simulated objects
   }
-  outstream1.close();
+  if(outephem.size()>0) outstream1.close();
   
   return(0);
 }

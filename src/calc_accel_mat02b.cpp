@@ -13,7 +13,8 @@
 
 static void show_usage()
 {
-  cerr << "Usage: calc_accel_mat02 -mindist minimum distance (AU) -maxdist maximum distance (AU) -distfracstep \ndistances sampling interval as a fraction of geodist\ngeodist -accelover oversampling factor for acceleration -timescale characteristic timescale in days (typically 1/4 the total time spanned by the input data) -outfile output file\n";
+  cerr << "Usage: calc_accel_mat02b -mindist minimum distance (AU) -maxdist maximum distance (AU) -distfracstep \ndistances sampling interval as a fraction of geodist -accelover oversampling factor for acceleration -timescale characteristic timescale in days (typically 1/4 the total time spanned by the input data) -outfile output file\n";
+  cerr << "\n\nDespite lack of valid inputs, we still run with reasonable defaults for everything:\n\n";
 }
 
 int main(int argc, char *argv[])
@@ -37,7 +38,8 @@ int main(int argc, char *argv[])
   double accelstep,minacc,maxacc,vtan,xi;
   accelstep = minacc = maxacc = vtan = xi = 0.0l;
   long accelnum,accelct,velnum,velct;
-  
+
+  if(argc<3) show_usage();
   
   i=1;
   while(i<argc) {
@@ -141,10 +143,6 @@ int main(int argc, char *argv[])
     return(1);
   } else if(distfracstep<=0.0l) {
     cout << "\nERROR: Fractional distance step must be strictly positive \n";
-    show_usage();
-    return(1);
-  } else if(velstep<=0.0l) {
-    cout << "\nERROR: Velocity step must be strictly positive \n";
     show_usage();
     return(1);
   } else if(timescale<=0.0l) {

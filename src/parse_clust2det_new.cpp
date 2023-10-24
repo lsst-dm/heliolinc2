@@ -27,6 +27,9 @@ int main(int argc, char *argv[])
   vector <double> PAvec;
   vector <double> arcvec;
   vector <double> timespanvec;
+  vector <double> nightstepvec;
+  vector <double> magvec;
+  double min_nightstep,max_nightstep;
   long tracknum=0;
   double nightstep = 3.0l/24.0l;
   string pairdetfile,stest;
@@ -40,6 +43,9 @@ int main(int argc, char *argv[])
   int verbose=0;
   long max_known_obj=0;
   double avg_det_qual=0.0l;
+  double magrange,magmean,magrms;
+  magrange = magmean = magrms = 0.0l;
+  
   
   if(argc<9) {
     show_usage();
@@ -207,16 +213,25 @@ int main(int argc, char *argv[])
       // Run some analytics on this detection cluster
       avg_det_qual = 0.0l;
       max_known_obj=0;
+      magvec={};
       for(i=0; i<long(clustvec.size()); i++) {
 	avg_det_qual += double(clustvec[i].det_qual);
 	if(clustvec[i].known_obj > max_known_obj) max_known_obj = clustvec[i].known_obj;
+	if(clustvec[i].mag>0.0l) magvec.push_back(clustvec[i].mag);
       }
       avg_det_qual/=double(clustvec.size());
       // Loop over clustvec to extract individual tracklets
       trackvec={};
+      nightstepvec={};
       trackvec.push_back(clustvec[0]);
       angvelvec = GCRvec = PAvec = timespanvec = arcvec = {};
       for(i=1; i<long(clustvec.size()); i++) {
+	if((clustvec[i].MJD - clustvec[i-1].MJD) > nightstep) {
+	  // We're looking at a gap between two successive tracklets.
+	  // We're interested in the distribution of such gaps,
+	  // so we add it to the nightstepvec.
+	  nightstepvec.push_back(clustvec[i].MJD - clustvec[i-1].MJD);
+	}
 	if((clustvec[i].MJD - clustvec[i-1].MJD) < nightstep) {
 	  // Add a new point to this tracklet
 	  trackvec.push_back(clustvec[i]);
@@ -259,7 +274,38 @@ int main(int argc, char *argv[])
       sort(timespanvec.begin(), timespanvec.end());
       sort(arcvec.begin(), arcvec.end());
 
-      outstream1 << "\n#clusternum,posRMS,velRMS,totRMS,astromRMS,timespan,uniquepoints,obsnights,metric,orbit_a,orbit_e,orbit_MJD,orbitX,orbitY,orbitZ,orbitVX,orbitVY,orbitVZ,orbit_eval_count,avg_det_qual,max_known_obj,minvel,maxvel,minGCR,maxGCR,minpa,maxpa,mintimespan,maxtimespan,minarc,maxarc,stringID\n";
+      // Sort nightstepvec
+      sort(nightstepvec.begin(), nightstepvec.end());
+      min_nightstep = max_nightstep = 0.0l;
+      min_nightstep = nightstepvec[0];
+      max_nightstep = nightstepvec[nightstepvec.size()-1];
+      nightstepvec = {};
+
+      // Analyze magnitude range.
+      if(magvec.size()<=0) {
+	magmean = 0.0;
+	magrms = magrange = 99.9;
+      } else if(magvec.size()==1) {
+	magmean = magvec[0];
+	magrms = magrange = 99.9;
+      } else if(magvec.size()<=5) {
+	// Sort magvec
+	sort(magvec.begin(), magvec.end());
+	dmeanrms01(magvec, &magmean, &magrms);
+	// Magrange will be the full max-min
+	magrange = magvec[magvec.size()-1] - magvec[0];
+      } else {
+	// Sort magvec
+	sort(magvec.begin(), magvec.end());
+	dmeanrms01(magvec, &magmean, &magrms);
+	magrange = magvec[magvec.size()-2] - magvec[1];
+	// Magrange will be the second-largest value minus
+	// the second-smallest, offering some robustness
+	// against outliers
+      }
+      magvec={};
+      
+      outstream1 << "\n#clusternum,posRMS,velRMS,totRMS,astromRMS,timespan,uniquepoints,obsnights,metric,orbit_a,orbit_e,orbit_MJD,orbitX,orbitY,orbitZ,orbitVX,orbitVY,orbitVZ,orbit_eval_count,avg_det_qual,max_known_obj,minvel,maxvel,minGCR,maxGCR,minpa,maxpa,mintimespan,maxtimespan,minarc,maxarc,stringID,min_nightstep,max_nightstep,magmean,magrms,magrange\n";
       outstream1 << fixed << setprecision(3) << inclustvec[clustct].clusternum << "," << inclustvec[clustct].posRMS << "," << inclustvec[clustct].velRMS << "," << inclustvec[clustct].totRMS << ",";
       outstream1 << fixed << setprecision(4) << inclustvec[clustct].astromRMS << ",";
       outstream1 << fixed << setprecision(6) << inclustvec[clustct].timespan << "," << inclustvec[clustct].uniquepoints << "," << inclustvec[clustct].obsnights << "," << inclustvec[clustct].metric << ",";
@@ -267,7 +313,7 @@ int main(int argc, char *argv[])
       outstream1 << fixed << setprecision(1) << inclustvec[clustct].orbitX << "," << inclustvec[clustct].orbitY << "," << inclustvec[clustct].orbitZ << ",";
       outstream1 << fixed << setprecision(4) << inclustvec[clustct].orbitVX << "," << inclustvec[clustct].orbitVY << "," << inclustvec[clustct].orbitVZ << "," << inclustvec[clustct].orbit_eval_count << ",";
       outstream1 << fixed << setprecision(1) << avg_det_qual << "," << max_known_obj << ",";
-      outstream1 << fixed << setprecision(6) << angvelvec[0] << "," << angvelvec[tracknum-1] << "," << GCRvec[0] << "," << GCRvec[tracknum-1] << "," << PAvec[0] << "," << PAvec[tracknum-1] << "," << timespanvec[0] << "," << timespanvec[tracknum-1] << "," << arcvec[0] << "," << arcvec[tracknum-1] << "," << clustvec[0].idstring << "\n";
+      outstream1 << fixed << setprecision(6) << angvelvec[0] << "," << angvelvec[tracknum-1] << "," << GCRvec[0] << "," << GCRvec[tracknum-1] << "," << PAvec[0] << "," << PAvec[tracknum-1] << "," << timespanvec[0] << "," << timespanvec[tracknum-1] << "," << arcvec[0] << "," << arcvec[tracknum-1] << "," << clustvec[0].idstring << "," << min_nightstep << "," << max_nightstep << "," << magmean << "," << magrms << "," << magrange << "\n";
 	
       // Write this data to the output file
       outstream1 << "#MJD,RA,Dec,mag,trail_len,trail_PA,sigmag,sig_across,sig_along,image,idstring,band,obscode,known_obj,det_qual,origindex\n";

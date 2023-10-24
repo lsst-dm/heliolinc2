@@ -26,7 +26,7 @@
 #define MAX_GCR 0.5 // Default maximum Great Circle Residual allowed for a valid tracklet
 #define DEBUG 0
 #define DEBUGA 0
-#define DEBUGB 1
+#define DEBUGB 0
 
       
 static void show_usage()

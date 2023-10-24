@@ -75,6 +75,9 @@ using namespace std;
 #define CLIGHT_AUDAY (CLIGHT*SOLARDAY/AU) // Speed of light in AU/day
 #define KEPTRANSITMAX 50 // Maximum number of iterations to use in Newton's
                          // method solution of the trancendental Kepler Equation.
+#define KVSTAR_ITMAX 10 // Maximum number of iterations for solving the
+                        // Kepler two-point boundary value problem with
+                        // universal variables.
 #define KEPTRANSTOL 1e-15L // Maximum error for an acceptable solution of the
                            // trancendental Kepler Equation.
 #define KEPTRANSTOL2 (double(1e-10)) // Maximum error for an acceptable solution of the
@@ -85,10 +88,16 @@ using namespace std;
                            // Kepler two-point boundary value problem.
 #define KEP2PBVPTOL2 (double(1e-8l)) // Maximum error for an acceptable solution of the
                            // Kepler two-point boundary value problem.
+#define QSTAR_XTOL 1e-4l  // Transition to use series rather than analytical forms
+                         // for the Q(x*) function from Danby 6.11
+#define QSTAR_N  10 // Number of terms to calculate for the series expansion 
+                   // of the Q(x*) function from Danby 6.11
 #define LARGERR 1e30L // Large number supposed to be a safe initialization
                       // for most minimum-finding problems.
 #define LARGERR2 (double(1e30l)) // Large number supposed to be a safe initialization
                                 // for most minimum-finding problems.
+#define LARGERR3 1e60L // Large number supposed to be a safe initialization
+                       // for most minimum-finding problems.
 #define GMSUN_KM3_SEC2 132712440041.279419L // GM for the Sun: that is, the Universal
                                             // Gravitational Constant times the solar mass,
                                             // in units of km^3/sec^2. 
@@ -320,12 +329,58 @@ struct HeliolincConfig {
                                //   This is also the logarithmic width of each bin: e.g., the bin centered
                                //   at 0.15 AU ranges from 0.1 to 0.225 AU.
   double mingeoobs = 0.0l;     // Minimum inferred geocentric distance for a valid tracklet.
-  double minimpactpar = 0.0l;  // Miniumum inferred impact parameter for a valid tracklet.
+  double minimpactpar = 0.0l;  // Minimum inferred impact parameter for a valid tracklet.
                                // These last two parameters can be raised above the default
                                //   value of zero to limit the formation of 'globs' -- enormous
                                //   spurious linkages -- when probing heliocentric hypothesis
                                //   that have the potential to imply near-zero distance from Earth
                                //   for some observations.
+  int use_univar = 0;          // Use the universal variable formulation of the Kepler equations,
+                               // rather than the default fg function formulation.
+  double max_v_inf = 0.0l;     // Maximum value of v_infinity relative to the sun. Setting this
+                               // to zero restricts us to bound orbits. To find interstellar objects,
+                               // we set it to positive values. In this case it is also necessary
+                               // to set use_univar=1, since only the universal variable formulation
+                               // can handle unbound orbits.
+  int verbose=0;
+};
+
+struct HeliovaneConfig {
+  double MJDref = 0.0l;        // MJD of reference time. Must be specified at runtime:
+                               //   no sensible default is possible, because the reference
+                               //   time MUST be near the center of the time spanned by
+                               //   the input detection catalog.
+  double clustrad = 1.0e5l;    // Clustering radius for the DBSCAN algorithm, in km.
+  int dbscan_npt = 3;            // Number of points npt for the DBSCAN algorithm
+  int minobsnights = 3;        // Minimum number of distinct observing nights for a valid linkage
+  double mintimespan = 1.0l;   // Minimum timespan for a valid linkage
+  double mingeodist = 0.05l;   // Geocentric distance (AU) at the center of the innermost
+                               //   geocentric distance bin.
+  double maxgeodist = 2.0l;    // Minimum value in AU for the center of the outermost distance bin
+  double geologstep = 1.5l;    // Factor by which the center of a geocentric distance bin
+                               //   moves outward from one bin to the next: e.g. 0.1, 0.15, 0.225, 0.338.
+                               //   This is also the logarithmic width of each bin: e.g., the bin centered
+                               //   at 0.15 AU ranges from 0.1 to 0.225 AU.
+  double mingeoobs = 0.0l;     // Minimum inferred geocentric distance for a valid tracklet.
+  double minimpactpar = 0.0l;  // Minimum inferred impact parameter for a valid tracklet.
+                               // These last two parameters can be raised above the default
+                               //   value of zero to limit the formation of 'globs' -- enormous
+                               //   spurious linkages -- when probing heliocentric hypothesis
+                               //   that have the potential to imply near-zero distance from Earth
+                               //   for some observations.
+  int use_univar = 0;          // Use the universal variable formulation of the Kepler equations,
+                               // rather than the default fg function formulation.
+  double minsunelong = 0.0l;  // Minimum solar elongation in degrees
+  double maxsunelong = 180.0l;  // Maximum solar elongation in degrees
+  double min_incid_angle = 40.0l; // Minimum value for the angle at which the observer-to-target unitvector
+                                 // intersects the heliocentric vane, in degrees.
+  double maxheliodist = 2.0l; // Maximum heliocentric distance in AU. Partially redundant with
+                               // min_proj_sine.
+  double max_v_inf = 0.0l;     // Maximum value of v_infinity relative to the sun. Setting this
+                               // to zero restricts us to bound orbits. To find interstellar objects,
+                               // we set it to positive values. In this case it is also necessary
+                               // to set use_univar=1, since only the universal variable formulation
+                               // can handle unbound orbits.
   int verbose=0;
 };
 
@@ -1440,6 +1495,7 @@ double gaussian_deviate_mt(mt19937_64 &generator);
 int multilinfit01(const vector <double> &yvec, const vector <double> &sigvec, const vector <vector <double>> &xmat, int pnum, int fitnum, vector <double> &avec);
 int polyfit01(const vector <double> &yvec, const vector <double> &sigvec, const vector <double> &xvec, int pnum, int polyorder, vector <double> &avec);
 int vaneproj01LD(point3LD unitbary, point3LD obsbary, long double ecliplon, long double &geodist, point3LD &projbary);
+int vaneproj01d(point3d unitbary, point3d obsbary, double ecliplon, double min_proj_sine, double &geodist, point3d &projbary);
 double Twopoint_KepQ(double x);
 //int Twopoint_Qf(double z, double MGsun, double lambda1, double lambda2, double X, double Y, double deltat, double *f, double *fprime);
 int Twopoint_Kepler_vel(const double MGsun, const point3d startpoint, const point3d endpoint, const double timediff, point3d &startvel, double *semimaj, int itmax);
@@ -1448,9 +1504,13 @@ int Twopoint_Kepler_vstar(const double MGsun, const point3d startpoint, const po
 int Keplerint_multipoint01(const long double MGsun, const long double mjdstart, const vector <long double> &obsMJD, const point3LD &startpos, const point3LD &startvel, vector <point3LD> &obspos, vector <point3LD> &obsvel);
 int Keplerint_multipoint02(const long double MGsun, const long double mjdstart, const vector <long double> &obsMJD, const point3LD &startpos, const point3LD &startvel, vector <point3LD> &obspos, vector <point3LD> &obsvel, long double *semimajor_axis, long double *eccen, long double *angperi);
 int Keplerint_multipoint02(const double MGsun, const double mjdstart, const vector <double> &obsMJD, const point3d &startpos, const point3d &startvel, vector <point3d> &obspos, vector <point3d> &obsvel, double *semimajor_axis, double *eccen, double *angperi);
+int Keplerint_multipoint_fgfunc(const double MGsun, const double mjdstart, const vector <double> &obsMJD, const point3d &startpos, const point3d &startvel, vector <point3d> &obspos, vector <point3d> &obsvel, double *semimajor_axis, double *eccen);
+int Keplerint_multipoint_univar(const double MGsun, const double mjdstart, const vector <double> &obsMJD, const point3d &startpos, const point3d &startvel, vector <point3d> &obspos, vector <point3d> &obsvel, double *semimajor_axis, double *eccen);
 long double orbitchi01(const point3LD &objectpos, const point3LD &objectvel, const long double mjdstart, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid);
 long double orbitchi02(const point3LD &objectpos, const point3LD &objectvel, const long double mjdstart, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, long double *semimajor_axis, long double *eccen, long double *angperi);
 double orbitchi02(const point3d &objectpos, const point3d &objectvel, const double mjdstart, const vector <point3d> &observerpos, const vector <double> &obsMJD, const vector <double> &obsRA, const vector <double> &obsDec, const vector <double> &sigastrom, vector <double> &fitRA, vector <double> &fitDec, vector <double> &resid, double *semimajor_axis, double *eccen, double *angperi);
+double orbitchi_fgfunc(const point3d &objectpos, const point3d &objectvel, const double mjdstart, const vector <point3d> &observerpos, const vector <double> &obsMJD, const vector <double> &obsRA, const vector <double> &obsDec, const vector <double> &sigastrom, vector <double> &fitRA, vector <double> &fitDec, vector <double> &resid, double *semimajor_axis, double *eccen);
+double orbitchi_univar(const point3d &objectpos, const point3d &objectvel, const double mjdstart, const vector <point3d> &observerpos, const vector <double> &obsMJD, const vector <double> &obsRA, const vector <double> &obsDec, const vector <double> &sigastrom, vector <double> &fitRA, vector <double> &fitDec, vector <double> &resid, double *semimajor_axis, double *eccen);
 long double TwopointF(long double a, long double k, long double lambda1, long double lambda2, long double deltat, long double Xsign, long double Ysign);
 double TwopointF(double a, double k, double lambda1, double lambda2, double deltat, double Xsign, double Ysign);
 long double TwopointFprime(long double a, long double k, long double lambda1, long double lambda2, long double deltat, long double Xsign, long double Ysign);
@@ -1463,11 +1523,14 @@ point3d geodist_to_3dpos01(double RA, double Dec, point3d observerpos, double ge
 int Herget_unboundcheck01(long double geodist1, long double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec);
 long double Hergetchi01(long double geodist1, long double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit, int verbose);
 double Hergetchi01(double geodist1, double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3d> &observerpos, const vector <double> &obsMJD, const vector <double> &obsRA, const vector <double> &obsDec, const vector <double> &sigastrom, vector <double> &fitRA, vector <double> &fitDec, vector <double> &resid, vector <double> &orbit, int verbose);
+double Hergetchi_vstar(double geodist1, double geodist2, int Hergetpoint1, int Hergetpoint2, const vector <point3d> &observerpos, const vector <double> &obsMJD, const vector <double> &obsRA, const vector <double> &obsDec, const vector <double> &sigastrom, vector <double> &fitRA, vector <double> &fitDec, vector <double> &resid, vector <double> &orbit, int verbose);
 int Herget_simplex_int(long double geodist1, long double geodist2, long double simpscale, long double simplex[3][2], int simptype);
 int Herget_simplex_int(double geodist1, double geodist2, double simpscale, double simplex[3][2], int simptype);
 long double Hergetfit01(long double geodist1, long double geodist2, long double simplex_scale, int simptype, long double ftol, int point1, int point2, const vector <point3LD> &observerpos, const vector <long double> &obsMJD, const vector <long double> &obsRA, const vector <long double> &obsDec, const vector <long double> &sigastrom, vector <long double> &fitRA, vector <long double> &fitDec, vector <long double> &resid, vector <long double> &orbit, int verbose);
+double Hergetfit_vstar(double geodist1, double geodist2, double simplex_scale, int simptype, double ftol, int point1, int point2, const vector <point3d> &observerpos, const vector <double> &obsMJD, const vector <double> &obsRA, const vector <double> &obsDec, const vector <double> &sigastrom, vector <double> &fitRA, vector <double> &fitDec, vector <double> &resid, vector <double> &orbit, int verbose);
 int wrap_Hergetfit01(double simplex_scale, int simptype, double ftol, int point1, int point2, const vector <point3d> &observerpos, const vector <double> &obsMJD, const vector <double> &obsRA, const vector <double> &obsDec, const vector <double> &sigastrom, double MJDref, int rmspow, int verbose, hlclust &onecluster);
 int wrap_Hergetfit02(double simplex_scale, int simptype, double ftol, const vector <vector <point3d>> &observerpos, const vector <vector <double>> &obsMJD, const vector <vector <double>> &obsRA, const vector <vector <double>> &obsDec, const vector <vector <double>> &sigastrom, double MJDref, int rmspow, int verbose, vector <hlclust> &outclust, int threadct);
+int wrap_Hergetfit_vstar(double simplex_scale, int simptype, double ftol, const vector <vector <point3d>> &observerpos, const vector <vector <double>> &obsMJD, const vector <vector <double>> &obsRA, const vector <vector <double>> &obsDec, const vector <vector <double>> &sigastrom, double MJDref, int rmspow, int verbose, vector <hlclust> &outclust, int threadct);
 double MPCcal2MJD(int year, int month, double day);
 int mpc80_parseline(const string &lnfromfile, string &object, double *MJD, double *RA, double *Dec, double *mag, string &band, string &obscode);
 double mpc80_mjd(const string &lnfromfile);
@@ -1497,6 +1560,10 @@ int record_pairs(vector <hldet> &detvec, vector <hldet> &detvec_fixed, vector <t
 int make_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrackletsConfig config, vector <hldet> &pairdets,vector <tracklet> &tracklets, vector <longpair> &trk2det);
 int remake_tracklets(vector <hldet> &detvec, vector <hldet> &detvec_fixed, vector <hlimage> &image_log,vector <tracklet> &tracklets, vector <longpair> &trk2det, int verbose);
 int trk2statevec(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar);
+int trk2statevec_fgfunc(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar, double max_v_inf);
+int trk2statevec_univar(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar, double max_v_inf);
+int trk2statevane_fgfunc(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double lambda0, double lambda_dot, double lambda_ddot, double chartimescale, double minsunelong, double maxsunelong, double min_proj_sine, double max_heliodist, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar, double max_v_inf);
+int trk2statevane_univar(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double lambda0, double lambda_dot, double lambda_ddot, double chartimescale, double minsunelong, double maxsunelong, double min_proj_sine, double maxheliodist, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar, double max_v_inf);
 void lastroot(const vector <double> &intvec, vector <double> &rootvec, long N);
 int trk2statevec_omp(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar);
 int trk2statevec_omp2(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar);
@@ -1504,10 +1571,17 @@ vector <long> tracklet_lookup(const vector <longpair> &trk2det, long trknum);
 point3d earthpos01(const vector <EarthState> &earthpos, double mjd);
 int form_clusters(const vector <point6ix2> &allstatevecs, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const point3d &Earthrefpos, double heliodist, double heliovel, double helioacc, double chartimescale, vector <hlclust> &outclust, vector <longpair> &clust2det, long &realclusternum, double cluster_radius, double dbscan_npt, double mingeodist, double geologstep, double maxgeodist, int mintimespan, int minobsnights, int verbose);
 int heliolinc_alg(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
+int heliolinc_alg_fgfunc(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
+int heliolinc_alg_univar(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
+int heliolinc_alg_danby(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
+int heliovane_alg_danby(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &lambdahyp, const vector <EarthState> &earthpos, HeliovaneConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
 int heliolinc_alg_omp(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
 int heliolinc_alg_omp2(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
 int heliolinc_alg_omp3(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
+int heliolinc_alg_ompdanby(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &radhyp, const vector <EarthState> &earthpos, HeliolincConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
+int heliovane_alg_ompdanby(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &lambdahyp, const vector <EarthState> &earthpos, HeliovaneConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
 int link_refine_Herget(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
+int link_refine_Herget_univar(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
 int link_refine_Herget_omp(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
 int link_refine_Herget_omp2(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
 int link_refine_Herget_omp3(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
