@@ -481,8 +481,10 @@ int main(int argc, char *argv[])
     cerr << "read_radhyp_file returned status = " << status << ".\n";
    return(1);
   }
-  for(i=0;i<=long(lambdahyp.size());i++) {
-    cout << "Lambda matrix check: " << lambdahyp[i].HelioRad << " " << lambdahyp[i].R_dot << " " << lambdahyp[i].R_dubdot << "\n";
+  if(config.verbose>=1) {
+    for(i=0;i<long(lambdahyp.size());i++) {
+      cout << "Lambda matrix check: " << lambdahyp[i].HelioRad << " " << lambdahyp[i].R_dot << " " << lambdahyp[i].R_dubdot << "\n";
+    }
   }
   
   detvec={};
