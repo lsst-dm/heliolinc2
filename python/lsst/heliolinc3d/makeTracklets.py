@@ -3,37 +3,45 @@ import lsst.pex.config
 import lsst.pipe.base
 from lsst.pipe.base import connectionTypes
 
-class MakeTrackletsConnections(lsst.pipe.base.PipelineTaskConnections, dimensions=("instrument", "visitWindow"), defaultTemplates={"timeSpan": "twoWeeks", "detType": "pointSource"}):
-    sourceTable = connectionTypes.Input(
+class MakeTrackletsConnections(lsst.pipe.base.PipelineTaskConnections,
+                               dimensions=("instrument", "visitWindow"),
+                               defaultTemplates={"timeSpan": "twoWeeks"}):
+    pointSourceTable = connectionTypes.Input(
         doc="Table of unattributed sources",
         dimensions=("instrument", "visitWindow"),
         storageClass="SourceCatalog",
-        name = "{detType}_hldetCatalog"
-        )
+        name = "hldetCatalog_pointSources"
+    )
+    trailedSourceTable = connectionTypes.Input(
+        doc="Table of unattributed sources",
+        dimensions=("instrument", "visitWindow"),
+        storageClass="SourceCatalog",
+        name = "hldetCatalog_trails"
+    )
     visitTable = connectionTypes.Input(
         doc="visit stats plus observer coordinates",
         dimensions=("instrument", "visitWindow"),
         storageClass="SourceCatalog",
-        name = "{detType}_hlimageCatalog"
-        )
+        name = "hlimageCatalog"
+    )
     trackletSources = connectionTypes.Output(
         doc="sources that got included in tracklets",
         dimensions=("instrument", "visitWindow"),
         storageClass="SourceCatalog",
-        name = "{detType}_trackletSources"
-        )
-     tracklets = connectionTypes.Output(
+        name = "trackletSources"
+    )
+    tracklets = connectionTypes.Output(
         doc="summary data for tracklets",
         dimensions=("instrument", "visitWindow"),
         storageClass="SourceCatalog",
-        name = "{detType}_tracklets"
-        )
+        name = "tracklets"
+     )
      trk2det = connectionTypes.Output(
         doc="indices connecting tracklets to trackletSources",
         dimensions=("instrument", "visitWindow"),
         storageClass="SourceCatalog",
-        name = "{detType}_trk2source"
-        )
+        name = "trk2source"
+     )
 
 class MakeTrackletsConfig(lsst.pex.config.Config):
   mintrkpts = lsst.pex.config.Field(
@@ -101,7 +109,11 @@ class MakeTrackletsTask(lsst.pipe.base.PipelineTask):
            here
         """
 
-        trackout = heliohypy.makeTracklets(self.config, sourceTable, visitTable)
+        trackout_pointSources = heliohypy.makeTracklets(self.config, pointSourceTable, visitTable)
+        trackout_trails = heliohypy.makeTracklets(self.config, trailedSourceTable, visitTable)
+
+        #Need a function here to join pointsources and trails output,
+        #while preserving indices correctly. Can use the same visitTable for both.
         
         return lsst.pipe.base.Struct(trackletSources=trackout[0],
                                      tracklets=trackout[1],
