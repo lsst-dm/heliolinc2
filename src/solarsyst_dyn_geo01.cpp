@@ -21580,6 +21580,7 @@ int link_refine_Herget_univar(const vector <hlimage> &image_log, const vector <h
   outclust={};
   outclust2det={};
  
+  cout << "Launching link_refine_Herget_univar()\n";
   cout << "Reference MJD: " << config.MJDref << "\n";
   cout << "Maximum RMS in km: " << config.maxrms << "\n";
   cout << "In calculating the cluster quality metric, the number of\nunique points will be raised to the power of " << config.ptpow << ";\n";
