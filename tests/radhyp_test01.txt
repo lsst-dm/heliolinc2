@@ -1,0 +1,2 @@
+#r(AU) rdot(AU/day) mean_accel
+3.54 0.008 0.6

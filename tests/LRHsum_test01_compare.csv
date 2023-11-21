@@ -1,0 +1,2 @@
+#clusternum,posRMS,velRMS,totRMS,astromRMS,pairnum,timespan,uniquepoints,obsnights,metric,rating,heliohyp0,heliohyp1,heliohyp2,posX,posY,posZ,velX,velY,velZ,orbit_a,orbit_e,orbit_MJD,orbitX,orbitY,orbitZ,orbitVX,orbitVY,orbitVZ,orbit_eval_count
+0,8068.951,11127.425,13745.092,0.0138,8,8.905486,271,8,11459720.682987,PURE,3.540000,13.851655,-0.000284,434685075.0,276631487.5,-122399362.5,3.3157,17.0517,-9.5982,3.088931,0.238977,60603.272133,375831701.8,231189892.5,-95927282.9,-5.8925,15.3201,-5.5840,114
