@@ -390,7 +390,7 @@ struct LinkRefineConfig {
                                //   time MUST be near the center of the time spanned by
                                //   the input detection catalog.
   int simptype = 0;            // Defines how Herget_simplex_int constructs the starting simplex
-                               //   in the 2-D paramter space of geocentric distance at first detection
+                               //   in the 2-D parameter space of geocentric distance at first detection
                                //   (geodist1) and geocentric distance at last detection (geodist2)
                                //   simptype=0 uses multiplicative scaling to create an approximately equilateral triangle:
                                //   simptype=1 creates a simplex elongated along the direction defined by geodist1=geodist2
@@ -400,6 +400,29 @@ struct LinkRefineConfig {
   int timepow = 0;             // Power to which we raise the total temporal span of the linkage, when calculating the cluster quality metric.
   int rmspow = 2;              // Power to which we raise the RMS astrometric residual when calculating the cluster quality metric.
   double maxrms = 1.0e5;       // Maximum scaled RMS in km for a viable cluster
+  int verbose=0;
+};
+
+struct LinkPurifyConfig {
+  double MJDref = 0.0l;        // MJD of reference time. Must be specified at runtime:
+                               //   no sensible default is possible, because the reference
+                               //   time MUST be near the center of the time spanned by
+                               //   the input detection catalog.
+  int simptype = 0;            // Defines how Herget_simplex_int constructs the starting simplex
+                               //   in the 2-D parameter space of geocentric distance at first detection
+                               //   (geodist1) and geocentric distance at last detection (geodist2)
+                               //   simptype=0 uses multiplicative scaling to create an approximately equilateral triangle:
+                               //   simptype=1 creates a simplex elongated along the direction defined by geodist1=geodist2
+                               //   simptype=2 uses subtraction to create a precisely equilateral triangle
+  int ptpow = 1;               // Power to which we raise the number of unique detections, when calculating the cluster quality metric.
+  int nightpow = 1;            // Power to which we raise the number of distinct observing nights, when calculating the cluster quality metric.
+  int timepow = 0;             // Power to which we raise the total temporal span of the linkage, when calculating the cluster quality metric.
+  int rmspow = 2;              // Power to which we raise the RMS astrometric residual when calculating the cluster quality metric.
+  double maxrms = 1.0e5;       // Maximum scaled RMS in km for a viable cluster
+  double rejfrac = 0.5;        // Maximum fraction of points that can be rejected.
+  double max_astrom_rms = 1.0; // Maximum RMS astrometric residual, in arcsec.
+  int minobsnights = 3;        // Minimum number of distinct observing nights for a valid linkage
+  int minpointnum = 6;         // Minimum number of individual detections for a valid linkage
   int verbose=0;
 };
 
@@ -631,6 +654,13 @@ public:
   long i2;
   longpair(long i1, long i2) :i1(i1), i2(i2) { }
   longpair() = default;
+};
+
+class point2d{ // Double-precision 2-D point
+public:
+  double x;
+  double y;
+  point2d(double x, double y) :x(x), y(y) { }
 };
 
 class point3d{ // Double-precision 3-D point
@@ -1322,6 +1352,24 @@ public:
   asteroid_orbit(string desig, double semimaj_axis, double eccentricity, double inclination, double long_ascend_node, double arg_perihelion, double mean_anom, double mjd_epoch, double mean_daily_motion, double H, double G) :desig(desig), semimaj_axis(semimaj_axis), eccentricity(eccentricity), inclination(inclination), long_ascend_node(long_ascend_node), arg_perihelion(arg_perihelion), mean_anom(mean_anom), mjd_epoch(mjd_epoch), mean_daily_motion(mean_daily_motion), H(H), G(G) {}
 };
 
+// asteroid_orbitLD is the same as asteroid_orbit, except that it uses
+// long doubles
+class asteroid_orbitLD{
+public:
+  string desig;
+  long double semimaj_axis; // in AU
+  long double eccentricity; // unitless
+  long double inclination;  // in degrees
+  long double long_ascend_node; // Longitude of the ascending node, in degrees
+  long double arg_perihelion;   // Argument of perihelion, in degrees
+  long double mean_anom;        // Mean anomaly at the epoch, in degrees
+  long double mjd_epoch;        // Epoch for the orbit in MJD
+  long double mean_daily_motion; // in degrees/day
+  long double H;                // absolute magnitude
+  long double G;                // phase slope parameter
+  asteroid_orbitLD(string desig, long double semimaj_axis, long double eccentricity, long double inclination, long double long_ascend_node, long double arg_perihelion, long double mean_anom, long double mjd_epoch, long double mean_daily_motion, long double H, long double G) :desig(desig), semimaj_axis(semimaj_axis), eccentricity(eccentricity), inclination(inclination), long_ascend_node(long_ascend_node), arg_perihelion(arg_perihelion), mean_anom(mean_anom), mjd_epoch(mjd_epoch), mean_daily_motion(mean_daily_motion), H(H), G(G) {}
+};
+
 struct EarthState {
     double MJD;
     double x;
@@ -1452,6 +1500,7 @@ int Kepler_fg_func_int(const double MGsun, const double mjdstart, const point3d 
 int Kepler_univ_int(const double MGsun, const double mjdstart, const point3d &startpos, const point3d &startvel, const double mjdend, point3d &endpos, point3d &endvel);
 int Kepler2dyn(const long double mjdnow, const keplerian_orbit &keporb, point3LD &outpos,  point3LD &outvel);
 int Kepler2dyn(const double mjdnow, const asteroid_orbit &oneorb, point3d &outpos,  point3d &outvel);
+int Kepler2dyn(const long double mjdnow, const asteroid_orbitLD &keporb, point3LD &outpos,  point3LD &outvel);
 long double hyp_transcendental(long double q, long double e, long double tol);
 double hyp_transcendental(double q, double e, double tol);
 int Hyper_Kepint(const long double MGsun, const long double mjdstart, const point3LD &startpos, const point3LD &startvel, const long double mjdend, point3LD &endpos, point3LD &endvel);
@@ -1582,6 +1631,7 @@ int heliolinc_alg_ompdanby(const vector <hlimage> &image_log, const vector <hlde
 int heliovane_alg_ompdanby(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const vector <hlradhyp> &lambdahyp, const vector <EarthState> &earthpos, HeliovaneConfig config, vector <hlclust> &outclust, vector <longpair> &clust2det);
 int link_refine_Herget(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
 int link_refine_Herget_univar(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
+int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkPurifyConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
 int link_refine_Herget_omp(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
 int link_refine_Herget_omp2(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
 int link_refine_Herget_omp3(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkRefineConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det);
@@ -1589,5 +1639,6 @@ int link_refine_Herget_omp4(const vector <hlimage> &image_log, const vector <hld
 int parse_clust2det(const vector <hldet> &detvec, const vector <longpair> &inclust2det, vector <hldet> &clustdet);
 int greatcircfit(const vector <hldet> &trackvec, double &poleRA, double &poleDec,double &angvel,double &pa,double &crosstrack,double &alongtrack);
 int read_orbline(ifstream &instream1, asteroid_orbit &oneorb);
+int read_orbline(ifstream &instream1, asteroid_orbitLD &oneorb);
 int read_orbline(string lnfromfile, asteroid_orbit &oneorb);
 

@@ -6901,6 +6901,156 @@ int Kepler2dyn(const double mjdnow, const asteroid_orbit &keporb, point3d &outpo
   return(0);
 }
 
+// Kepler2dyn: June 20, 2023:
+// Overloading the previous two Kepler2dyn functions, this version
+// goes back to long double precision, but accepts as
+// input the asteroid_orbitLD class rather than the keplerian_orbit
+// class, which includes a string designation,
+// the absolute magnitude H, and the phase paramter G.
+// Convert the Keplerian orbital parameters to barycentric
+// Cartesian state vectors at the instant of the MJD.
+int Kepler2dyn(const long double mjdnow, const asteroid_orbitLD &keporb, point3LD &outpos,  point3LD &outvel)
+{
+  long double meananom,theta,psi,cospsi,costheta;
+  long double heliodist,ellipsearea,Period,sweeprate;
+  long double radvel,angvel,tanvel,poleRA,poleDec,oldpoleRA;
+  long double newRA,newDec,totalvel,thetaoc;
+  long double vtheta1,vtheta2,posRA,posDec,velRA,velDec;
+  vtheta1 = vtheta2 = posRA = posDec = velRA = velDec = 0L;
+  
+  // keporb.semimaj_axis        in AU
+  // keporb.eccentricity        unitless
+  // keporb.inclination         in degrees
+  // keporb.long_ascend_node    Longitude of the ascending node, in degrees
+  // keporb.arg_perihelion      Argument of perihelion, in degrees
+  // keporb.mean_anom           Mean anomaly at the epoch, in degrees
+  // keporb.mjd_epoch           Epoch for the orbit in MJD
+  // keporb.mean_daily_motion   in degrees/day
+
+  meananom = keporb.mean_anom + (mjdnow-keporb.mjd_epoch)*keporb.mean_daily_motion;
+  //cout << "keporb.meananom = " << keporb.mean_anom << " meananom = " << meananom << "\n";
+  
+  // Solve Kepler's equation for psi (the true anomaly) given the mean anomaly.
+  psi = kep_transcendental(meananom/DEGPRAD,keporb.eccentricity,KEPTRANSTOL);
+  //cout << "New psi = " << psi*DEGPRAD;
+  cospsi = cos(psi);
+  //cout << " New cospsi = " << cospsi << "\n";
+  // Calculate theta from psi
+  if(1.0l - keporb.eccentricity*cospsi != 0.0L) {
+    costheta = (cospsi - keporb.eccentricity)/(1.0L - keporb.eccentricity*cospsi);
+    if(costheta >= -1.0L && costheta <= 1.0L) theta = acos(costheta);
+    else if(costheta < -1.0L) {
+      cout << "Warning: costheta = " << costheta << "\n";
+      theta = M_PI;
+    } else {
+      cout << "Warning: costheta = " << costheta << "\n";
+      theta = 0.0L;
+    }
+    if(psi>M_PI && theta<=M_PI) theta = 2.0L*M_PI - theta;
+  } else {
+    cerr << "Warning: e*cos(psi) = " << keporb.eccentricity*cospsi << " so 1 - e*cos(psi) = " << 1.0L - keporb.eccentricity*cospsi << "\n";
+    theta = 0.0L;
+  }
+  while(theta<0.0L) theta += 2.0l*M_PI;
+  while(theta>=2.0L*M_PI) theta -= 2.0L*M_PI;
+
+  // Calculate heliodist from psi
+  heliodist = keporb.semimaj_axis*(1.0L - keporb.eccentricity*cospsi);
+  //cout << "keporb.semimaj_axis = " << keporb.semimaj_axis << " keporb.eccentricity = " << keporb.eccentricity << " heliodist = " << heliodist <<"\n";
+  // Now effectively we have the asteroid's position fully
+  //  specified in a coordinate system for which the asteroid's
+  //  orbit defines the equatorial plane and its perihelion defines
+  //  zero longitude. The current longitude is theta1, the 
+  //  latitude is zero by definition, and heliodist
+  //  is the radius. Two steps remain: (1) Calculate the velocity
+  //  in this orbital coordinate system, and (2) tranform both
+  //  position and velocity into heliocentric coordinates.
+
+  // Calculate the Velocity
+  ellipsearea = M_PI*keporb.semimaj_axis*keporb.semimaj_axis*sqrt(1.0L - LDSQUARE(keporb.eccentricity));
+  // This area is in AU^2. The period of the orbit is:
+  Period = 360.0L/keporb.mean_daily_motion;
+  //cout << "Period = " << Period << " days\n";
+  // This is the period in days, because keporb.mean_daily_motion is the
+  //  mean daily motion in degrees/day
+  sweeprate = ellipsearea/Period;
+  // This is the rate at which area is swept out, in terms
+  //  of AU^2/day. This will allow us to find the instantaneous
+  //  angular velocity
+  // Area of triangle swept out in time dt is r^2 * dt * angvel / 2.0
+  //cout << "heliodist = " << heliodist << "\n";
+  angvel = sweeprate*2.0L/LDSQUARE(heliodist);
+  //cout << "angvel = " << angvel << " rad/day = " << angvel*DEGPRAD << " deg/day = " << angvel*DEGPRAD*150.0L << "arcsec/hr\n";
+  // This is the angular velocity in radians/day 
+  // All we need now is the radial component. 
+  radvel = angvel*keporb.semimaj_axis*(1.0L - LDSQUARE(keporb.eccentricity))*(keporb.eccentricity*sin(theta)/LDSQUARE(1.0L + keporb.eccentricity*cos(theta)));
+  // This is the radial velocity in AU/day. The formula is 
+  //  derived in my October 05, 2016 notebook entry.
+  tanvel = angvel*heliodist;
+  //cout << "radvel, tanvel = " << radvel << " " << tanvel << "\n";
+  // Calculate the angle of the velocity relative
+  //  to the position vector
+  if(tanvel>0.0L) vtheta1 = M_PI/2.0L - atan(radvel/tanvel);
+  else if(tanvel==0.0L && radvel>=0.0L) vtheta1 = 0.0L;
+  else if(tanvel==0.0L && radvel<0.0L) vtheta1 = M_PI;
+  else if(tanvel<0.0L) vtheta1 = 3.0L*M_PI/2.0L - atan(radvel/tanvel);
+
+  // Convert to degrees
+  vtheta1*=DEGPRAD;
+  // Add in the angle of the position vector
+  vtheta1 += theta*DEGPRAD;
+  // Calculate the total velocity
+  totalvel = sqrt(radvel*radvel + tanvel*tanvel);
+  // Note that at this point, vtheta1 is in degrees
+  //  and total vel is in AU/day.
+
+  // Reckon from the line of nodes (intersection of the
+  //  asteroidal orbit with the plane of the ecliptic)
+  
+  // Position vector:
+  thetaoc = keporb.arg_perihelion+theta*DEGPRAD;
+  while(thetaoc>=360.0L) thetaoc-=360.0L;
+  // Velocity vector
+  vtheta2 = keporb.arg_perihelion+vtheta1;
+  while(vtheta2>=360.0L) vtheta2-=360.0L;
+
+  //cout << "The angle from perihelion is " << theta*DEGPRAD << " degrees.\n";
+  //cout << "The angle from the line of nodes is " << thetaoc << " degrees.\n";
+  // Now in orbital coordinates, the asteroid's position
+  //  has a 'declination' of zero (by definition) and a
+  //  'right ascension' equal to thetaoc
+  // RA in orbital coords
+  posRA = thetaoc/DEGPRAD;
+  velRA = vtheta2/DEGPRAD;
+  // Dec in orbital coords
+  posDec = 0L;
+  velDec = 0L;
+  // Now I need the orbital coordinates of the ecliptic pole.
+  //  Since I have defined the line of nodes as the RA reference
+  //  in orbital coordinates, and this line has to be perpendicular
+  //  to the vector to the ecliptic pole, it follows that the
+  //  orbital RA of the ecliptic pole is 90.0 degrees.
+  //  The orbital declination of the ecliptic pole is ninety
+  //  degrees minus the inclination.
+  poleRA = M_PI/2.0L;
+  poleDec = (90.0L - keporb.inclination)/DEGPRAD;
+  // Now I need the right ascension of the old pole
+  //  in the new coordinates.  This is equal to the
+  //  longitude of the ascending node minus 90 degrees.
+  oldpoleRA = (keporb.long_ascend_node - 90.0L)/DEGPRAD;
+  poleswitch01LD(posRA,posDec,poleRA,poleDec,oldpoleRA,newRA,newDec); // Output is radians
+  outpos.x = heliodist*cos(newDec)*cos(newRA);
+  outpos.y = heliodist*cos(newDec)*sin(newRA);
+  outpos.z = heliodist*sin(newDec);
+  poleswitch01LD(velRA,velDec,poleRA,poleDec,oldpoleRA,newRA,newDec); // Output is radians  
+  outvel.x = totalvel*cos(newDec)*cos(newRA);
+  outvel.y = totalvel*cos(newDec)*sin(newRA);
+  outvel.z = totalvel*sin(newDec);
+  
+  return(0);
+}
+
+
 // hyp_transcendental: April 25, 2022:
 // Solve the hyperbolic form of the trancendental
 // Kepler Equation q = e*sinh(psi) - psi for psi given q and e,
@@ -8056,7 +8206,7 @@ int readconfigd(ifstream &instream1, double *dval)
   }
 }
 
-// readconfigd: December 2021
+// readconfigint: December 2021
 // Read a single integer parameter from a file stream, where
 // the calling function guarantees that every line in the input file
 // stream is either a comment line with # as the first character,
@@ -18231,7 +18381,7 @@ int make_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrac
   std::vector <vector <long>> indvecs;
   
   // Echo config struct
-  cout << "Configuration parameters:\n";
+  cout << "Configuration parameters for new make_tracklets:\n";
   cout << "Min. number of tracklet points: " << config.mintrkpts << "\n";
   cout << "Time-tolerance for matching detections on the same image: " << config.imagetimetol << " days (" << config.imagetimetol*SOLARDAY << " seconds)\n";
   cout << "Maximum angular velocity: " << config.maxvel << " deg/day\n";
@@ -21553,7 +21703,7 @@ int link_refine_Herget_univar(const vector <hlimage> &image_log, const vector <h
   point3d onepoint = point3d(0.0L,0.0L,0.0L);
   vector <point3d> observerpos;
   vector <double> obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit;
-  double geodist1,geodist2, v_escape, v_helio, astromrms, chisq;
+  double geodist1,geodist2, astromrms, chisq;
   double ftol = FTOL_HERGET_SIMPLEX;
   double simplex_scale = SIMPLEX_SCALEFAC;
   double X, Y, Z, dt;
@@ -21666,16 +21816,10 @@ int link_refine_Herget_univar(const vector <hlimage> &image_log, const vector <h
 	startvel.x = onecluster.velX;
 	startvel.y = onecluster.velY;
 	startvel.z = onecluster.velZ;
-	    
-	// Check if the velocity is above escape
-	v_escape = sqrt(2.0L*GMSUN_KM3_SEC2/vecabs3d(startpos));
-	v_helio = vecabs3d(startvel);
-	if(v_helio>=v_escape) {
-	  cerr << "WARNING: mean state vector velocity was " << v_helio/v_escape << " times higher than solar escape\n";
-	  startvel.x *= ESCAPE_SCALE*v_escape/v_helio;
-	  startvel.y *= ESCAPE_SCALE*v_escape/v_helio;
-	  startvel.z *= ESCAPE_SCALE*v_escape/v_helio;
-	}
+	// Nov 29, 2023: removed a check against solar escape velocity,
+	// which is not appropriate here since the code can handle
+	// both bound and unbound orbits.
+
 	// Calculate position at first observation
 	Kepler_univ_int(GMSUN_KM3_SEC2, config.MJDref, startpos, startvel, obsMJD[0], endpos, endvel);
 	// Find vector relative to the observer by subtracting off the observer's position.
@@ -21811,6 +21955,478 @@ int link_refine_Herget_univar(const vector <hlimage> &image_log, const vector <h
   return(0);
 }
 
+// link_purify: November 29, 2023:
+// Based on link_refine_Herget_univar, this function is the first
+// one in my link_refine suite than actually attempts to purify
+// the input linkages by rejecting astrometric outliers.
+// New quantities in LinkPurifyConfig that are not in LinkRefineConfig:
+//  double config.rejfrac = 0.5;         Maximum fraction of points that can be rejected.
+//  double config.max_astrom_rms = 1.0;  Maximum RMS astrometric residual, in arcsec.
+//  int config.minobsnights = 3;         Minimum number of distinct observing nights for a valid linkage
+//  int config.minpointnum = 6;          Minimum number of individual detections for a valid linkage
+
+#define MAXREJ 50 // Maximum number of points that can be rejected, before the effort to
+                  // salvage a high-RMS linkage is abandoned.
+
+int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkPurifyConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det)
+{
+  long i=0;
+  long imnum = image_log.size();
+  long imct=0;
+  long detnum = detvec.size();
+  long inclustnum = inclust.size();
+  long inclustct=0;
+  long clusternum=0;
+  double clustmetric = 0.0l;
+  hlclust onecluster = hlclust(0, 0.0l, 0.0l, 0.0l, 0.0l, 0, 0.0l, 0, 0, 0.0l, "NULL", 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0);
+  vector <long> clustind;
+  vector <hldet> clusterdets;
+  vector <hlclust> holdclust;
+  int ptnum,ptct,istimedup,detsused;
+  long rejmax,rejnum;
+  ptnum=ptct=istimedup=detsused=0;
+  point3d onepoint = point3d(0.0L,0.0L,0.0L);
+  vector <point3d> observerpos;
+  vector <double> obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, mjdstep;
+  double geodist1,geodist2, astromrms, chisq;
+  double ftol = FTOL_HERGET_SIMPLEX;
+  double simplex_scale = SIMPLEX_SCALEFAC;
+  double X, Y, Z, dt;
+  X = Y = Z = dt = 0l;
+  point3d startpos = point3d(0.0l,0.0l,0.0l);
+  point3d startvel = point3d(0.0l,0.0l,0.0l);
+  point3d endpos = point3d(0.0l,0.0l,0.0l);
+  point3d endvel = point3d(0.0l,0.0l,0.0l);
+  vector <int> detusedvec = {};
+  vector <vector <long>> clustindmat = {};
+  vector <double_index> metric_index;
+  long clusterct,clusterct2,goodclusternum,daysteps,obsnights;
+  clusterct = clusterct2 = goodclusternum = daysteps = obsnights = 0;
+  double_index dindex = double_index(0l,0);
+  vector <double_index> sortclust;
+  longpair c2d = longpair(0,0);
+  char rating[SHORTSTRINGLEN];
+  
+  make_ivec(detnum, detusedvec); // All the entries are guaranteed to be 0.
+
+  // Wipe output arrays
+  holdclust={};
+  clustindmat={};
+  outclust={};
+  outclust2det={};
+ 
+  cout << "Launching link_refine_Herget_univar()\n";
+  cout << "Reference MJD: " << config.MJDref << "\n";
+  cout << "Maximum RMS in km: " << config.maxrms << "\n";
+  cout << "In calculating the cluster quality metric, the number of\nunique points will be raised to the power of " << config.ptpow << ";\n";
+  cout << "the number of unique nights will be raised to the power of " << config.nightpow << ";\n";
+  cout << "the total timespan will be raised to the power of " << config.timepow << ";\n";
+  cout << "and the astrometric RMS will be raised to the power of (negative) " << config.rmspow << "\n";
+  if(config.verbose>=1) cout << "verbose output has been selected\n";
+
+  // Launch master loop over all the input clusters.
+  for(inclustct=0; inclustct<inclustnum; inclustct++) {
+    onecluster = inclust[inclustct];
+    if(inclustct!=onecluster.clusternum) {
+      cerr << "ERROR: cluster index mismatch " << inclustct << " != " << onecluster.clusternum << " at input cluster " << inclustct << "\n";
+      return(5);
+    }
+    if(onecluster.totRMS<=config.maxrms) {
+      // This cluster passes the initial cut. Analyze it.
+      // Load a vector with the indices to detvec
+      clustind = {};
+      clustind = tracklet_lookup(inclust2det, inclustct);
+      ptnum = clustind.size();
+      if(ptnum!=onecluster.uniquepoints) {
+	cerr << "ERROR: point number mismatch " << ptnum << " != " << onecluster.uniquepoints << " at input cluster " << inclustct << "\n";
+	return(6);
+      }
+      // Load vector of detections for this cluster
+      clusterdets={};
+      for(i=0; i<ptnum; i++) {
+	clusterdets.push_back(detvec[clustind[i]]);
+	clusterdets[i].index=clustind[i]; // Saves indices, to track later sorting.
+      }
+      sort(clusterdets.begin(), clusterdets.end(), early_hldet());
+      istimedup=0;
+      for(ptct=1; ptct<ptnum; ptct++) {
+	if(clusterdets[ptct-1].MJD == clusterdets[ptct].MJD && stringnmatch01(clusterdets[ptct-1].obscode,clusterdets[ptct].obscode,3)==0) istimedup=1;
+      }
+	    
+      // Perform orbit fitting using the method of Herget, to get astrometric residuals
+      // Load observational vectors
+      observerpos = {};
+      obsMJD = obsRA = obsDec = sigastrom = fitRA = fitDec = resid = orbit = {};
+      for(ptct=0; ptct<ptnum; ptct++) {
+	obsMJD.push_back(clusterdets[ptct].MJD);
+	obsRA.push_back(clusterdets[ptct].RA);
+	obsDec.push_back(clusterdets[ptct].Dec);
+	sigastrom.push_back(1.0L); // WARNING, THIS IS CRUDE AND NEEDS FIXING
+	imct = clusterdets[ptct].image;
+	if(imct>=imnum) {
+	  cerr << "ERROR: attempting to access image " << imct << " of only " << imnum << " available\n";
+	  return(8);
+	}
+	X = image_log[imct].X;
+	Y = image_log[imct].Y;
+	Z = image_log[imct].Z;
+	if(image_log[imct].MJD!=clusterdets[ptct].MJD) {
+	  // A shutter-travel correction must have been applied to the
+	  // detection time relative to the image time. Use the stored
+	  // velocity info from the image log to apply a correction to
+	  // the observer position.
+	  dt = clusterdets[ptct].MJD - image_log[imct].MJD;
+	  if(dt*SOLARDAY > MAX_SHUTTER_CORR) {
+	    cerr << "ERROR: detection vs. image time mismatch of " << dt*SOLARDAY << " seconds.\n";
+	    cerr << "Something has gone wrong: no shutter is that slow\n";
+	    return(4);
+	  }
+	  X += image_log[imct].VX*dt;
+	  Y += image_log[imct].VY*dt;
+	  Z += image_log[imct].VZ*dt;
+	}
+	onepoint = point3d(X,Y,Z);
+	observerpos.push_back(onepoint);
+      }
+      // Use mean state vectors to estimate positions
+      startpos.x = onecluster.posX;
+      startpos.y = onecluster.posY;
+      startpos.z = onecluster.posZ;
+      startvel.x = onecluster.velX;
+      startvel.y = onecluster.velY;
+      startvel.z = onecluster.velZ;
+      // There used to be a check against solar escape velocity here,
+      // but it isn't needed since we are using the universal variables
+      // formulation, able to handle unbound as well as bound orbits.
+      
+      // Calculate position at first observation
+      Kepler_univ_int(GMSUN_KM3_SEC2, config.MJDref, startpos, startvel, obsMJD[0], endpos, endvel);
+      // Find vector relative to the observer by subtracting off the observer's position.
+      endpos.x -= observerpos[0].x;
+      endpos.y -= observerpos[0].y;
+      endpos.z -= observerpos[0].z;
+      geodist1 = vecabs3d(endpos)/AU_KM;
+      // Calculate position at last observation
+      Kepler_univ_int(GMSUN_KM3_SEC2, config.MJDref, startpos, startvel, obsMJD[ptnum-1], endpos, endvel);
+      endpos.x -= observerpos[ptnum-1].x;
+      endpos.y -= observerpos[ptnum-1].y;
+      endpos.z -= observerpos[ptnum-1].z;
+      geodist2 = vecabs3d(endpos)/AU_KM;
+      simplex_scale = SIMPLEX_SCALEFAC;
+      if(config.verbose>=2) {
+	cout << "Calling Hergetfit_vstar with dists " << geodist1 << " and " << geodist2 << "\n";
+      }
+      if(config.verbose>=2) {
+	cout << "Launching Hergetfit_vstar for cluster " << inclustct << ":\n";
+	for(i=0;i<=ptnum;i++) {
+	  cout << "Point " << i << ": " << obsMJD[i] << " " << obsRA[i] << " "  << obsDec[i] << " " << sigastrom[i] << "\n";
+	}
+      }
+      if(config.verbose>=2) cout << "Cluster " << inclustct << " of " << inclustnum << " is good: ";
+      if(config.verbose>=2) cout << "\n";
+      if(config.verbose>=1 || inclustct%1000==0) cout << "Fitting cluster " << inclustct << " of " << inclustnum << ": ";
+      chisq = Hergetfit_vstar(geodist1, geodist2, simplex_scale, config.simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, config.verbose);
+      if(chisq>=LARGERR3) {
+	cerr << "WARNING: Hergetfit_vstar() returned error code on input " << geodist1 << ", " << geodist2 << "\n";
+      }
+      // orbit vector contains: semimajor axis [0], eccentricity [1],
+      // mjd at epoch [2], the state vectors [3-8], and the number of
+      // orbit evaluations (~iterations) required to reach convergence [9].
+      
+      chisq /= double(ptnum); // Now it's the reduced chi square value
+      astromrms = sqrt(chisq); // This gives the actual astrometric RMS in arcseconds if all the
+      // entries in sigastrom are 1.0. Otherwise it's a measure of the
+      // RMS in units of the typical uncertainty.
+      if(config.verbose>=1 || inclustct%1000==0) cout << " astromrms = " << astromrms << " arcsec, dup=" << istimedup << "\n";
+
+      // If good, just write it out.
+      if(astromrms <= config.max_astrom_rms && istimedup==0) {
+	// CLUSTER IS GOOD
+	// Recalculate clustermetric
+	clustmetric = intpowD(double(onecluster.uniquepoints),config.ptpow)*intpowD(double(onecluster.obsnights),config.nightpow)*intpowD(onecluster.timespan,config.timepow);	  
+	// Include the astrometric RMS value in the cluster metric and the RMS vector
+	onecluster.astromRMS = astromrms; // rmsvec[3]: astrometric rms in arcsec.
+	onecluster.metric = clustmetric/intpowD(astromrms,config.rmspow); // Under the default value rmspow=2, this is equivalent
+	                                                                  // to dividing by the chi-square value rather than just
+	                                                                  // the astrometric RMS, which has the desireable effect of
+	                                                                  // prioritizing low astrometric error even more.
+	onecluster.orbit_a = orbit[0]/AU_KM;
+	onecluster.orbit_e = orbit[1];
+	onecluster.orbit_MJD = orbit[2];
+	onecluster.orbitX = orbit[3];
+	onecluster.orbitY = orbit[4];
+	onecluster.orbitZ = orbit[5];
+	onecluster.orbitVX = orbit[6];
+	onecluster.orbitVY = orbit[7];
+	onecluster.orbitVZ = orbit[8];
+	onecluster.orbit_eval_count = long(round(orbit[9]));
+	// Push new cluster on to holding vector holdclust
+	holdclust.push_back(onecluster);
+	clustindmat.push_back(clustind);
+      } else if((astromrms>config.max_astrom_rms || istimedup>0) && ptnum>config.minpointnum) {
+	if(config.verbose>0) cout << "astromrms comparison: " << astromrms << " > " << config.max_astrom_rms << ", dup" << istimedup << "\n";
+	// CLUSTER IS NOT GOOD, BUT MIGHT BE FIXABLE
+	// Iteratively remove astrometric outliers, or remove time duplicates
+	// Setup for the main while loop:
+	rejnum = 0;
+	rejmax = config.rejfrac*ptnum;
+	if(rejmax > ptnum-config.minpointnum) rejmax = ptnum - config.minpointnum;
+	if(rejmax > MAXREJ) rejmax=MAXREJ; // Insurance policy against excessive runtimes in pathological cases.
+	// Main while loop, which iteratively removes outliers
+	while(rejnum<rejmax && ptnum>config.minpointnum) {
+	  if(config.verbose>0) cout << "astromrms comparison: " << astromrms << " vs. " << config.max_astrom_rms << "\n";
+	  if(astromrms>config.max_astrom_rms) {
+	    // The reason the cluster is not good is that the astrometric RMS is too high.
+	    // Identify the worst point.
+	    int wp=0;
+	    double wresid = resid[0];
+	    for(i=1;i<ptnum;i++) {
+	      if(resid[i]>wresid) {
+		wresid=resid[i];
+		wp = i;
+	      }
+	    }
+	    // Remove worst point from clusterdets and associated vectors
+	    clusterdets.erase(clusterdets.begin()+wp);
+	    obsMJD.erase(obsMJD.begin()+wp);
+	    obsRA.erase(obsRA.begin()+wp);
+	    obsDec.erase(obsDec.begin()+wp);
+	    sigastrom.erase(sigastrom.begin()+wp);
+	    observerpos.erase(observerpos.begin()+wp);
+	    ptnum--;
+	    rejnum++;
+	    if(long(obsMJD.size())!=ptnum) {
+	      cerr << "Vector trim count error: " << obsMJD.size() << "!=" << ptnum << "\n";
+	      return(9);
+	    }
+	    // Worst outlier rejected, ready for new round of orbit-fitting.
+	  } else if(astromrms <= config.max_astrom_rms && istimedup>0) {
+	    if(config.verbose>0) cout << "astromrms comparison: " << astromrms << " <= " << config.max_astrom_rms << ", dup=" << istimedup << "\n";
+	    // The reason the cluster is not good is that it still contains
+	    // time-duplicates, even though the astrometric RMS is OK.
+	    vector <long> badpoints = {};
+	    for(ptct=1; ptct<ptnum; ptct++) {
+	      if(clusterdets[ptct-1].MJD == clusterdets[ptct].MJD && stringnmatch01(clusterdets[ptct-1].obscode,clusterdets[ptct].obscode,3)==0) {
+		// Points ptct-1 and ptct are time-duplicates.
+		// Mark for rejection whichever point has the larger RMS.
+		if(resid[ptct-1]>resid[ptct]) badpoints.push_back(ptct-1);
+		else badpoints.push_back(ptct);
+	      }
+	    }
+	    // sort the badpoints vector
+	    sort(badpoints.begin(), badpoints.end());
+	    // Erase the bad points, starting from the end of the vectors
+	    for(i=long(badpoints.size()-1); i>=0; i--) {
+	      clusterdets.erase(clusterdets.begin()+badpoints[i]);
+	      obsMJD.erase(obsMJD.begin()+badpoints[i]);
+	      obsRA.erase(obsRA.begin()+badpoints[i]);
+	      obsDec.erase(obsDec.begin()+badpoints[i]);
+	      sigastrom.erase(sigastrom.begin()+badpoints[i]);
+	      observerpos.erase(observerpos.begin()+badpoints[i]);
+	      ptnum--;
+	      rejnum++;
+	    }
+	    if(long(obsMJD.size())!=ptnum) {
+	      cerr << "Vector timedupe trim count error: " << obsMJD.size() << "!=" << ptnum << "\n";
+	      return(9);
+	    }
+	    // All time-duplicates rejected, ready for next round of orbit-fitting.
+	  } else {
+	    // This is a weird, illogical case, and probably the reason we got here
+	    // has to do with NANs. In any case, the cluster is very unlikely to be
+	    // salvageable.
+	    break; // Break out of the point-culling while loop, abandoning this cluster.
+	    if(config.verbose>=1 || inclustct%1000==0) cout << "Weird cluster case, REJECTING\n";
+	  }
+	  // Check if cluster is still valid
+	  // load vector of MJD steps
+	  mjdstep={};
+	  for(long i=1; i<ptnum; i++) mjdstep.push_back(obsMJD[i]-obsMJD[i-1]);
+	  // Count steps large enough to suggest a daytime period between nights.
+	  daysteps=0;	
+	  for(long i=0; i<long(mjdstep.size()); i++) {
+	    if(mjdstep[i]>NIGHTSTEP) daysteps++;
+	  }
+	  obsnights = daysteps+1;
+	  // Does cluster pass the criteria for a linked detection?
+	  if(obsnights < config.minobsnights || ptnum < config.minpointnum) {
+	    // This cluster became invalid when we rejected the outlier(s).
+	    break; // Break out of point-culling while loop, since
+	           // this cluster is unredeemable.
+	    if(config.verbose>=1 || inclustct%1000==0) cout << "Cluster became invalid, REJECTING\n";
+	  }
+	  // If we get here, rejection of the point didn't make the cluster invalid.
+	  // Begin analysis by loading new clustind vector.
+	  clustind = {};
+	  for(i=0;i<ptnum;i++) clustind.push_back(clusterdets[i].index);
+	  // Check for time-duplicates
+	  istimedup=0;
+	  for(ptct=1; ptct<ptnum; ptct++) {
+	    if(clusterdets[ptct-1].MJD == clusterdets[ptct].MJD && stringnmatch01(clusterdets[ptct-1].obscode,clusterdets[ptct].obscode,3)==0) istimedup=1;
+	  }
+	  // Use state vectors from previous fit to estimate beginning and ending geocentric distances.
+	  startpos.x = orbit[3];
+	  startpos.y = orbit[4];
+	  startpos.z = orbit[5];
+	  startvel.x = orbit[6];
+	  startvel.y = orbit[7];
+	  startvel.z = orbit[8];
+	  // Note that orbit[2] is MJD at the epoch.
+	  // Calculate position at first observation
+	  Kepler_univ_int(GMSUN_KM3_SEC2, orbit[2], startpos, startvel, obsMJD[0], endpos, endvel);
+	  // Find vector relative to the observer by subtracting off the observer's position.
+	  endpos.x -= observerpos[0].x;
+	  endpos.y -= observerpos[0].y;
+	  endpos.z -= observerpos[0].z;
+	  geodist1 = vecabs3d(endpos)/AU_KM;
+	  // Calculate position at last observation
+	  Kepler_univ_int(GMSUN_KM3_SEC2, orbit[2], startpos, startvel, obsMJD[ptnum-1], endpos, endvel);
+	  endpos.x -= observerpos[ptnum-1].x;
+	  endpos.y -= observerpos[ptnum-1].y;
+	  endpos.z -= observerpos[ptnum-1].z;
+	  geodist2 = vecabs3d(endpos)/AU_KM;
+	    
+	  simplex_scale = SIMPLEX_SCALEFAC;
+	  if(config.verbose>=2) {
+	    cout << "Calling Hergetfit_vstar with dists " << geodist1 << " and " << geodist2 << "\n";
+	  }
+	  if(config.verbose>=2) {
+	    cout << "Launching Hergetfit_vstar for cluster " << inclustct << ":\n";
+	    for(i=0;i<=ptnum;i++) {
+	      cout << "Point " << i << ": " << obsMJD[i] << " " << obsRA[i] << " "  << obsDec[i] << " " << sigastrom[i] << "\n";
+	    }
+	  }
+	  if(config.verbose>=1 || inclustct%1000==0) cout << "Fitting cluster " << inclustct << " of " << inclustnum << " minus " << rejnum << " outliers: ";
+	  chisq = Hergetfit_vstar(geodist1, geodist2, simplex_scale, config.simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, config.verbose);
+	  if(chisq>=LARGERR3) {
+	    cerr << "WARNING: Hergetfit_vstar() returned error code on input " << geodist1 << ", " << geodist2 << "\n";
+	  }
+	  if(config.verbose>=1 || inclustct%1000==0) cout << " astromrms = " << astromrms << " arcsec, dup=" << istimedup << "\n";
+	  // orbit vector contains: semimajor axis [0], eccentricity [1],
+	  // mjd at epoch [2], the state vectors [3-8], and the number of
+	  // orbit evaluations (~iterations) required to reach convergence [9].
+      
+	  chisq /= double(ptnum); // Now it's the reduced chi square value
+	  astromrms = sqrt(chisq); // This gives the actual astrometric RMS in arcseconds if all the
+	  // entries in sigastrom are 1.0. Otherwise it's a measure of the
+	  // RMS in units of the typical uncertainty.
+	  
+	  // Check if the astrometric RMS has dropped to the acceptable range,
+	  // and no time-duplicates remain.
+	  if(astromrms <= config.max_astrom_rms && istimedup==0) {
+	    if(config.verbose>=1 || inclustct%1000==0) cout << "astromrms success: " << astromrms << " <= " << config.max_astrom_rms << ", dup=" << istimedup << "\n";
+	    // CLUSTER HAS BEEN SUCCESSFULLY PURIFIED.
+	    // The cluster is good and should be written out.
+	    // Revise onecluster to reflect the deleted points
+	    onecluster.timespan = obsMJD[ptnum-1]-obsMJD[0];
+	    onecluster.uniquepoints = ptnum;
+	    onecluster.obsnights = obsnights;
+	    // Recalculate clustermetric
+	    clustmetric = intpowD(double(onecluster.uniquepoints),config.ptpow)*intpowD(double(onecluster.obsnights),config.nightpow)*intpowD(onecluster.timespan,config.timepow);	  
+	    // Include the astrometric RMS value in the cluster metric and the RMS vector
+	    onecluster.astromRMS = astromrms; // rmsvec[3]: astrometric rms in arcsec.
+	    onecluster.metric = clustmetric/intpowD(astromrms,config.rmspow); // Under the default value rmspow=2, this is equivalent
+	                                                                      // to dividing by the chi-square value rather than just
+	                                                                      // the astrometric RMS, which has the desireable effect of
+	                                                                      // prioritizing low astrometric error even more.
+	    onecluster.orbit_a = orbit[0]/AU_KM;
+	    onecluster.orbit_e = orbit[1];
+	    onecluster.orbit_MJD = orbit[2];
+	    onecluster.orbitX = orbit[3];
+	    onecluster.orbitY = orbit[4];
+	    onecluster.orbitZ = orbit[5];
+	    onecluster.orbitVX = orbit[6];
+	    onecluster.orbitVY = orbit[7];
+	    onecluster.orbitVZ = orbit[8];
+	    onecluster.orbit_eval_count = long(round(orbit[9]));
+	    // Push new cluster on to holding vector holdclust
+	    holdclust.push_back(onecluster);
+	    clustindmat.push_back(clustind);
+	    break; // Break out of point-culling while loop, since we have
+	           // successfully purified the cluster.
+	  } // Closes successful purification case.
+	  if(config.verbose>0 && (rejnum>=rejmax || ptnum<=config.minpointnum)) cout << "Cluster became too small: REJECTED.\n";
+	} // Closes point-culling while loop.
+      } // Closes else if case that astrometric RMS was too high, the cluster needed purifying.
+    } // Closes initial if case that physical RMS is too high, cluster is rejected immediately.
+  } // Closes loop on input cluster arrays.
+
+  clusternum = holdclust.size();
+  cout << "Finished loading input clusters: " << clusternum << " out of " << inclustnum << " passed initial screening.\n";
+  
+  // Load just clustermetric values and indices from
+  // clustanvec into metric_index
+  metric_index = {};
+  // Record indices so information won't be lost on sort
+  for(clusterct=0; clusterct<clusternum; clusterct++) {
+    dindex = double_index(holdclust[clusterct].metric,clusterct);
+    metric_index.push_back(dindex);
+  }
+  // Sort metric_index
+  sort(metric_index.begin(), metric_index.end(), lower_double_index());
+  
+  // Loop on clusters, starting with the best (highest metric),
+  // and eliminating duplicates
+  goodclusternum=0;
+  for(clusterct2=clusternum-1; clusterct2>=0; clusterct2--) {
+    // Look up the correct cluster from metric_index
+    clusterct = metric_index[clusterct2].index;
+    inclustct = holdclust[clusterct].clusternum;
+    onecluster = holdclust[clusterct];
+    // Pull out the vector of detection indices from clustindmat
+    clustind = clustindmat[clusterct];
+    ptnum = clustind.size();
+    // Sanity-check the count of unique detections in this cluster
+    if(onecluster.uniquepoints>0 && ptnum!=onecluster.uniquepoints) {
+      cerr << "ERROR: 2nd-stage point number mismatch " << ptnum << " != " << onecluster.uniquepoints << " at input cluster " << inclustct << " (" << clusterct << ")\n";
+      return(7);
+    }
+    // See if all of them are still unused
+    detsused = 0;
+    for(ptct=1; ptct<ptnum; ptct++) {
+      if(detusedvec[clustind[ptct]]!=0) detsused+=1;
+    }
+    if(onecluster.uniquepoints>0 && onecluster.totRMS<=config.maxrms && detsused==0) {
+      // This is a good cluster not already marked as used.
+      goodclusternum++;
+      cout << "Accepted good cluster " << goodclusternum << " with metric " << onecluster.metric << "\n";
+      // See whether cluster is pure or mixed.
+      stringncopy01(rating,"PURE",SHORTSTRINGLEN);
+      for(ptct=1; ptct<ptnum; ptct++) {
+	if(stringnmatch01(detvec[clustind[ptct]].idstring,detvec[clustind[ptct-1]].idstring,SHORTSTRINGLEN) != 0) {
+	  stringncopy01(rating,"MIXED",SHORTSTRINGLEN);
+	}
+      }
+      for(i=0;i<SHORTSTRINGLEN;i++) onecluster.rating[i] = rating[i];
+      //      assert(rating.size() < sizeof(onecluster.rating));
+      //strncpy(onecluster.rating, rating.c_str(), sizeof(onecluster.rating));
+      //onecluster.rating[sizeof(onecluster.rating)-1] = 0;
+
+      // Figure out the time order of cluster points, so we can write them out in order.
+      sortclust = {};
+      for(ptct=0; ptct<ptnum; ptct++) {
+	dindex = double_index(detvec[clustind[ptct]].MJD,clustind[ptct]);
+	sortclust.push_back(dindex);
+	// Also mark each detection as used
+	detusedvec[clustind[ptct]]=1;
+      }
+      sort(sortclust.begin(), sortclust.end(), lower_double_index());
+      // Load new clusternumber for onecluster
+      onecluster.clusternum = outclust.size();
+      // Push back the new, vetted cluster on to outclust
+      outclust.push_back(onecluster);
+      // Push back the detection indices 
+      for(ptct=0; ptct<ptnum; ptct++) {
+	c2d = longpair(onecluster.clusternum,sortclust[ptct].index);
+	outclust2det.push_back(c2d);
+      }
+      // Close if-statement checking if this is a good, non-duplicated cluster
+    }
+    // Close loop on all clusters passing the initial cuts
+  }
+  return(0);
+}
+#undef MAXREJ
 
 // link_refine_Herget_omp: July 04, 2023:
 // Algorithmic portion to be called by wrappers,
@@ -23428,6 +24044,62 @@ int read_orbline(ifstream &instream1, asteroid_orbit &oneorb)
   
   mjd_epoch = MPCcal2MJD(year, month, day);
   oneorb = asteroid_orbit(desig,semimaj_axis, eccentricity, inclination, long_ascend_node, arg_perihelion, mean_anom, mjd_epoch, mean_daily_motion,H,G);
+  return(0);
+}
+
+// read_orbline: June 20, 2023:
+// Read one line from a file using the format of the MPCORB.DAT file,
+// and store the data in oneorb.
+int read_orbline(ifstream &instream1, asteroid_orbitLD &oneorb)
+{
+  long double semimaj_axis = 0L; // in AU
+  long double eccentricity = 0L; // unitless
+  long double inclination = 0L;  // in degrees
+  long double long_ascend_node = 0L; // Longitude of the ascending node, in degrees
+  long double arg_perihelion = 0L;   // Argument of perihelion, in degrees
+  long double mean_anom = 0L;        // Mean anomaly at the epoch, in degrees
+  long double mjd_epoch = 0L;        // Epoch for the orbit in MJD
+  long double mean_daily_motion = 0L; // in degrees/day
+  string desig,epoch,lnfromfile;
+  double H = 0l;
+  double G = 0l;
+  int year=0;
+  int month=0;
+  double day = 0l;
+  
+  instream1 >> desig >> H >> G >> epoch >> mean_anom >> arg_perihelion >> long_ascend_node;
+  instream1 >> inclination >> eccentricity >> mean_daily_motion >> semimaj_axis;
+  if(instream1.eof() || instream1.fail() || instream1.bad()) {
+    return(1);
+  }
+  // Clear out the rest of the line
+  getline(instream1,lnfromfile);
+  
+  // Parse the packed epoch string
+  if(epoch[0]=='I') year = 1800;
+  else if(epoch[0]=='J') year = 1900;
+  else if(epoch[0]=='K') year = 2000;
+  else {
+    cerr << "Warning read_orbline has invalid epoch string " << epoch << "\n";
+    return(2);
+  }
+  year += 10*(epoch[1]-'0');
+  year += epoch[2]-'0';
+  if( (epoch[3]-'0')  >= 0 && (epoch[3]-'0') <=9) month = epoch[3]-'0';
+  else if( (epoch[3]-'A')  >= 0 && (epoch[3]-'A') <=2) month = 10 + epoch[3]-'A';
+  else {
+    cerr << "Warning read_orbline has invalid epoch string " << epoch << "\n";
+    return(2);
+  }
+  if( (epoch[4]-'0')  >= 0 && (epoch[4]-'0') <=9) day = epoch[4]-'0';
+  else if( (epoch[4]-'A')  >= 0 && (epoch[4]-'A') <=21) day = 10 + epoch[4]-'A';
+  else {
+    cerr << "Warning read_orbline has invalid epoch string " << epoch << "\n";
+    return(2);
+  }
+  
+  mjd_epoch = MPCcal2MJD(year, month, day);
+  oneorb = asteroid_orbitLD(desig,semimaj_axis, eccentricity, inclination, long_ascend_node, arg_perihelion, mean_anom, mjd_epoch, mean_daily_motion,H,G);
   return(0);
 }
 	   
