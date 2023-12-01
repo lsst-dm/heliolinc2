@@ -6527,7 +6527,7 @@ int Kepler_univ_int(const double MGsun, const double mjdstart, const point3d &st
     else if(deltaM<0) deltaF = -log((-2.0l*deltaM + DANBYK_6935*e)/(CH-SH));
     s = deltaF/sqrt(-alpha);
   }
-  if(!isnormal(s)) {
+  if(!isnormal(s) && s!=0.0l) {
     cerr << "WARNING: initial guess with alpha = " << alpha << " produced non-normal s = " << s << "\n";
     s=deltat/r0;
     cerr << "Re-assigning rescue value s = " << s << "\n";
@@ -6539,7 +6539,7 @@ int Kepler_univ_int(const double MGsun, const double mjdstart, const point3d &st
   int status=0;
 
   // Newton's Method solution for s
-  if(!isnormal(alpha*s*s)) {
+  if(!isnormal(alpha*s*s) && alpha*s*s != 0.0l) {
     cerr << "input catch alpha = " << alpha << ", s = " << s << ", alpha*s^2 = " << alpha*s*s << "\n";
   }
   status = Stumpff_func(alpha*s*s, &c0, &c1, &c2, &c3);
@@ -9202,6 +9202,7 @@ int stateunit_to_celestial(point3d &baryvec, double &RA, double &Dec)
     //Logically excluded case
     cerr << "Logically excluded case in stateunit_to_celestial\n";
     cerr << "xe = " << xe << " yszc = " << yszc << "\n";
+    cerr << "baryvec: " << baryvec.x << " " << baryvec.y << " " << baryvec.z << ", poleDec = " << poleDec << "\n";
     return(1);
   }
 
@@ -12024,7 +12025,7 @@ int Keplerint_multipoint_univar(const double MGsun, const double mjdstart, const
       }
       s = deltaF/sqrt(-alpha);
     }
-    if(!isnormal(s)) {
+    if(!isnormal(s) && s!=0.0l) {
       cerr << "WARNING: initial guess with alpha = " << alpha << " produced non-normal s = " << s << "\n";
       s=deltat/r0;
       cerr << "Re-assigning rescue value s = " << s << "\n";
@@ -12036,7 +12037,7 @@ int Keplerint_multipoint_univar(const double MGsun, const double mjdstart, const
     int status=0;
 
     // Newton's Method solution for s
-    if(!isnormal(alpha*s*s)) {
+    if(!isnormal(alpha*s*s) && alpha*s*s != 0.0l) {
       cerr << "input catch alpha = " << alpha << ", s = " << s << ", alpha*s^2 = " << alpha*s*s << "\n";
     }
     status = Stumpff_func(alpha*s*s, &c0, &c1, &c2, &c3);
@@ -12456,6 +12457,12 @@ double orbitchi_univar(const point3d &objectpos, const point3d &objectvel, const
     }
     // Light-travel-time corrected observer-target distance
     dval = sqrt(outpos.x*outpos.x + outpos.y*outpos.y + outpos.z*outpos.z);
+    if(!isnormal(dval)) {
+      cerr << "WARNING: about to call stateunit_to_celestial with bad input\n";
+      cerr << "Input start pos: " << objectpos.x << " "  << objectpos.y << " "  << objectpos.z << "\n";
+      cerr << "Recovered start pos: " << obspos[0].x << " "  << obspos[0].y << " "  << obspos[0].z << "\n";
+      cerr << "Observerpos: " << observerpos[obsct].x << " "  << observerpos[obsct].y << " "  << observerpos[obsct].z << "\n";
+    }
     // Calculate unit vector
     outpos.x /= dval;
     outpos.y /= dval;
@@ -13205,7 +13212,10 @@ double Hergetchi_vstar(double geodist1, double geodist2, int Hergetpoint1, int H
     for(i=0;i<10;i++) orbit.push_back(-1.0l);
     return(LARGERR3);
   }
-  
+  if(geodist1<=0.0l || geodist2<=0.0l) {
+    //cerr << "ERROR: Hergetchi_vstar has zero or negative geodist1 or geodist2: " << geodist1 << " " << geodist2 << "\n";
+    return(LARGERR3);
+  }
   point3d startpos = geodist_to_3dpos01(obsRA[Hergetpoint1], obsDec[Hergetpoint1], observerpos[Hergetpoint1], geodist1);
   point3d endpos = geodist_to_3dpos01(obsRA[Hergetpoint2], obsDec[Hergetpoint2], observerpos[Hergetpoint2], geodist2);
   // Time difference should include a light-travel-time correction. The sign is determined
@@ -22164,7 +22174,6 @@ int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec,
 	holdclust.push_back(onecluster);
 	clustindmat.push_back(clustind);
       } else if((astromrms>config.max_astrom_rms || istimedup>0) && ptnum>config.minpointnum) {
-	if(config.verbose>0) cout << "astromrms comparison: " << astromrms << " > " << config.max_astrom_rms << ", dup" << istimedup << "\n";
 	// CLUSTER IS NOT GOOD, BUT MIGHT BE FIXABLE
 	// Iteratively remove astrometric outliers, or remove time duplicates
 	// Setup for the main while loop:
@@ -22174,7 +22183,6 @@ int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec,
 	if(rejmax > MAXREJ) rejmax=MAXREJ; // Insurance policy against excessive runtimes in pathological cases.
 	// Main while loop, which iteratively removes outliers
 	while(rejnum<rejmax && ptnum>config.minpointnum) {
-	  if(config.verbose>0) cout << "astromrms comparison: " << astromrms << " vs. " << config.max_astrom_rms << "\n";
 	  if(astromrms>config.max_astrom_rms) {
 	    // The reason the cluster is not good is that the astrometric RMS is too high.
 	    // Identify the worst point.
@@ -22201,7 +22209,6 @@ int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec,
 	    }
 	    // Worst outlier rejected, ready for new round of orbit-fitting.
 	  } else if(astromrms <= config.max_astrom_rms && istimedup>0) {
-	    if(config.verbose>0) cout << "astromrms comparison: " << astromrms << " <= " << config.max_astrom_rms << ", dup=" << istimedup << "\n";
 	    // The reason the cluster is not good is that it still contains
 	    // time-duplicates, even though the astrometric RMS is OK.
 	    vector <long> badpoints = {};
@@ -22235,8 +22242,8 @@ int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec,
 	    // This is a weird, illogical case, and probably the reason we got here
 	    // has to do with NANs. In any case, the cluster is very unlikely to be
 	    // salvageable.
-	    break; // Break out of the point-culling while loop, abandoning this cluster.
 	    if(config.verbose>=1 || inclustct%1000==0) cout << "Weird cluster case, REJECTING\n";
+	    break; // Break out of the point-culling while loop, abandoning this cluster.
 	  }
 	  // Check if cluster is still valid
 	  // load vector of MJD steps
@@ -22251,9 +22258,9 @@ int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec,
 	  // Does cluster pass the criteria for a linked detection?
 	  if(obsnights < config.minobsnights || ptnum < config.minpointnum) {
 	    // This cluster became invalid when we rejected the outlier(s).
+	    if(config.verbose>=1 || inclustct%1000==0) cout << "Cluster became invalid, REJECTING\n";
 	    break; // Break out of point-culling while loop, since
 	           // this cluster is unredeemable.
-	    if(config.verbose>=1 || inclustct%1000==0) cout << "Cluster became invalid, REJECTING\n";
 	  }
 	  // If we get here, rejection of the point didn't make the cluster invalid.
 	  // Begin analysis by loading new clustind vector.
@@ -22301,13 +22308,13 @@ int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec,
 	  if(chisq>=LARGERR3) {
 	    cerr << "WARNING: Hergetfit_vstar() returned error code on input " << geodist1 << ", " << geodist2 << "\n";
 	  }
-	  if(config.verbose>=1 || inclustct%1000==0) cout << " astromrms = " << astromrms << " arcsec, dup=" << istimedup << "\n";
 	  // orbit vector contains: semimajor axis [0], eccentricity [1],
 	  // mjd at epoch [2], the state vectors [3-8], and the number of
 	  // orbit evaluations (~iterations) required to reach convergence [9].
       
 	  chisq /= double(ptnum); // Now it's the reduced chi square value
 	  astromrms = sqrt(chisq); // This gives the actual astrometric RMS in arcseconds if all the
+	  if(config.verbose>=1 || inclustct%1000==0) cout << " astromrms = " << astromrms << " arcsec, dup=" << istimedup << "\n";
 	  // entries in sigastrom are 1.0. Otherwise it's a measure of the
 	  // RMS in units of the typical uncertainty.
 	  
@@ -22345,7 +22352,7 @@ int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec,
 	    break; // Break out of point-culling while loop, since we have
 	           // successfully purified the cluster.
 	  } // Closes successful purification case.
-	  if(config.verbose>0 && (rejnum>=rejmax || ptnum<=config.minpointnum)) cout << "Cluster became too small: REJECTED.\n";
+	  if((config.verbose>0 || inclustct%1000==0) && (rejnum>=rejmax || ptnum<=config.minpointnum)) cout << "Cluster became too small: REJECTED.\n";
 	} // Closes point-culling while loop.
       } // Closes else if case that astrometric RMS was too high, the cluster needed purifying.
     } // Closes initial if case that physical RMS is too high, cluster is rejected immediately.
