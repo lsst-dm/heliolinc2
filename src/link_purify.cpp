@@ -464,7 +464,7 @@ int main(int argc, char *argv[])
 	  isdup=0; // The clusters don't have the same length, and hence cannot possibly be duplicates.
 	} else {
 	  // They might be duplicates: check point by point
-	  for(k=0; k<=long(pointind_mat[dindvec[dindvec.size()-1].index].size()); k++) {
+	  for(k=0; k<long(pointind_mat[dindvec[dindvec.size()-1].index].size()); k++) {
 	    if(pointind_mat[dindvec[i].index][k] != pointind_mat[dindvec[dindvec.size()-1].index][k]) {
 	      isdup=0;
 	    }
@@ -482,12 +482,12 @@ int main(int argc, char *argv[])
 	  } else {
 	    // Clusters were of equal size, print out all the elements.
 	    cerr << "Cluster  " << dindvec[i].index << ":\n";
-	    for(k=0; k<=long(pointind_mat[dindvec[dindvec.size()-1].index].size()); k++) {
+	    for(k=0; k<long(pointind_mat[dindvec[dindvec.size()-1].index].size()); k++) {
 	      cerr << pointind_mat[dindvec[i].index][k] << " ";
 	    }
 	    cerr << "\n";
 	    cerr << "Cluster  " << dindvec[dindvec.size()-1].index << ":\n";
-	    for(k=0; k<=long(pointind_mat[dindvec[dindvec.size()-1].index].size()); k++) {
+	    for(k=0; k<long(pointind_mat[dindvec[dindvec.size()-1].index].size()); k++) {
 	      cerr << pointind_mat[dindvec[dindvec.size()-1].index][k] << " ";
 	    }
 	    cerr << "\n";
