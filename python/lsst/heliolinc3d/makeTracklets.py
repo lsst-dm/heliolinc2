@@ -4,43 +4,36 @@ import lsst.pipe.base
 from lsst.pipe.base import connectionTypes
 
 class MakeTrackletsConnections(lsst.pipe.base.PipelineTaskConnections,
-                               dimensions=("instrument", "visitWindow"),
-                               defaultTemplates={"timeSpan": "twoWeeks"}):
-    pointSourceTable = connectionTypes.Input(
+                               dimensions=("instrument")):
+    diaSourceTable = connectionTypes.Input(
         doc="Table of unattributed sources",
-        dimensions=("instrument", "visitWindow"),
-        storageClass="SourceCatalog",
-        name = "hldetCatalog_pointSources"
-    )
-    trailedSourceTable = connectionTypes.Input(
-        doc="Table of unattributed sources",
-        dimensions=("instrument", "visitWindow"),
-        storageClass="SourceCatalog",
-        name = "hldetCatalog_trails"
+        dimensions=("instrument"),
+        storageClass="DataFrame",
+        name = "sspDiaSourceInputs"
     )
     visitTable = connectionTypes.Input(
         doc="visit stats plus observer coordinates",
-        dimensions=("instrument", "visitWindow"),
-        storageClass="SourceCatalog",
-        name = "hlimageCatalog"
+        dimensions=("instrument"),
+        storageClass="DataFrame",
+        name = "sspVisitInputs"
     )
     trackletSources = connectionTypes.Output(
         doc="sources that got included in tracklets",
-        dimensions=("instrument", "visitWindow"),
-        storageClass="SourceCatalog",
-        name = "trackletSources"
+        dimensions=("instrument"),
+        storageClass="DataFrame",
+        name = "sspTrackletSources"
     )
     tracklets = connectionTypes.Output(
         doc="summary data for tracklets",
-        dimensions=("instrument", "visitWindow"),
-        storageClass="SourceCatalog",
-        name = "tracklets"
+        dimensions=("instrument"),
+        storageClass="DataFrame",
+        name = "sspTracklets"
      )
      trk2det = connectionTypes.Output(
         doc="indices connecting tracklets to trackletSources",
-        dimensions=("instrument", "visitWindow"),
-        storageClass="SourceCatalog",
-        name = "trk2source"
+        dimensions=("instrument"),
+        storageClass="DataFrame",
+        name = "sspTrackletToSource"
      )
 
 class MakeTrackletsConfig(lsst.pex.config.Config):
@@ -89,6 +82,11 @@ class MakeTrackletsConfig(lsst.pex.config.Config):
       default=0.5,
       doc="Default maximum Great Circle Residual allowed for a valid tracklet (arcsec)"
       )
+  timespan = lsst.pex.config.Field(
+      dtype=float,
+      default=14.0,
+      doc="Default time to look back before most recent data (days)"
+      )
   forcerun = lsst.pex.config.Field(
       dtype=int,
       default=0,
@@ -104,16 +102,14 @@ class MakeTrackletsTask(lsst.pipe.base.PipelineTask):
     ConfigClass = MakeTrackletsConfig
     _DefaultName = "makeTracklets"
 
-    def run(self, sourceTable, visitTable):
+    def run(self, diaSourceTable, visitTable):
         """doc string 
            here
         """
 
-        trackout_pointSources = heliohypy.makeTracklets(self.config, pointSourceTable, visitTable)
-        trackout_trails = heliohypy.makeTracklets(self.config, trailedSourceTable, visitTable)
+        trackout = heliohypy.makeTracklets(self.config, diaSourceTable, visitTable)
 
-        #Need a function here to join pointsources and trails output,
-        #while preserving indices correctly. Can use the same visitTable for both.
+        #Do something about trailed sources
         
         return lsst.pipe.base.Struct(trackletSources=trackout[0],
                                      tracklets=trackout[1],
