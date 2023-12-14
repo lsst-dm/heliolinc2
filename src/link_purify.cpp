@@ -43,7 +43,6 @@ int main(int argc, char *argv[])
   vector  <longpair> outclust2det;
   vector <hlimage> image_log;
   vector <hldet> detvec;
-  longpair onepair = longpair(0,0);
   LinkPurifyConfig config;
   string imfile, pairdetfile,stest;
   string outsumfile = "LRHsumfile_test.csv";
@@ -51,7 +50,6 @@ int main(int argc, char *argv[])
   ifstream instream1;
   ofstream outstream1;
   long i=0;
-  long k=0;
   long clustnum=0;
   int status=0;
   long clustct=0;
@@ -59,18 +57,13 @@ int main(int argc, char *argv[])
   default_simptype = default_ptpow = default_nightpow = default_timepow = 1;
   int default_rmspow, default_maxrms, default_sumfile, default_clust2det;
   default_rmspow = default_maxrms = default_sumfile = default_clust2det = 1;
-  vector <long> pointind;
-  vector <long> deletelist;
-  vector <long> clustref;
-  vector <vector <long>> pointind_mat;
-  long_index lindex = long_index(0,0);
-  vector <long_index> lindvec;
-  double_index dindex = double_index(0l,0l);
-  vector <double_index> dindvec;
-  long currentclust=0;
-  vector <int> keepvec;
-  int isdup=1;
-  long hashval=0;
+  //  vector <long> pointind;
+  //  vector <long> deletelist;
+  //  vector <vector <long>> pointind_mat;
+  //  vector <long_index> lindvec;
+  //  double_index dindex = double_index(0l,0l);
+  //  vector <double_index> dindvec;
+  // vector <int> keepvec;
 
   if(argc<9) {
     show_usage();
@@ -406,125 +399,6 @@ int main(int argc, char *argv[])
   instream1.close();
   cout << "Finished creating master cluster summary vector with length " << clustvecmain.size() << ",\n";
   cout << "and master cluster-to-detection vector with length " << clust2detmain.size() << "\n";
-
-  // Set up to cull out exact duplicates.
-  lindvec={};
-  keepvec={};
-  // First step: hash all the cluster index vectors
-  for(clustct=0 ; clustct<long(clustvecmain.size()); clustct++) {
-    if(clustct!=clustvecmain[clustct].clusternum) {
-      cerr << "ERROR: cluster index mismatch " << clustct << " != " << clustvecmain[clustct].clusternum << " at input cluster " << clustct << "\n";
-      return(5);
-    }
-    // Load a vector with the indices to detvec
-    pointind = {};
-    pointind = tracklet_lookup(clust2detmain, clustct);
-    // Sort vector of detection indices
-    sort(pointind.begin(), pointind.end());
-    // Hash this vector
-    hashval = blend_vector(pointind);
-    // Load hash for index-sorting
-    lindex = long_index(hashval,clustct);
-    lindvec.push_back(lindex);
-    // Load vector of detection indices into matrix
-    pointind_mat.push_back(pointind);
-    // Initialize keepvec to keep all clusters; later, some will be marked for removal
-    keepvec.push_back(1);
-  }
-  // Sort lindvec by hash values
-  sort(lindvec.begin(), lindvec.end(), lower_long_index());
-  // Identify duplicate clusters.
-  clustct=0;
-  while(clustct<long(lindvec.size())) {
-    dindvec={};
-    hashval=lindvec[clustct].lelem;
-    currentclust=lindvec[clustct].index;
-    dindex = double_index(clustvecmain[currentclust].metric,currentclust);
-    dindvec.push_back(dindex);
-    clustct++;
-    // Loop to identify any clusters with the same hash as currentclust
-    while(lindvec[clustct].lelem==hashval && clustct<long(lindvec.size())) {
-      currentclust=lindvec[clustct].index;
-      dindex = double_index(clustvecmain[currentclust].metric,currentclust);
-      dindvec.push_back(dindex);
-      clustct++;
-    }
-    // Now dindvec lists all the clusters with the identical hash (hashval)
-    // If there's only one, it should not be deleted, so there's nothing to be done.
-    if(dindvec.size()>1) {
-      // Some duplicate clusters were found. All but the best one must be deleted.
-      // Sort by quality metric
-      sort(dindvec.begin(), dindvec.end(), lower_double_index());
-      // The best cluster (highest metric) will be at the end,
-      // that is, it will be element dindvec.size()-1
-      for(i=0;i<long(dindvec.size()-1);i++) { // Loop over all clusters except the best one
-	// Make sure this cluster really is a duplicate of the best one
-	isdup=1;
-	if(pointind_mat[dindvec[i].index].size() != pointind_mat[dindvec[dindvec.size()-1].index].size()) {
-	  isdup=0; // The clusters don't have the same length, and hence cannot possibly be duplicates.
-	} else {
-	  // They might be duplicates: check point by point
-	  for(k=0; k<long(pointind_mat[dindvec[dindvec.size()-1].index].size()); k++) {
-	    if(pointind_mat[dindvec[i].index][k] != pointind_mat[dindvec[dindvec.size()-1].index][k]) {
-	      isdup=0;
-	    }
-	  }
-	}
-	if(isdup==0) {
-	  // Serious problem: there's been a hash collision.
-	  // Program will run and return correctly, but we definitely need to
-	  // notify the user that the hashing failed.
-	  cerr << "WARNING: HASHING COLLISION!\n";
-	  cerr << "Found equal hashes for clusters " << dindvec[i].index << " and " << dindvec[dindvec.size()-1].index << ", although the vectors were not actually equal\n";
-	  cerr << "hashes: " << blend_vector(pointind_mat[dindvec[i].index]) << " and " << blend_vector(pointind_mat[dindvec[dindvec.size()-1].index]) << "\n";
-	  if(pointind_mat[dindvec[i].index].size() != pointind_mat[dindvec[dindvec.size()-1].index].size()) {
-	    cerr << "Unequal sizes: " << pointind_mat[dindvec[i].index].size() << " and " << pointind_mat[dindvec[dindvec.size()-1].index].size() << "\n";
-	  } else {
-	    // Clusters were of equal size, print out all the elements.
-	    cerr << "Cluster  " << dindvec[i].index << ":\n";
-	    for(k=0; k<long(pointind_mat[dindvec[dindvec.size()-1].index].size()); k++) {
-	      cerr << pointind_mat[dindvec[i].index][k] << " ";
-	    }
-	    cerr << "\n";
-	    cerr << "Cluster  " << dindvec[dindvec.size()-1].index << ":\n";
-	    for(k=0; k<long(pointind_mat[dindvec[dindvec.size()-1].index].size()); k++) {
-	      cerr << pointind_mat[dindvec[dindvec.size()-1].index][k] << " ";
-	    }
-	    cerr << "\n";
-	  }
-	}
-	if(isdup==1) {
-	  // Expected result since the hashes were identical:
-	  // cluster dindvec[i].index has identical points to
-	  // cluster dindvec[dindvec.size()-1].index, but a less good
-	  // quality metric.
-	  keepvec[dindvec[i].index]=0; // Mark the duplicate cluster for deletion
-	}
-      } // Close loop on a subset of clusters with identical hashes
-    } // Close case where more than one cluster has the same hash
-  } // Close loop over all clusters
-
-  // Now all duplicate clusters are marked for deletion using keepvec=0.
-  // Construct new vectors that don't have these clusters.
-  
-  inclustvec = {};
-  inclust2det = {};
-  for(clustct=0 ; clustct<long(clustvecmain.size()); clustct++) {
-    if(keepvec[clustct]==1) {
-      clustvecmain[clustct].clusternum = inclustvec.size();
-      inclustvec.push_back(clustvecmain[clustct]);
-      for(i=0; i<long(pointind_mat[clustct].size()); i++) {
-	onepair = longpair(clustvecmain[clustct].clusternum,pointind_mat[clustct][i]);
-	inclust2det.push_back(onepair);
-      }
-    }
-  }
-  clustvecmain = inclustvec;
-  clust2detmain = inclust2det;
-  inclustvec = {};
-  inclust2det = {};
-
-  cout << "Duplicate-culled master cluster summary vector has length " << clustvecmain.size() << ",\n";
 
   status = link_purify(image_log, detvec, clustvecmain, clust2detmain, config, outclust, outclust2det);
   if(status!=0) {

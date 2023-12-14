@@ -20224,7 +20224,7 @@ int form_clusters_kd(const vector <point6ix2> &allstatevecs, const vector <hldet
   // adjusted accordingly.
 
   // Sanity check the logarithmic geocentric distance framework to avoid a
-  // possible infinte loop.
+  // possible infinite loop.
   dgnum = log(maxgeodist/mingeodist)/log(geologstep);
   if(!isnormal(dgnum) || dgnum<0.0l) {
     cerr << "ERROR: geocentric distance parameters led to nonsense:\n";
@@ -22773,6 +22773,145 @@ int link_refine_Herget_univar(const vector <hlimage> &image_log, const vector <h
   return(0);
 }
 
+// link_dedup: December 13, 2023:
+// Cull out clusters that are exact duplicates -- that is, that
+// include exactly the same list of detections, as determined by
+// the lists of indices to the detection table.
+int link_dedup(const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, vector <hlclust> &outclust, vector  <longpair> &outclust2det)
+{
+  long_index lindex = long_index(0,0);
+  vector <long_index> lindvec;
+  vector <int> keepvec;
+  vector <long> pointind;
+  vector <long> deletelist;
+  vector <vector <long>> pointind_mat;
+  double_index dindex = double_index(0l,0l);
+  vector <double_index> dindvec;
+  longpair onepair = longpair(0,0);
+  long i=0;
+  long j=0;
+  long clustct=0;
+  long clusternum = long(inclust.size());
+  hlclust oneclust=inclust[0];
+  long currentclust=0;
+  int isdup=1;
+  long hashval=0;
+
+  // Wipe output vectors
+  outclust={};
+  outclust2det={};
+  
+  // First step: hash all the cluster index vectors
+  for(clustct=0 ; clustct<clusternum; clustct++) {
+    if(clustct!=inclust[clustct].clusternum) {
+      cerr << "ERROR: cluster index mismatch " << clustct << " != " << inclust[clustct].clusternum << " at input cluster " << clustct << "\n";
+      return(5);
+    }
+    // Load a vector with the indices to detvec
+    pointind = {};
+    pointind = tracklet_lookup(inclust2det, clustct);
+    // Sort vector of detection indices
+    sort(pointind.begin(), pointind.end());
+    // Hash this vector
+    hashval = blend_vector(pointind);
+    // Load hash for index-sorting
+    lindex = long_index(hashval,clustct);
+    lindvec.push_back(lindex);
+    // Load vector of detection indices into matrix
+    pointind_mat.push_back(pointind);
+    // Initialize keepvec to keep all clusters; later, some will be marked for removal
+    keepvec.push_back(1);
+  }
+  // Sort lindvec by hash values
+  sort(lindvec.begin(), lindvec.end(), lower_long_index());
+  // Identify duplicate clusters.
+  clustct=0;
+  while(clustct<long(lindvec.size())) {
+    dindvec={};
+    hashval=lindvec[clustct].lelem;
+    currentclust=lindvec[clustct].index;
+    dindex = double_index(inclust[currentclust].metric,currentclust);
+    dindvec.push_back(dindex);
+    clustct++;
+    // Loop to identify any clusters with the same hash as currentclust
+    while(lindvec[clustct].lelem==hashval && clustct<long(lindvec.size())) {
+      currentclust=lindvec[clustct].index;
+      dindex = double_index(inclust[currentclust].metric,currentclust);
+      dindvec.push_back(dindex);
+      clustct++;
+    }
+    // Now dindvec lists all the clusters with the identical hash (hashval)
+    // If there's only one, it should not be deleted, so there's nothing to be done.
+    if(dindvec.size()>1) {
+      // Some duplicate clusters were found. All but the best one must be deleted.
+      // Sort by quality metric
+      sort(dindvec.begin(), dindvec.end(), lower_double_index());
+      // The best cluster (highest metric) will be at the end,
+      // that is, it will be element dindvec.size()-1
+      for(i=0;i<long(dindvec.size()-1);i++) { // Loop over all clusters except the best one
+	// Make sure this cluster really is a duplicate of the best one
+	isdup=1;
+	if(pointind_mat[dindvec[i].index].size() != pointind_mat[dindvec[dindvec.size()-1].index].size()) {
+	  isdup=0; // The clusters don't have the same length, and hence cannot possibly be duplicates.
+	} else {
+	  // They might be duplicates: check point by point
+	  for(j=0; j<long(pointind_mat[dindvec[dindvec.size()-1].index].size()); j++) {
+	    if(pointind_mat[dindvec[i].index][j] != pointind_mat[dindvec[dindvec.size()-1].index][j]) {
+	      isdup=0;
+	    }
+	  }
+	}
+	if(isdup==0) {
+	  // Serious problem: there's been a hash collision.
+	  // Program will run and return correctly, but we definitely need to
+	  // notify the user that the hashing failed.
+	  cerr << "WARNING: HASHING COLLISION!\n";
+	  cerr << "Found equal hashes for clusters " << dindvec[i].index << " and " << dindvec[dindvec.size()-1].index << ", although the vectors were not actually equal\n";
+	  cerr << "hashes: " << blend_vector(pointind_mat[dindvec[i].index]) << " and " << blend_vector(pointind_mat[dindvec[dindvec.size()-1].index]) << "\n";
+	  if(pointind_mat[dindvec[i].index].size() != pointind_mat[dindvec[dindvec.size()-1].index].size()) {
+	    cerr << "Unequal sizes: " << pointind_mat[dindvec[i].index].size() << " and " << pointind_mat[dindvec[dindvec.size()-1].index].size() << "\n";
+	  } else {
+	    // Clusters were of equal size, print out all the elements.
+	    cerr << "Cluster  " << dindvec[i].index << ":\n";
+	    for(j=0; j<long(pointind_mat[dindvec[dindvec.size()-1].index].size()); j++) {
+	      cerr << pointind_mat[dindvec[i].index][j] << " ";
+	    }
+	    cerr << "\n";
+	    cerr << "Cluster  " << dindvec[dindvec.size()-1].index << ":\n";
+	    for(j=0; j<long(pointind_mat[dindvec[dindvec.size()-1].index].size()); j++) {
+	      cerr << pointind_mat[dindvec[dindvec.size()-1].index][j] << " ";
+	    }
+	    cerr << "\n";
+	  }
+	}
+	if(isdup==1) {
+	  // Expected result since the hashes were identical:
+	  // cluster dindvec[i].index has identical points to
+	  // cluster dindvec[dindvec.size()-1].index, but a less good
+	  // quality metric.
+	  keepvec[dindvec[i].index]=0; // Mark the duplicate cluster for deletion
+	}
+      } // Close loop on a subset of clusters with identical hashes
+    } // Close case where more than one cluster has the same hash
+  } // Close loop over all clusters
+
+  // Now all duplicate clusters are marked for deletion using keepvec=0.
+  // Construct new vectors that don't have these clusters.
+  
+  for(clustct=0 ; clustct<long(inclust.size()); clustct++) {
+    if(keepvec[clustct]==1) {
+      oneclust=inclust[clustct];
+      oneclust.clusternum = outclust.size();
+      outclust.push_back(oneclust);
+      for(i=0; i<long(pointind_mat[clustct].size()); i++) {
+	onepair = longpair(inclust[clustct].clusternum,pointind_mat[clustct][i]);
+	outclust2det.push_back(onepair);
+      }
+    }
+  }
+  return(0);
+}
+
 // link_purify: November 29, 2023:
 // Based on link_refine_Herget_univar, this function is the first
 // one in my link_refine suite than actually attempts to purify
@@ -22786,13 +22925,15 @@ int link_refine_Herget_univar(const vector <hlimage> &image_log, const vector <h
 #define MAXREJ 50 // Maximum number of points that can be rejected, before the effort to
                   // salvage a high-RMS linkage is abandoned.
 
-int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust, const vector  <longpair> &inclust2det, LinkPurifyConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det)
+int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec, const vector <hlclust> &inclust1, const vector  <longpair> &inclust2det1, LinkPurifyConfig config, vector <hlclust> &outclust, vector <longpair> &outclust2det)
 {
+  vector <hlclust> inclust;
+  vector  <longpair> inclust2det;
   long i=0;
   long imnum = image_log.size();
   long imct=0;
   long detnum = detvec.size();
-  long inclustnum = inclust.size();
+  long inclustnum = inclust1.size();
   long inclustct=0;
   long clusternum=0;
   double clustmetric = 0.0l;
@@ -22824,6 +22965,7 @@ int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec,
   vector <double_index> sortclust;
   longpair c2d = longpair(0,0);
   char rating[SHORTSTRINGLEN];
+  int status=1;
   
   make_ivec(detnum, detusedvec); // All the entries are guaranteed to be 0.
 
@@ -22841,6 +22983,17 @@ int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec,
   cout << "the total timespan will be raised to the power of " << config.timepow << ";\n";
   cout << "and the astrometric RMS will be raised to the power of (negative) " << config.rmspow << "\n";
   if(config.verbose>=1) cout << "verbose output has been selected\n";
+  
+  // Cull out exact duplicates using link_dedup().
+  status =  link_dedup(inclust1, inclust2det1, inclust, inclust2det);
+  if(status!=0) {
+    cerr << "ERROR: link_dedup returned status " << status << "\n";
+    cerr << "link_purify aborting\n";
+    return(status);
+  }
+  inclustnum = inclust.size();
+  
+  cout << "Duplicate-culled cluster summary vector has length " << inclustnum << ",\n";
 
   // Launch master loop over all the input clusters.
   for(inclustct=0; inclustct<inclustnum; inclustct++) {
@@ -24584,8 +24737,8 @@ int greatcircfit(const vector <hldet> &trackvec, double &poleRA, double &poleDec
   point3d p3 = point3d(0l,0l,0l);
   point3d p3avg = point3d(0l,0l,0l);
   long i=0;
-  double RA,Dec,dist,tpa,x,y,altra,altramean,altranorm;
-  RA = Dec = dist = tpa = x = y = altra = altramean = altranorm = 0l;
+  double RA,Dec,dist,theta,tpa,x,y,altra,altramean,altranorm;
+  RA = Dec = dist = theta = tpa = x = y = altra = altramean = altranorm = 0l;
   vector <double> projx;
   vector <double> projy;
   vector <double> timevec;
@@ -24604,8 +24757,18 @@ int greatcircfit(const vector <hldet> &trackvec, double &poleRA, double &poleDec
   if(npoints<=1) {
     cerr << "ERROR: too few points to fit a Great Circle!\n";
     return(1);
+  } else if(npoints==2) {
+    distradec02(trackvec[0].RA,trackvec[0].Dec,trackvec[1].RA,trackvec[1].Dec,&dist,&tpa);
+    theta = tpa + 90.0l;
+    if(theta>=360.0l) theta-=360.0l;
+    arc2cel01(trackvec[0].RA,trackvec[0].Dec,90.0l,theta,poleRA,poleDec);
+    angvel = dist/fabs(trackvec[1].MJD-trackvec[2].MJD);
+    crosstrack = alongtrack = -1.0l;
+    pa = tpa;
+    return(0);
   }
-
+  // If we get here, it wasn't a trivial case with one or two points.
+  
   // Find averaged Cartesian projection over input points,
   // and average time
   avgtime = 0.0l;
@@ -24790,11 +24953,6 @@ int greatcircfit(const vector <hldet> &trackvec, double &poleRA, double &poleDec
   talong = sqrt(talong/double(npoints-1))*3600.0l;
 
   altGCR = sqrt(DSQUARE(tcross)+DSQUARE(talong));
-  angvel = tangvel;
-  crosstrack = tcross;
-  alongtrack = talong;
-  poleRA = tpoleRA;
-  poleDec = tpoleDec;
 
   // printf("GCR=%f, altac=%f, altal=%f, altGCR=%f\n",GCR,altcrosstrack,altalongtrack,altGCR);
 

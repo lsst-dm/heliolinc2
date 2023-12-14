@@ -250,9 +250,20 @@ int main(int argc, char *argv[])
 	    // Wipe trackvec, and load the next point of the next tracklet.
 	    trackvec = {};
 	    trackvec.push_back(clustvec[i]);
+	  } else if(tracknum==1) {
+	    // The 'tracklet' is a singleton. Set all tracket vectors to error codes or zero.
+	    angvelvec.push_back(-1.0l);
+	    GCRvec.push_back(-1.0l);
+	    PAvec.push_back(-999.0l);
+	    arcvec.push_back(0.0l);
+	    timespanvec.push_back(0.0l);
+	    // Wipe trackvec, and load the next point of the next tracklet.
+	    trackvec = {};
+	    trackvec.push_back(clustvec[i]);
 	  }
 	}
       }
+      tracknum = trackvec.size();
       if(tracknum>1) {
 	// Handle a final tracklet.
 	greatcircfit(trackvec, poleRA, poleDec, angvel, PA, crosstrack, alongtrack);
@@ -264,6 +275,15 @@ int main(int argc, char *argv[])
 	arcvec.push_back(arc*3600.0l);
 	timespanvec.push_back(timespan*24.0l);
 	// Wipe trackvec
+	trackvec = {};
+      } else if(tracknum==1) {
+	// The final 'tracklet' is a singleton. Set all tracket vectors to error codes or zero.
+	angvelvec.push_back(-1.0l);
+	GCRvec.push_back(-1.0l);
+	PAvec.push_back(-999.0l);
+	arcvec.push_back(0.0l);
+	timespanvec.push_back(0.0l);
+	// Wipe trackvec.
 	trackvec = {};
       }
       // Sort all of the tracklet statistics vectors
