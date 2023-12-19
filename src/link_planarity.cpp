@@ -28,7 +28,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: link_planarity -imgs imfile -pairdet pairdet_file -lflist link_file_list -mjd mjdref -simptype simplex_type -rejfrac max fraction of points that can be rejected -max_astrom_rms max astrometric RMS (arcsec) -minobsnights min number of distinct nights -minpointnum min number of individual detections -ptpow point_num_exponent -nightpow night_num_exponent -timepow timespan_exponent -rmspow astrom_rms_exponent -maxrms maxrms -outsum summary_file -clust2det clust2detfile -heliovane 1 -verbose verbosity\n\nOR, at minimum:\nlink_planarity -imgs imfile -pairdet pairdet_file -lflist link_file_list -mjd mjdref\n";
+  cerr << "Usage: link_planarity -imgs imfile -pairdet pairdet_file -lflist link_file_list -mjd mjdref -simptype simplex_type -rejfrac max fraction of points that can be rejected -max_astrom_rms max astrometric RMS (arcsec) -oop RMS out of plane deviation -minobsnights min number of distinct nights -minpointnum min number of individual detections -ptpow point_num_exponent -nightpow night_num_exponent -timepow timespan_exponent -rmspow astrom_rms_exponent -maxrms maxrms -outsum summary_file -clust2det clust2detfile -heliovane 1 -verbose verbosity\n\nOR, at minimum:\nlink_planarity -imgs imfile -pairdet pairdet_file -lflist link_file_list -mjd mjdref\n";
 }
 
 int main(int argc, char *argv[])
@@ -55,8 +55,8 @@ int main(int argc, char *argv[])
   long clustct=0;
   int default_simptype, default_ptpow, default_nightpow, default_timepow;
   default_simptype = default_ptpow = default_nightpow = default_timepow = 1;
-  int default_rmspow, default_maxrms, default_sumfile, default_clust2det;
-  default_rmspow = default_maxrms = default_sumfile = default_clust2det = 1;
+  int default_rmspow, default_maxrms, default_max_oop, default_sumfile, default_clust2det;
+  default_rmspow = default_maxrms = default_max_oop = default_sumfile = default_clust2det = 1;
   //  vector <long> pointind;
   //  vector <long> deletelist;
   //  vector <vector <long>> pointind_mat;
@@ -146,6 +146,18 @@ int main(int argc, char *argv[])
 	//There is still something to read;
 	config.max_astrom_rms=stod(argv[++i]);
 	default_simptype=0;
+	i++;
+      }
+      else {
+	cerr << "Max astrometric RMS keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-oop" || string(argv[i]) == "-max_oop" || string(argv[i]) == "-plane_rms" || string(argv[i]) == "-oop_rms" || string(argv[i]) == "-maxoop" || string(argv[i]) == "-max_plane_rms" || string(argv[i]) == "--oop" ) {
+      if(i+1 < argc) {
+	//There is still something to read;
+	config.max_oop=stod(argv[++i]);
+	default_max_oop=0;
 	i++;
       }
       else {
@@ -314,6 +326,7 @@ int main(int argc, char *argv[])
   cout << "input cluster list file " << clusterlist << "\n";
   cout << "Reference MJD: " << config.MJDref << "\n";
   cout << "Maximum RMS in km: " << config.maxrms << "\n";
+  cout << "Maximum out-of-plane RMS in km: " << config.max_oop << "\n";
   cout << "Maximum astrometric RMS: " << config.max_astrom_rms << "\n";
   cout << "Maximum fraction of points to be rejected: " << config.rejfrac << "\n";
   cout << "Minimum number of observing nights: " << config.minobsnights << "\n";
@@ -340,6 +353,8 @@ int main(int argc, char *argv[])
   
   if(default_maxrms==1) cout << "Defaulting to maximum cluster RMS = " << config.maxrms << " km\n";
   else cout << "User-specified maximum cluster RMS is " << config.maxrms << " km\n";
+  if(default_max_oop==1) cout << "Defaulting to maximum out-of-plane RMS = " << config.max_oop << " km\n";
+  else cout << "User-specified maximum out-of-plane RMS is " << config.max_oop << " km\n";
   if(default_sumfile==1) cout << "WARNING: using default name " << outsumfile << " for summary output file\n";
   else cout << "summary output file " << outsumfile << "\n";
   if(default_clust2det==1) cout << "WARNING: using default name " << outclust2detfile << " for output clust2det file\n";

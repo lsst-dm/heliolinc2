@@ -419,6 +419,7 @@ struct LinkPurifyConfig {
   int timepow = 0;             // Power to which we raise the total temporal span of the linkage, when calculating the cluster quality metric.
   int rmspow = 2;              // Power to which we raise the RMS astrometric residual when calculating the cluster quality metric.
   double maxrms = 1.0e5;       // Maximum scaled RMS in km for a viable cluster
+  double max_oop = 1000.0;     // Maximum scaled out-of-plane RMS in km for a viable cluster
   double rejfrac = 0.5;        // Maximum fraction of points that can be rejected.
   double max_astrom_rms = 1.0; // Maximum RMS astrometric residual, in arcsec.
   int minobsnights = 3;        // Minimum number of distinct observing nights for a valid linkage

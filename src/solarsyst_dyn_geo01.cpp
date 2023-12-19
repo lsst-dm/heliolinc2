@@ -23605,6 +23605,7 @@ int link_planarity(const vector <hlimage> &image_log, const vector <hldet> &detv
   cout << "Launching link_refine_Herget_univar()\n";
   cout << "Reference MJD: " << config.MJDref << "\n";
   cout << "Maximum RMS in km: " << config.maxrms << "\n";
+  cout << "Maximum out-of-plane RMS in km: " << config.max_oop << "\n";
   cout << "In calculating the cluster quality metric, the number of\nunique points will be raised to the power of " << config.ptpow << ";\n";
   cout << "the number of unique nights will be raised to the power of " << config.nightpow << ";\n";
   cout << "the total timespan will be raised to the power of " << config.timepow << ";\n";
@@ -23791,7 +23792,7 @@ int link_planarity(const vector <hlimage> &image_log, const vector <hldet> &detv
     }
     // Now normout2<normout1 means the second case is better.
     // planeout vectors contain out-of-plane estimates
-    if(normout1<=config.maxrms || (bothcases==1 && normout2<=config.maxrms)) {
+    if(normout1<=config.max_oop || (bothcases==1 && normout2<=config.max_oop)) {
       // This cluster passes the planarity check with no culling
       if(config.verbose>=1 || inclustct%1000==0) {
 	cout << "Initial planarity check passed for cluster " << inclustct << " of " << inclustnum << ": ";
@@ -23922,7 +23923,7 @@ int link_planarity(const vector <hlimage> &image_log, const vector <hldet> &detv
 	  // Calculate RMS deviation from planarity, scaled to a heliocentric distance
 	  normout2 = sqrt(normout1/double(ptnum));
 	}
-	if(normout1<=config.maxrms || (bothcases==1 && normout2<=config.maxrms)) {
+	if(normout1<=config.max_oop || (bothcases==1 && normout2<=config.max_oop)) {
 	  // This cluster passes the planarity check
 	  if(bothcases==1 && normout2<normout1) {
 	    // The second geometrical case is better.
