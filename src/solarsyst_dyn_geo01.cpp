@@ -5712,7 +5712,7 @@ int helioproj02LD(point3LD unitbary, point3LD obsbary, long double heliodist, ve
 // helioproj02: March 28, 2023
 // Like helioproj02LD, but uses just double-precision, rather than
 // long double. Correctly solves cases where the vector
-// originates outside the heliocentric sphere and interesects it twice.
+// originates outside the heliocentric sphere and intersects it twice.
 // If valid solutions exist, returns the number of solutions found
 // (either 1 or 2), with the solutions stored in the ouput vectors geodist
 // and projbary. If no solution exists, returns -1 with output vectors
@@ -21316,6 +21316,16 @@ int heliovane_alg_danby(const vector <hlimage> &image_log, const vector <hldet> 
       cerr << "ERROR: form_clusters exited with error code " << status << "\n";
       return(status);
     }
+    // The function form_clusters(), because it was originally written for heliolinc,
+    // scales the heliocentric hypothesis specifications assuming it is translating
+    // heliolinc's internal units of km, km/day and km/day^2 into AU, km/sec, and m/sec^2
+    // For heliovane, we must reverse this tranformation.
+    for(long i=0;i<long(outclust.size());i++) {
+      outclust[i].heliohyp0 *= AU_KM;
+      outclust[i].heliohyp1 *= SOLARDAY;
+      outclust[i].heliohyp2 *= SOLARDAY*SOLARDAY/1000.0l;
+    }
+    // Note that the outputs will now be deg, deg/day, and deg/day^2
   }
   return(0);    
 }
@@ -22197,6 +22207,16 @@ int heliovane_alg_ompdanby(const vector <hlimage> &image_log, const vector <hlde
 	if(status!=0) {
 	  cerr << "ERROR: form_clusters exited with error code " << status << "\n";
 	}
+	// The function form_clusters(), because it was originally written for heliolinc,
+	// scales the heliocentric hypothesis specifications assuming it is translating
+	// heliolinc's internal units of km, km/day and km/day^2 into AU, km/sec, and m/sec^2
+	// For heliovane, we must reverse this tranformation.
+	for(long i=0;i<long(outclust_mat[ithread].size());i++) {
+	  outclust_mat[ithread][i].heliohyp0 *= AU_KM;
+	  outclust_mat[ithread][i].heliohyp1 *= SOLARDAY;
+	  outclust_mat[ithread][i].heliohyp2 *= SOLARDAY*SOLARDAY/1000.0l;
+	}
+	// Note that the outputs will now be deg, deg/day, and deg/day^2
       }
     }
     }
@@ -22912,6 +22932,113 @@ int link_dedup(const vector <hlclust> &inclust, const vector  <longpair> &inclus
   return(0);
 }
 
+// planepolefind: December 15, 2023:
+// Given a set of 3d vectors, expected (but not required) to be approximately coplanar,
+// find the plane that is nearest to all the vectors, and express this by the coordinates
+// of the polar unit vector perpendicular to this plane.
+int planepolefind(const vector <point3d> &invecs, point3d &polevec)
+{
+  // Intialize ouput vector to the origin
+  polevec = point3d(0.0l,0.0l,0.0l);
+  long vecnum = invecs.size();
+  if(vecnum<=1) {
+    cerr << "Error: planepolefind called with fewer than two input vectors\n";
+    return(-1);
+  }
+  long i=0;
+  int status=0;
+  vector <point3d> normvecs;  
+  vector <point3d> polevecs;
+  point3d tpole = point3d(0.0l,0.0l,0.0l); 
+  point3d refpole = point3d(0.0l,0.0l,0.0l);  
+  point3d vecavg = point3d(0.0l,0.0l,0.0l);
+  double norm=0.0l;
+  double maxnorm=0.0l;
+  
+  // Normalize all the vectors
+  for(i=0;i<vecnum;i++) {
+    normvecs.push_back(invecs[i]);
+    status = vecnorm3d(normvecs[i]);
+    if(status!=0) {
+      cerr << "ERROR: normalization failed for vector " << i << " in planepolefind\n";
+      return(status);
+    }
+  }
+  if(vecnum==2) {
+    tpole = crossprod3d(normvecs[0],normvecs[1]);
+    status = vecnorm3d(tpole);
+    if(status!=0) {
+      cerr << "ERROR: normalization failed for two-point pole vector in planepolefind.\n";
+      cerr << "A likely explanation is that the two input vectors:\n";
+      cerr << invecs[0].x << " " << invecs[0].y << " " << invecs[0].z << " and\n";
+      cerr << invecs[1].x << " " << invecs[1].y << " " << invecs[1].z << "\n";
+      cerr << "were not linearly independent:\n";
+      return(status);
+    }
+    polevec = tpole; // Success, guaranteed correct in this case
+    return(0);
+  }
+  // If we get here, there were more than two vectors
+  // Average them all
+  vecavg = point3d(0.0l,0.0l,0.0l);
+  for(i=0;i<vecnum;i++) {
+    vecavg.x += normvecs[i].x;
+    vecavg.y += normvecs[i].y;
+    vecavg.z += normvecs[i].z;
+  }
+  status = vecnorm3d(vecavg); // Normalize the vector, and the averaging comes for free.
+  if(status!=0) {
+    cerr << "ERROR: normalization failed for averaged vector in planepolefind.\n";
+    return(status);
+  }
+  // Calculate cross-product of each vector in turn with the mean vector.
+  polevecs = {};
+  maxnorm=0.0l;
+  for(i=0;i<vecnum;i++) {
+    tpole = crossprod3d(normvecs[i],vecavg);
+    norm = vecabs3d(tpole);
+    if(isnormal(norm) && norm>0) {
+      polevecs.push_back(tpole);
+      if(norm>maxnorm) {
+	// This vector has the most leverage for determining the pole position
+	maxnorm = norm;
+	refpole = tpole;
+      }
+    }
+  }
+  if(polevecs.size()<=0) {
+    // No valid vectors were found.
+    cerr << "ERROR: planepolefind finds all vectors to be dependent\n";
+    return(-1);
+  }
+  // Invert any vectors that point in the wrong direction
+  for(i=0;i<long(polevecs.size());i++) {
+    if(dotprod3d(polevecs[i],refpole)<0.0) {
+      polevecs[i].x *= -1.0l;
+      polevecs[i].y *= -1.0l;
+      polevecs[i].z *= -1.0l;
+    }
+  }
+  // Average the vectors that approximate the pole, each of which
+  // is a nonzero cross-product of an input vector with the mean
+  // over all of the input vectors. No explicit weighting is needed,
+  // because vectors with little leverage to determine the pole
+  // also have very small cross products.
+  tpole = point3d(0.0l,0.0l,0.0l);
+  for(i=0;i<long(polevecs.size());i++) {
+    tpole.x += polevecs[i].x;
+    tpole.y += polevecs[i].y;
+    tpole.z += polevecs[i].z;
+  }
+  status = vecnorm3d(tpole);
+  if(status!=0) {
+    cerr << "ERROR: normalization failed for final pole vector in planepolefind.\n";
+    return(status);
+  }
+  polevec = tpole; // Success!
+  return(0);
+}
+
 // link_purify: November 29, 2023:
 // Based on link_refine_Herget_univar, this function is the first
 // one in my link_refine suite than actually attempts to purify
@@ -23418,11 +23545,15 @@ int link_planarity(const vector <hlimage> &image_log, const vector <hldet> &detv
   hlclust onecluster = hlclust(0, 0.0l, 0.0l, 0.0l, 0.0l, 0, 0.0l, 0, 0, 0.0l, "NULL", 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0.0l, 0);
   vector <long> clustind;
   vector <hldet> clusterdets;
+  vector <hldet> clusterdets2;
   vector <hlclust> holdclust;
-  int ptnum,ptct,istimedup,detsused;
+  int ptnum,ptct,istimedup,istimedup2,detsused;
   long rejmax,rejnum;
-  ptnum=ptct=istimedup=detsused=0;
+  ptnum=ptct=istimedup=istimedup2=detsused=0;
   point3d onepoint = point3d(0.0L,0.0L,0.0L);
+  point3d observernow = point3d(0.0L,0.0L,0.0L);
+  point3d unitbary = point3d(0.0L,0.0L,0.0L);
+  point3d polepos = point3d(0.0L,0.0L,0.0L);
   vector <point3d> observerpos;
   vector <double> obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, mjdstep;
   double geodist1,geodist2, astromrms, chisq;
@@ -23444,6 +23575,24 @@ int link_planarity(const vector <hlimage> &image_log, const vector <hldet> &detv
   longpair c2d = longpair(0,0);
   char rating[SHORTSTRINGLEN];
   int status=1;
+  vector <double> heliodistvec;
+  vector <double> lambdavec;
+  double delta1 = 0.0l;
+  vector <double> planeout1;
+  vector <double> planeout2;
+  double normout1 = 0.0l;
+  double normout2 = 0.0l;
+  vector <double> deltavec;
+  vector <point3d> targposvec;
+  vector <point3d> heliopos1;
+  vector <point3d> heliopos2;
+  double heliodist, heliovel, helioacc, lambda0, lambda_dot, lambda_ddot;
+  heliodist = heliovel = helioacc = lambda0 = lambda_dot = lambda_ddot = 0.0l;
+  int bothcases=0;
+  int wp=0;
+  double wresid = 0.0l;
+  int badcluster=0;
+  double min_proj_sine = 0.0l; // This could be a bit dangerous, might want to set it to 0.1 or something.
   
   make_ivec(detnum, detusedvec); // All the entries are guaranteed to be 0.
 
@@ -23480,214 +23629,242 @@ int link_planarity(const vector <hlimage> &image_log, const vector <hldet> &detv
       cerr << "ERROR: cluster index mismatch " << inclustct << " != " << onecluster.clusternum << " at input cluster " << inclustct << "\n";
       return(5);
     }
-    if(onecluster.totRMS<=config.maxrms) {
-      // This cluster passes the initial cut. Analyze it.
-      // Load a vector with the indices to detvec
-      clustind = {};
-      clustind = tracklet_lookup(inclust2det, onecluster.clusternum); //CHANGED from inclustct to onecluster.clusternum
-      ptnum = clustind.size();
-      if(ptnum!=onecluster.uniquepoints) {
-	cerr << "ERROR: point number mismatch " << ptnum << " != " << onecluster.uniquepoints << " at input cluster " << inclustct << "\n";
-	return(6);
-      }
-      // Load vector of detections for this cluster
-      clusterdets={};
-      for(i=0; i<ptnum; i++) {
-	clusterdets.push_back(detvec[clustind[i]]);
-	clusterdets[i].index=clustind[i]; // Saves indices, to track later sorting.
-      }
-      sort(clusterdets.begin(), clusterdets.end(), early_hldet());
-      istimedup=0;
-      for(ptct=1; ptct<ptnum; ptct++) {
-	if(clusterdets[ptct-1].MJD == clusterdets[ptct].MJD && stringnmatch01(clusterdets[ptct-1].obscode,clusterdets[ptct].obscode,3)==0) istimedup=1;
-      }
-	    
-      // Perform orbit fitting using the method of Herget, to get astrometric residuals
-      // Load observational vectors
-      observerpos = {};
-      obsMJD = obsRA = obsDec = sigastrom = fitRA = fitDec = resid = orbit = {};
+    // Load a vector with the indices to detvec
+    clustind = {};
+    clustind = tracklet_lookup(inclust2det, onecluster.clusternum); //CHANGED from inclustct to onecluster.clusternum
+    ptnum = clustind.size();
+    if(ptnum!=onecluster.uniquepoints) {
+      cerr << "ERROR: point number mismatch " << ptnum << " != " << onecluster.uniquepoints << " at input cluster " << inclustct << "\n";
+      return(6);
+    }
+    if(onecluster.totRMS > config.maxrms) {
+      if(config.verbose>0 || inclustct%1000==0) cout << "Cluster " << inclustct << " of " << inclustnum << ": RMS = " << onecluster.totRMS << "km is too high: REJECTED.\n";
+      continue; // This cluster fails the initial cut: skip it.
+    }
+    // If we get here, the cluster passes the initial cut. Analyze it.
+    badcluster=0;
+    // Load vector of detections for this cluster
+    clusterdets = clusterdets2 = {};
+    for(i=0; i<ptnum; i++) {
+      clusterdets.push_back(detvec[clustind[i]]);
+      clusterdets[i].index=clustind[i]; // Saves indices, to track later sorting.
+    }
+    // Sort cluster by time (MJD)
+    sort(clusterdets.begin(), clusterdets.end(), early_hldet());
+    // Check for time duplicates
+    istimedup=0;
+    for(ptct=1; ptct<ptnum; ptct++) {
+      if(clusterdets[ptct-1].MJD == clusterdets[ptct].MJD && stringnmatch01(clusterdets[ptct-1].obscode,clusterdets[ptct].obscode,3)==0) istimedup=1;
+    }
+
+    // PLANARITY CHECK
+    heliopos1 = {};
+    heliopos2 = {};
+    heliodistvec={};
+    // Get the heliocentric positions, by hypothesis, at each point
+    if(config.use_heliovane!=1) { // NOT using heliovane
+      // Use the heliolinc output parameterization: AU, km/sec, and m/sec^2
+      heliodist = onecluster.heliohyp0;
+      heliovel = onecluster.heliohyp1;
+      helioacc = onecluster.heliohyp2;
       for(ptct=0; ptct<ptnum; ptct++) {
-	obsMJD.push_back(clusterdets[ptct].MJD);
-	obsRA.push_back(clusterdets[ptct].RA);
-	obsDec.push_back(clusterdets[ptct].Dec);
-	sigastrom.push_back(1.0L); // WARNING, THIS IS CRUDE AND NEEDS FIXING
+	// Calculate approximate heliocentric distance from the input quadratic approximation.
+	delta1 = (clusterdets[ptct].MJD - config.MJDref)*SOLARDAY;
+	heliodistvec.push_back(heliodist*AU_KM + heliovel*delta1 + 0.5*helioacc*delta1*delta1/1000.0l);
+      }
+      // Now infer the 3-D positions, and heliocentric polar coordinates, of each point
+      // based on these hypothetical distances.
+      heliopos1 = {};
+      heliopos2 = {};
+      bothcases=0;
+      for(ptct=0; ptct<ptnum; ptct++) {
+	// Figure out where the observer is.
 	imct = clusterdets[ptct].image;
 	if(imct>=imnum) {
 	  cerr << "ERROR: attempting to access image " << imct << " of only " << imnum << " available\n";
 	  return(8);
 	}
-	X = image_log[imct].X;
-	Y = image_log[imct].Y;
-	Z = image_log[imct].Z;
-	if(image_log[imct].MJD!=clusterdets[ptct].MJD) {
-	  // A shutter-travel correction must have been applied to the
-	  // detection time relative to the image time. Use the stored
-	  // velocity info from the image log to apply a correction to
-	  // the observer position.
-	  dt = clusterdets[ptct].MJD - image_log[imct].MJD;
-	  if(dt*SOLARDAY > MAX_SHUTTER_CORR) {
-	    cerr << "ERROR: detection vs. image time mismatch of " << dt*SOLARDAY << " seconds.\n";
-	    cerr << "Something has gone wrong: no shutter is that slow\n";
-	    return(4);
-	  }
-	  X += image_log[imct].VX*dt;
-	  Y += image_log[imct].VY*dt;
-	  Z += image_log[imct].VZ*dt;
+	observernow = point3d(image_log[imct].X,image_log[imct].Y,image_log[imct].Z);
+	// Convert the observational RA, Dec into a unit vector
+	celestial_to_stateunit(clusterdets[ptct].RA,clusterdets[ptct].Dec,unitbary);
+	// Project the observation onto the resulting heliocentric sphere
+	targposvec={};
+	deltavec={};
+	status = helioproj02(unitbary,observernow,heliodistvec[ptct], deltavec, targposvec);
+	if(status!=1 && status!=2) {
+	  cerr << "ERROR: in link_planarity, helioproj02 returns error code " << status << "\n";
+	  return(status);
 	}
-	onepoint = point3d(X,Y,Z);
-	observerpos.push_back(onepoint);
+	heliopos1.push_back(targposvec[0]);
+	if(status==2) heliopos2.push_back(targposvec[1]);
       }
-      // Use mean state vectors to estimate positions
-      startpos.x = onecluster.posX;
-      startpos.y = onecluster.posY;
-      startpos.z = onecluster.posZ;
-      startvel.x = onecluster.velX;
-      startvel.y = onecluster.velY;
-      startvel.z = onecluster.velZ;
-      // There used to be a check against solar escape velocity here,
-      // but it isn't needed since we are using the universal variables
-      // formulation, able to handle unbound as well as bound orbits.
-      
-      // Calculate position at first observation
-      Kepler_univ_int(GMSUN_KM3_SEC2, config.MJDref, startpos, startvel, obsMJD[0], endpos, endvel);
-      // Find vector relative to the observer by subtracting off the observer's position.
-      endpos.x -= observerpos[0].x;
-      endpos.y -= observerpos[0].y;
-      endpos.z -= observerpos[0].z;
-      geodist1 = vecabs3d(endpos)/AU_KM;
-      // Calculate position at last observation
-      Kepler_univ_int(GMSUN_KM3_SEC2, config.MJDref, startpos, startvel, obsMJD[ptnum-1], endpos, endvel);
-      endpos.x -= observerpos[ptnum-1].x;
-      endpos.y -= observerpos[ptnum-1].y;
-      endpos.z -= observerpos[ptnum-1].z;
-      geodist2 = vecabs3d(endpos)/AU_KM;
-      simplex_scale = SIMPLEX_SCALEFAC;
-      if(config.verbose>=2) {
-	cout << "Calling Hergetfit_vstar with dists " << geodist1 << " and " << geodist2 << "\n";
+      if(long(heliopos1.size())!=ptnum) {
+	cerr << "ERROR: in link_planarity heliolinc branch, of " << ptnum << " input point, only " << heliopos1.size() << " were successfully projected\n";
+	return(3);
       }
-      if(config.verbose>=2) {
-	cout << "Launching Hergetfit_vstar for cluster " << inclustct << ":\n";
-	for(i=0;i<=ptnum;i++) {
-	  cout << "Point " << i << ": " << obsMJD[i] << " " << obsRA[i] << " "  << obsDec[i] << " " << sigastrom[i] << "\n";
+      if(long(heliopos2.size())==ptnum) {
+	// There were valid solutions to both projection geometries,
+	// so we must keep track of the planarity of both.
+	// Make a copy of the clusterdets vector, so we
+	// can cull independently for the two geometries.
+	clusterdets2 = clusterdets;
+	bothcases=1;
+      }
+    } else if(config.use_heliovane==1) {
+      bothcases=0; // Always, when using heliovane: bothcases==1 is possible only with heliolinc.
+      // We are processing input from heliovane, with heliovane-style hypotheses.
+      // Calculate approximate heliocentric ecliptic longitude (lambda) from the
+      // input quadratic approximation. This is all in units of degrees an days.
+      lambda0 = onecluster.heliohyp0;
+      lambda_dot = onecluster.heliohyp1;
+      lambda_ddot = onecluster.heliohyp2;
+      lambdavec={};
+      for(ptct=0; ptct<ptnum; ptct++) {
+	// Calculate approximate heliocentric ecliptic longitude from the input quadratic approximation.
+	delta1 = clusterdets[ptct].MJD - config.MJDref;
+	lambdavec.push_back(lambda0 + lambda_dot*delta1 + 0.5*lambda_ddot*delta1*delta1);
+      }
+      // Now infer the 3-D positions, and heliocentric polar coordinates, of each point
+      // based on these hypothetical heliocentric ecliptic longitudes
+      heliopos1 = {};
+      heliopos2 = {};
+      for(ptct=0; ptct<ptnum; ptct++) {
+	// Figure out where the observer is.
+	imct = clusterdets[ptct].image;
+	if(imct>=imnum) {
+	  cerr << "ERROR: attempting to access image " << imct << " of only " << imnum << " available\n";
+	  return(8);
 	}
+	observernow = point3d(image_log[imct].X,image_log[imct].Y,image_log[imct].Z);
+	// Convert the observational RA, Dec into a unit vector
+	celestial_to_stateunit(clusterdets[ptct].RA,clusterdets[ptct].Dec,unitbary);
+	// Project the observation onto the resulting heliocentric sphere
+	targposvec={};
+	deltavec={};
+	status = vaneproj01d(unitbary,observernow,lambdavec[ptct],min_proj_sine,deltavec[0],targposvec[0]);
+	if(status!=1 && status!=2) {
+	  cerr << "ERROR: in link_planarity, vaneproj01d returns error code " << status << "\n";
+	  return(status);
+	}
+	heliopos1.push_back(targposvec[0]);
       }
-      if(config.verbose>=2) cout << "Cluster " << inclustct << " of " << inclustnum << " is good: ";
-      if(config.verbose>=2) cout << "\n";
-      if(config.verbose>=1 || inclustct%1000==0) cout << "Fitting cluster " << inclustct << " of " << inclustnum << ": ";
-      chisq = Hergetfit_vstar(geodist1, geodist2, simplex_scale, config.simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, config.verbose);
-      if(chisq>=LARGERR3) {
-	cerr << "WARNING: Hergetfit_vstar() returned error code on input " << geodist1 << ", " << geodist2 << "\n";
+      if(long(heliopos1.size())!=ptnum) {
+	cerr << "ERROR: in link_planarity heliovane branch, of " << ptnum << " input point, only " << heliopos1.size() << " were successfully projected\n";
+	return(3);
       }
-      // orbit vector contains: semimajor axis [0], eccentricity [1],
-      // mjd at epoch [2], the state vectors [3-8], and the number of
-      // orbit evaluations (~iterations) required to reach convergence [9].
-      
-      chisq /= double(ptnum); // Now it's the reduced chi square value
-      astromrms = sqrt(chisq); // This gives the actual astrometric RMS in arcseconds if all the
-      // entries in sigastrom are 1.0. Otherwise it's a measure of the
-      // RMS in units of the typical uncertainty.
-      if(config.verbose>=1 || inclustct%1000==0) cout << " astromrms = " << astromrms << " arcsec, dup=" << istimedup << "\n";
-
-      // If good, just write it out.
-      if(astromrms <= config.max_astrom_rms && istimedup==0) {
-	// CLUSTER IS GOOD
-	// Recalculate clustermetric
-	clustmetric = intpowD(double(onecluster.uniquepoints),config.ptpow)*intpowD(double(onecluster.obsnights),config.nightpow)*intpowD(onecluster.timespan,config.timepow);	  
-	// Include the astrometric RMS value in the cluster metric and the RMS vector
-	onecluster.astromRMS = astromrms; // rmsvec[3]: astrometric rms in arcsec.
-	onecluster.metric = clustmetric/intpowD(astromrms,config.rmspow); // Under the default value rmspow=2, this is equivalent
-	                                                                  // to dividing by the chi-square value rather than just
-	                                                                  // the astrometric RMS, which has the desireable effect of
-	                                                                  // prioritizing low astrometric error even more.
-	onecluster.orbit_a = orbit[0]/AU_KM;
-	onecluster.orbit_e = orbit[1];
-	onecluster.orbit_MJD = orbit[2];
-	onecluster.orbitX = orbit[3];
-	onecluster.orbitY = orbit[4];
-	onecluster.orbitZ = orbit[5];
-	onecluster.orbitVX = orbit[6];
-	onecluster.orbitVY = orbit[7];
-	onecluster.orbitVZ = orbit[8];
-	onecluster.orbit_eval_count = long(round(orbit[9]));
-	// Push new cluster on to holding vector holdclust
-	holdclust.push_back(onecluster);
-	clustindmat.push_back(clustind);
-      } else if((astromrms>config.max_astrom_rms || istimedup>0) && ptnum>config.minpointnum) {
-	// CLUSTER IS NOT GOOD, BUT MIGHT BE FIXABLE
-	// Iteratively remove astrometric outliers, or remove time duplicates
-	// Setup for the main while loop:
-	rejnum = 0;
-	rejmax = config.rejfrac*ptnum;
-	if(rejmax > ptnum-config.minpointnum) rejmax = ptnum - config.minpointnum;
-	if(rejmax > MAXREJ) rejmax=MAXREJ; // Insurance policy against excessive runtimes in pathological cases.
-	// Main while loop, which iteratively removes outliers
-	while(rejnum<rejmax && ptnum>config.minpointnum) {
-	  if(astromrms>config.max_astrom_rms) {
-	    // The reason the cluster is not good is that the astrometric RMS is too high.
-	    // Identify the worst point.
-	    int wp=0;
-	    double wresid = resid[0];
-	    for(i=1;i<ptnum;i++) {
-	      if(resid[i]>wresid) {
-		wresid=resid[i];
-		wp = i;
-	      }
-	    }
-	    // Remove worst point from clusterdets and associated vectors
-	    clusterdets.erase(clusterdets.begin()+wp);
-	    obsMJD.erase(obsMJD.begin()+wp);
-	    obsRA.erase(obsRA.begin()+wp);
-	    obsDec.erase(obsDec.begin()+wp);
-	    sigastrom.erase(sigastrom.begin()+wp);
-	    observerpos.erase(observerpos.begin()+wp);
-	    ptnum--;
-	    rejnum++;
-	    if(long(obsMJD.size())!=ptnum) {
-	      cerr << "Vector trim count error: " << obsMJD.size() << "!=" << ptnum << "\n";
-	      return(9);
-	    }
-	    // Worst outlier rejected, ready for new round of orbit-fitting.
-	  } else if(astromrms <= config.max_astrom_rms && istimedup>0) {
-	    // The reason the cluster is not good is that it still contains
-	    // time-duplicates, even though the astrometric RMS is OK.
-	    vector <long> badpoints = {};
-	    for(ptct=1; ptct<ptnum; ptct++) {
-	      if(clusterdets[ptct-1].MJD == clusterdets[ptct].MJD && stringnmatch01(clusterdets[ptct-1].obscode,clusterdets[ptct].obscode,3)==0) {
-		// Points ptct-1 and ptct are time-duplicates.
-		// Mark for rejection whichever point has the larger RMS.
-		if(resid[ptct-1]>resid[ptct]) badpoints.push_back(ptct-1);
-		else badpoints.push_back(ptct);
-	      }
-	    }
-	    // sort the badpoints vector
-	    sort(badpoints.begin(), badpoints.end());
-	    // Erase the bad points, starting from the end of the vectors
-	    for(i=long(badpoints.size()-1); i>=0; i--) {
-	      clusterdets.erase(clusterdets.begin()+badpoints[i]);
-	      obsMJD.erase(obsMJD.begin()+badpoints[i]);
-	      obsRA.erase(obsRA.begin()+badpoints[i]);
-	      obsDec.erase(obsDec.begin()+badpoints[i]);
-	      sigastrom.erase(sigastrom.begin()+badpoints[i]);
-	      observerpos.erase(observerpos.begin()+badpoints[i]);
-	      ptnum--;
-	      rejnum++;
-	    }
-	    if(long(obsMJD.size())!=ptnum) {
-	      cerr << "Vector timedupe trim count error: " << obsMJD.size() << "!=" << ptnum << "\n";
-	      return(9);
-	    }
-	    // All time-duplicates rejected, ready for next round of orbit-fitting.
-	  } else {
-	    // This is a weird, illogical case, and probably the reason we got here
-	    // has to do with NANs. In any case, the cluster is very unlikely to be
-	    // salvageable.
-	    if(config.verbose>=1 || inclustct%1000==0) cout << "Weird cluster case, REJECTING\n";
-	    break; // Break out of the point-culling while loop, abandoning this cluster.
+    }
+    // Further processing does not care if we started with heliolinc or heliovane.
+    status = planepolefind(heliopos1,polepos);
+    if(status!=0) {
+      cerr << "ERROR: in link_planarity, planepolefind returns error code " << status << "\n";
+      return(status);
+    }
+    normout1 = 0.0l;
+    planeout1 = {};
+    for(ptct=0; ptct<ptnum; ptct++) {
+      // Calculate and store the absolute deviation of this point from the plane, in km.
+      planeout1.push_back(fabs(dotprod3d(heliopos1[ptct],polepos)));
+      // Squared deviation, scaled by heliocentric distance, normalized to 1 AU.
+      normout1 += DSQUARE(planeout1[ptct]*AU_KM/vecabs3d(heliopos1[ptct]));
+    }
+    // Calculate RMS deviation from planarity, scaled to a heliocentric distance
+    normout1 = sqrt(normout1/double(ptnum));
+    if(bothcases==1) {
+      // There were two valid solutions to the projection for every point.
+      // This is possible with heliolinc (though not heliovane), for objects
+      // inside Earth's orbit. Handle the other case too.
+      status = planepolefind(heliopos2,polepos);
+      if(status!=0) {
+	cerr << "ERROR: in link_planarity, planepolefind returns error code " << status << "\n";
+	return(status);
+      }
+      normout2 = 0.0l;
+      planeout2 = {};
+      for(ptct=0; ptct<ptnum; ptct++) {
+	// Calculate and store the absolute deviation of this point from the plane, in km.
+	planeout2.push_back(fabs(dotprod3d(heliopos2[ptct],polepos)));
+	// Squared deviation, scaled by heliocentric distance, normalized to 1 AU.
+	normout2 += DSQUARE(planeout2[ptct]*AU_KM/vecabs3d(heliopos2[ptct]));
+      }
+      // Calculate RMS deviation from planarity, scaled to a heliocentric distance
+      normout2 = sqrt(normout1/double(ptnum));
+    }
+    // Now normout2<normout1 means the second case is better.
+    // planeout vectors contain out-of-plane estimates
+    if(normout1<=config.maxrms || (bothcases==1 && normout2<=config.maxrms)) {
+      // This cluster passes the planarity check with no culling
+      if(config.verbose>=1 || inclustct%1000==0) {
+	cout << "Initial planarity check passed for cluster " << inclustct << " of " << inclustnum << ": ";
+	cout << "RMS distance out-of-plane is " << normout1;
+	if(bothcases==1) cout << "km for case 1 and " << normout2 << "km for case 2\n";
+	else cout << "km\n";
+      }
+    } else { // CLUSTER FAILED PLANARITY CHECK. TRY TO PURIFY IT ITERATIVELY UNTIL IT PASSES
+      if (ptnum<=config.minpointnum) {
+	if(config.verbose>0 || inclustct%1000==0) cout << "Cluster " << inclustct << " of " << inclustnum << " is too small: REJECTED.\n";
+	continue; // This cluster needs culling, but is too small to survive any. Skip it.
+      }
+      // Iteratively remove outliers from the mean plane, or remove time duplicates
+      // Setup for the main while loop:
+      rejnum = 0;
+      rejmax = config.rejfrac*ptnum;
+      if(rejmax > ptnum-config.minpointnum) rejmax = ptnum - config.minpointnum;
+      if(rejmax > MAXREJ) rejmax=MAXREJ; // Insurance policy against excessive runtimes in pathological cases.
+      // Main while loop, which iteratively removes outliers
+      while(rejnum<rejmax && ptnum>config.minpointnum) {
+	if(config.verbose>=1 || inclustct%1000==0) {
+	  cout << "Planarity-purifying " << inclustct << " of " << inclustnum << ": ";
+	  cout << "culled " << rejnum << " points. RMS distance out-of-plane is " << normout1;
+	  if(bothcases==1) cout << "km for case 1 and " << normout2 << "km for case 2\n";
+	  else cout << "km\n";
+	}
+	wp=0;
+	wresid = planeout1[0];
+	for(ptct=1; ptct<ptnum; ptct++) {
+	  if(planeout1[ptct]>wresid) {
+	    wresid = planeout1[ptct];
+	    wp = ptct;
 	  }
-	  // Check if cluster is still valid
+	}
+	// Reject bad point
+	heliopos1.erase(heliopos1.begin()+wp);
+	clusterdets.erase(clusterdets.begin()+wp);
+	if(bothcases==1) {
+	  // Do the same for the vectors relevant to the other geometrical solution.
+	  wp=0;
+	  wresid = planeout2[0];
+	  for(ptct=1; ptct<ptnum; ptct++) {
+	    if(planeout2[ptct]>wresid) {
+	      wresid = planeout2[ptct];
+	      wp = ptct;
+	    }
+	  }
+	  // Reject bad point
+	  heliopos2.erase(heliopos1.begin()+wp);
+	  clusterdets2.erase(clusterdets.begin()+wp);
+	}
+	rejnum++;
+	ptnum = clusterdets.size();
+	// Check if the primary cluster is still valid
+	// load vector of MJD steps
+	mjdstep={};
+	for(long i=1; i<ptnum; i++) mjdstep.push_back(clusterdets[i].MJD - clusterdets[i-1].MJD);
+	// Count steps large enough to suggest a daytime period between nights.
+	daysteps=0;	
+	for(long i=0; i<long(mjdstep.size()); i++) {
+	  if(mjdstep[i]>NIGHTSTEP) daysteps++;
+	}
+	obsnights = daysteps+1;
+	// Does cluster pass the criteria for a linked detection?
+	if(obsnights < config.minobsnights || ptnum < config.minpointnum) {
+	  // This cluster became invalid when we rejected the outlier(s).
+	  badcluster=1; // Mark as bad to prevent orbit fitting.
+	}
+	if(bothcases==1) {
+	  // Check if the secondary cluster is still valid
 	  // load vector of MJD steps
 	  mjdstep={};
-	  for(long i=1; i<ptnum; i++) mjdstep.push_back(obsMJD[i]-obsMJD[i-1]);
+	  for(long i=1; i<ptnum; i++) mjdstep.push_back(clusterdets2[i].MJD - clusterdets2[i-1].MJD);
 	  // Count steps large enough to suggest a daytime period between nights.
 	  daysteps=0;	
 	  for(long i=0; i<long(mjdstep.size()); i++) {
@@ -23697,107 +23874,379 @@ int link_planarity(const vector <hlimage> &image_log, const vector <hldet> &detv
 	  // Does cluster pass the criteria for a linked detection?
 	  if(obsnights < config.minobsnights || ptnum < config.minpointnum) {
 	    // This cluster became invalid when we rejected the outlier(s).
-	    if(config.verbose>=1 || inclustct%1000==0) cout << "Cluster became invalid, REJECTING\n";
-	    break; // Break out of point-culling while loop, since
-	           // this cluster is unredeemable.
+	    if(config.verbose>=1 || inclustct%1000==0) cout << "Cluster case2 became invalid\n";
+	    bothcases=0; // Prevents further exploration of now-invalid case2 cluster.
+	  } else {
+	    // Cluster is OK under case 2.
+	    badcluster=0; // There's a chance badcluster was set to 1 in the primary cluster check. Reset it, to be safe.
 	  }
-	  // If we get here, rejection of the point didn't make the cluster invalid.
-	  // Begin analysis by loading new clustind vector.
-	  clustind = {};
-	  for(i=0;i<ptnum;i++) clustind.push_back(clusterdets[i].index);
-	  // Check for time-duplicates
-	  istimedup=0;
-	  for(ptct=1; ptct<ptnum; ptct++) {
-	    if(clusterdets[ptct-1].MJD == clusterdets[ptct].MJD && stringnmatch01(clusterdets[ptct-1].obscode,clusterdets[ptct].obscode,3)==0) istimedup=1;
+	}
+	if(bothcases==0 && badcluster==1) {
+	  if(config.verbose>=1 || inclustct%1000==0) cout << "Cluster became invalid, REJECTING\n";
+	  break; // Cluster is invalid and cannot be purified: break out of the while loop.
+	}	
+	// If we get here, cluster must be valid so far.
+	// Recalculate planarity parameters
+	status = planepolefind(heliopos1,polepos);
+	if(status!=0) {
+	  cerr << "ERROR: in link_planarity, planepolefind returns error code " << status << "\n";
+	  return(status);
+	}
+	normout1 = 0.0l;
+	planeout1 = {};
+	for(ptct=0; ptct<ptnum; ptct++) {
+	  // Calculate and store the absolute deviation of this point from the plane, in km.
+	  planeout1.push_back(fabs(dotprod3d(heliopos1[ptct],polepos)));
+	  // Squared deviation, scaled by heliocentric distance, normalized to 1 AU.
+	  normout1 += DSQUARE(planeout1[ptct]*AU_KM/vecabs3d(heliopos1[ptct]));
+	}
+	// Calculate RMS deviation from planarity, scaled to a heliocentric distance
+	normout1 = sqrt(normout1/double(ptnum));
+	if(bothcases==1) {
+	  // There were two valid solutions to the projection for every point.
+	  // This is possible with heliolinc (though not heliovane), for objects
+	  // inside Earth's orbit. Handle the other case too.
+	  status = planepolefind(heliopos2,polepos);
+	  if(status!=0) {
+	    cerr << "ERROR: in link_planarity, planepolefind returns error code " << status << "\n";
+	    return(status);
 	  }
-	  // Use state vectors from previous fit to estimate beginning and ending geocentric distances.
-	  startpos.x = orbit[3];
-	  startpos.y = orbit[4];
-	  startpos.z = orbit[5];
-	  startvel.x = orbit[6];
-	  startvel.y = orbit[7];
-	  startvel.z = orbit[8];
-	  // Note that orbit[2] is MJD at the epoch.
-	  // Calculate position at first observation
-	  Kepler_univ_int(GMSUN_KM3_SEC2, orbit[2], startpos, startvel, obsMJD[0], endpos, endvel);
-	  // Find vector relative to the observer by subtracting off the observer's position.
-	  endpos.x -= observerpos[0].x;
-	  endpos.y -= observerpos[0].y;
-	  endpos.z -= observerpos[0].z;
-	  geodist1 = vecabs3d(endpos)/AU_KM;
-	  // Calculate position at last observation
-	  Kepler_univ_int(GMSUN_KM3_SEC2, orbit[2], startpos, startvel, obsMJD[ptnum-1], endpos, endvel);
-	  endpos.x -= observerpos[ptnum-1].x;
-	  endpos.y -= observerpos[ptnum-1].y;
-	  endpos.z -= observerpos[ptnum-1].z;
-	  geodist2 = vecabs3d(endpos)/AU_KM;
-	    
-	  simplex_scale = SIMPLEX_SCALEFAC;
-	  if(config.verbose>=2) {
-	    cout << "Calling Hergetfit_vstar with dists " << geodist1 << " and " << geodist2 << "\n";
+	  normout2 = 0.0l;
+	  planeout2 = {};
+	  for(ptct=0; ptct<ptnum; ptct++) {
+	    // Calculate and store the absolute deviation of this point from the plane, in km.
+	    planeout2.push_back(fabs(dotprod3d(heliopos2[ptct],polepos)));
+	    // Squared deviation, scaled by heliocentric distance, normalized to 1 AU.
+	    normout2 += DSQUARE(planeout2[ptct]*AU_KM/vecabs3d(heliopos2[ptct]));
 	  }
-	  if(config.verbose>=2) {
-	    cout << "Launching Hergetfit_vstar for cluster " << inclustct << ":\n";
-	    for(i=0;i<=ptnum;i++) {
-	      cout << "Point " << i << ": " << obsMJD[i] << " " << obsRA[i] << " "  << obsDec[i] << " " << sigastrom[i] << "\n";
+	  // Calculate RMS deviation from planarity, scaled to a heliocentric distance
+	  normout2 = sqrt(normout1/double(ptnum));
+	}
+	if(normout1<=config.maxrms || (bothcases==1 && normout2<=config.maxrms)) {
+	  // This cluster passes the planarity check
+	  if(bothcases==1 && normout2<normout1) {
+	    // The second geometrical case is better.
+	    // Copy the corresponding vector as the primary ouput.
+	    clusterdets = clusterdets2;
+	  }
+	  if(config.verbose>=1 || inclustct%1000==0) cout << "Planarity success: cluster " << inclustct << " of " << inclustnum << "\n";
+	  badcluster=0;
+	  break; // Exit the while loop.
+	}
+      }
+    }
+    if(badcluster==1) continue; // Skip further analysis of this cluster, which became invalid under the planarity check.
+    
+    // If we get here, this cluster passed the planarity check in a valid state.
+    // Proceed with the orbit-fitting
+    // Begin analysis by loading new clustind vector.
+    clustind = {};
+    for(i=0;i<ptnum;i++) clustind.push_back(clusterdets[i].index);
+
+    // Check for time-duplicates
+    istimedup=0;
+    for(ptct=1; ptct<ptnum; ptct++) {
+      if(clusterdets[ptct-1].MJD == clusterdets[ptct].MJD && stringnmatch01(clusterdets[ptct-1].obscode,clusterdets[ptct].obscode,3)==0) istimedup=1;
+    }
+
+    // ORBIT-FITTING CHECK
+    // Perform orbit fitting using the method of Herget, to get astrometric residuals
+    // Load observational vectors
+    observerpos = {};
+    obsMJD = obsRA = obsDec = sigastrom = fitRA = fitDec = resid = orbit = {};
+    for(ptct=0; ptct<ptnum; ptct++) {
+      obsMJD.push_back(clusterdets[ptct].MJD);
+      obsRA.push_back(clusterdets[ptct].RA);
+      obsDec.push_back(clusterdets[ptct].Dec);
+      sigastrom.push_back(1.0L); // WARNING, THIS IS CRUDE AND NEEDS FIXING
+      imct = clusterdets[ptct].image;
+      if(imct>=imnum) {
+	cerr << "ERROR: attempting to access image " << imct << " of only " << imnum << " available\n";
+	return(8);
+      }
+      X = image_log[imct].X;
+      Y = image_log[imct].Y;
+      Z = image_log[imct].Z;
+      if(image_log[imct].MJD!=clusterdets[ptct].MJD) {
+	// A shutter-travel correction must have been applied to the
+	// detection time relative to the image time. Use the stored
+	// velocity info from the image log to apply a correction to
+	// the observer position.
+	dt = clusterdets[ptct].MJD - image_log[imct].MJD;
+	if(dt*SOLARDAY > MAX_SHUTTER_CORR) {
+	  cerr << "ERROR: detection vs. image time mismatch of " << dt*SOLARDAY << " seconds.\n";
+	  cerr << "Something has gone wrong: no shutter is that slow\n";
+	  return(4);
+	}
+	X += image_log[imct].VX*dt;
+	Y += image_log[imct].VY*dt;
+	Z += image_log[imct].VZ*dt;
+      }
+      onepoint = point3d(X,Y,Z);
+      observerpos.push_back(onepoint);
+    }
+    // Use mean state vectors to estimate positions
+    startpos.x = onecluster.posX;
+    startpos.y = onecluster.posY;
+    startpos.z = onecluster.posZ;
+    startvel.x = onecluster.velX;
+    startvel.y = onecluster.velY;
+    startvel.z = onecluster.velZ;
+    // There used to be a check against solar escape velocity here,
+    // but it isn't needed since we are using the universal variables
+    // formulation, able to handle unbound as well as bound orbits.
+      
+    // Calculate position at first observation
+    Kepler_univ_int(GMSUN_KM3_SEC2, config.MJDref, startpos, startvel, obsMJD[0], endpos, endvel);
+    // Find vector relative to the observer by subtracting off the observer's position.
+    endpos.x -= observerpos[0].x;
+    endpos.y -= observerpos[0].y;
+    endpos.z -= observerpos[0].z;
+    geodist1 = vecabs3d(endpos)/AU_KM;
+    // Calculate position at last observation
+    Kepler_univ_int(GMSUN_KM3_SEC2, config.MJDref, startpos, startvel, obsMJD[ptnum-1], endpos, endvel);
+    endpos.x -= observerpos[ptnum-1].x;
+    endpos.y -= observerpos[ptnum-1].y;
+    endpos.z -= observerpos[ptnum-1].z;
+    geodist2 = vecabs3d(endpos)/AU_KM;
+    simplex_scale = SIMPLEX_SCALEFAC;
+    if(config.verbose>=2) {
+      cout << "Calling Hergetfit_vstar with dists " << geodist1 << " and " << geodist2 << "\n";
+    }
+    if(config.verbose>=2) {
+      cout << "Launching Hergetfit_vstar for cluster " << inclustct << ":\n";
+      for(i=0;i<=ptnum;i++) {
+	cout << "Point " << i << ": " << obsMJD[i] << " " << obsRA[i] << " "  << obsDec[i] << " " << sigastrom[i] << "\n";
+      }
+    }
+    if(config.verbose>=2) cout << "Cluster " << inclustct << " of " << inclustnum << " is good: ";
+    if(config.verbose>=2) cout << "\n";
+    if(config.verbose>=1 || inclustct%1000==0) cout << "Fitting cluster " << inclustct << " of " << inclustnum << ": ";
+    chisq = Hergetfit_vstar(geodist1, geodist2, simplex_scale, config.simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, config.verbose);
+    if(chisq>=LARGERR3) {
+      cerr << "WARNING: Hergetfit_vstar() returned error code on input " << geodist1 << ", " << geodist2 << "\n";
+    }
+    // orbit vector contains: semimajor axis [0], eccentricity [1],
+    // mjd at epoch [2], the state vectors [3-8], and the number of
+    // orbit evaluations (~iterations) required to reach convergence [9].
+      
+    chisq /= double(ptnum); // Now it's the reduced chi square value
+    astromrms = sqrt(chisq); // This gives the actual astrometric RMS in arcseconds if all the
+                             // entries in sigastrom are 1.0. Otherwise it's a measure of the
+                             // RMS in units of the typical uncertainty.
+    if(config.verbose>=1 || inclustct%1000==0) cout << " astromrms = " << astromrms << " arcsec, dup=" << istimedup << "\n";
+
+    // If good, just write it out.
+    if(astromrms <= config.max_astrom_rms && istimedup==0) {
+      // CLUSTER IS GOOD
+      // Recalculate clustermetric
+      clustmetric = intpowD(double(onecluster.uniquepoints),config.ptpow)*intpowD(double(onecluster.obsnights),config.nightpow)*intpowD(onecluster.timespan,config.timepow);	  
+      // Include the astrometric RMS value in the cluster metric and the RMS vector
+      onecluster.astromRMS = astromrms; // rmsvec[3]: astrometric rms in arcsec.
+      onecluster.metric = clustmetric/intpowD(astromrms,config.rmspow); // Under the default value rmspow=2, this is equivalent
+	                                                                // to dividing by the chi-square value rather than just
+	                                                                // the astrometric RMS, which has the desireable effect of
+	                                                                // prioritizing low astrometric error even more.
+      onecluster.orbit_a = orbit[0]/AU_KM;
+      onecluster.orbit_e = orbit[1];
+      onecluster.orbit_MJD = orbit[2];
+      onecluster.orbitX = orbit[3];
+      onecluster.orbitY = orbit[4];
+      onecluster.orbitZ = orbit[5];
+      onecluster.orbitVX = orbit[6];
+      onecluster.orbitVY = orbit[7];
+      onecluster.orbitVZ = orbit[8];
+      onecluster.orbit_eval_count = long(round(orbit[9]));
+      // Push new cluster on to holding vector holdclust
+      holdclust.push_back(onecluster);
+      clustindmat.push_back(clustind);
+    } else if(astromrms>config.max_astrom_rms || istimedup>0) {
+      // CLUSTER IS NOT GOOD, BUT MIGHT BE FIXABLE VIA
+      // ITERATIVE PURIFICATION USING ORBIT-FITTING
+      if (ptnum<=config.minpointnum) {
+	if(config.verbose>0 || inclustct%1000==0) cout << "Cluster " << inclustct << " of " << inclustnum << " is too small: REJECTED.\n";
+	continue; // This cluster needs culling, but is too small to survive any. Skip it.
+      }
+      // Iteratively remove astrometric outliers, or remove time duplicates
+      // Setup for the main while loop:
+      rejnum = 0;
+      rejmax = config.rejfrac*ptnum;
+      if(rejmax > ptnum-config.minpointnum) rejmax = ptnum - config.minpointnum;
+      if(rejmax > MAXREJ) rejmax=MAXREJ; // Insurance policy against excessive runtimes in pathological cases.
+      // Main while loop, which iteratively removes outliers
+      while(rejnum<rejmax && ptnum>config.minpointnum) {
+	if(astromrms>config.max_astrom_rms) {
+	  // The reason the cluster is not good is that the astrometric RMS is too high.
+	  // Identify the worst point.
+	  int wp=0;
+	  double wresid = resid[0];
+	  for(i=1;i<ptnum;i++) {
+	    if(resid[i]>wresid) {
+	      wresid=resid[i];
+	      wp = i;
 	    }
 	  }
-	  if(config.verbose>=1 || inclustct%1000==0) cout << "Fitting cluster " << inclustct << " of " << inclustnum << " minus " << rejnum << " outliers: ";
-	  chisq = Hergetfit_vstar(geodist1, geodist2, simplex_scale, config.simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, config.verbose);
-	  if(chisq>=LARGERR3) {
-	    cerr << "WARNING: Hergetfit_vstar() returned error code on input " << geodist1 << ", " << geodist2 << "\n";
+	  // Remove worst point from clusterdets and associated vectors
+	  clusterdets.erase(clusterdets.begin()+wp);
+	  obsMJD.erase(obsMJD.begin()+wp);
+	  obsRA.erase(obsRA.begin()+wp);
+	  obsDec.erase(obsDec.begin()+wp);
+	  sigastrom.erase(sigastrom.begin()+wp);
+	  observerpos.erase(observerpos.begin()+wp);
+	  ptnum--;
+	  rejnum++;
+	  if(long(obsMJD.size())!=ptnum) {
+	    cerr << "Vector trim count error: " << obsMJD.size() << "!=" << ptnum << "\n";
+	    return(9);
 	  }
-	  // orbit vector contains: semimajor axis [0], eccentricity [1],
-	  // mjd at epoch [2], the state vectors [3-8], and the number of
-	  // orbit evaluations (~iterations) required to reach convergence [9].
+	  // Worst outlier rejected, ready for new round of orbit-fitting.
+	} else if(astromrms <= config.max_astrom_rms && istimedup>0) {
+	  // The reason the cluster is not good is that it still contains
+	  // time-duplicates, even though the astrometric RMS is OK.
+	  vector <long> badpoints = {};
+	  for(ptct=1; ptct<ptnum; ptct++) {
+	    if(clusterdets[ptct-1].MJD == clusterdets[ptct].MJD && stringnmatch01(clusterdets[ptct-1].obscode,clusterdets[ptct].obscode,3)==0) {
+	      // Points ptct-1 and ptct are time-duplicates.
+	      // Mark for rejection whichever point has the larger RMS.
+	      if(resid[ptct-1]>resid[ptct]) badpoints.push_back(ptct-1);
+	      else badpoints.push_back(ptct);
+	    }
+	  }
+	  // sort the badpoints vector
+	  sort(badpoints.begin(), badpoints.end());
+	  // Erase the bad points, starting from the end of the vectors
+	  for(i=long(badpoints.size()-1); i>=0; i--) {
+	    clusterdets.erase(clusterdets.begin()+badpoints[i]);
+	    obsMJD.erase(obsMJD.begin()+badpoints[i]);
+	    obsRA.erase(obsRA.begin()+badpoints[i]);
+	    obsDec.erase(obsDec.begin()+badpoints[i]);
+	    sigastrom.erase(sigastrom.begin()+badpoints[i]);
+	    observerpos.erase(observerpos.begin()+badpoints[i]);
+	    ptnum--;
+	    rejnum++;
+	  }
+	  if(long(obsMJD.size())!=ptnum) {
+	    cerr << "Vector timedupe trim count error: " << obsMJD.size() << "!=" << ptnum << "\n";
+	    return(9);
+	  }
+	  // All time-duplicates rejected, ready for next round of orbit-fitting.
+	} else {
+	  // This is a weird, illogical case, and probably the reason we got here
+	  // has to do with NANs. In any case, the cluster is very unlikely to be
+	  // salvageable.
+	  if(config.verbose>=1 || inclustct%1000==0) cout << "Weird cluster case, REJECTING\n";
+	  break; // Break out of the point-culling while loop, abandoning this cluster.
+	}
+	// Check if cluster is still valid
+	// load vector of MJD steps
+	mjdstep={};
+	for(long i=1; i<ptnum; i++) mjdstep.push_back(obsMJD[i]-obsMJD[i-1]);
+	// Count steps large enough to suggest a daytime period between nights.
+	daysteps=0;	
+	for(long i=0; i<long(mjdstep.size()); i++) {
+	  if(mjdstep[i]>NIGHTSTEP) daysteps++;
+	}
+	obsnights = daysteps+1;
+	// Does cluster pass the criteria for a linked detection?
+	if(obsnights < config.minobsnights || ptnum < config.minpointnum) {
+	  // This cluster became invalid when we rejected the outlier(s).
+	  if(config.verbose>=1 || inclustct%1000==0) cout << "Cluster became invalid, REJECTING\n";
+	  break; // Break out of point-culling while loop, since
+	         // this cluster is unredeemable.
+	}
+	// If we get here, rejection of the point didn't make the cluster invalid.
+	// Begin analysis by loading new clustind vector.
+	clustind = {};
+	for(i=0;i<ptnum;i++) clustind.push_back(clusterdets[i].index);
+	// Check for time-duplicates
+	istimedup=0;
+	for(ptct=1; ptct<ptnum; ptct++) {
+	  if(clusterdets[ptct-1].MJD == clusterdets[ptct].MJD && stringnmatch01(clusterdets[ptct-1].obscode,clusterdets[ptct].obscode,3)==0) istimedup=1;
+	}
+	// Use state vectors from previous fit to estimate beginning and ending geocentric distances.
+	startpos.x = orbit[3];
+	startpos.y = orbit[4];
+	startpos.z = orbit[5];
+	startvel.x = orbit[6];
+	startvel.y = orbit[7];
+	startvel.z = orbit[8];
+	// Note that orbit[2] is MJD at the epoch.
+	// Calculate position at first observation
+	Kepler_univ_int(GMSUN_KM3_SEC2, orbit[2], startpos, startvel, obsMJD[0], endpos, endvel);
+	// Find vector relative to the observer by subtracting off the observer's position.
+	endpos.x -= observerpos[0].x;
+	endpos.y -= observerpos[0].y;
+	endpos.z -= observerpos[0].z;
+	geodist1 = vecabs3d(endpos)/AU_KM;
+	// Calculate position at last observation
+	Kepler_univ_int(GMSUN_KM3_SEC2, orbit[2], startpos, startvel, obsMJD[ptnum-1], endpos, endvel);
+	endpos.x -= observerpos[ptnum-1].x;
+	endpos.y -= observerpos[ptnum-1].y;
+	endpos.z -= observerpos[ptnum-1].z;
+	geodist2 = vecabs3d(endpos)/AU_KM;
+	    
+	simplex_scale = SIMPLEX_SCALEFAC;
+	if(config.verbose>=2) {
+	  cout << "Calling Hergetfit_vstar with dists " << geodist1 << " and " << geodist2 << "\n";
+	}
+	if(config.verbose>=2) {
+	  cout << "Launching Hergetfit_vstar for cluster " << inclustct << ":\n";
+	  for(i=0;i<=ptnum;i++) {
+	    cout << "Point " << i << ": " << obsMJD[i] << " " << obsRA[i] << " "  << obsDec[i] << " " << sigastrom[i] << "\n";
+	  }
+	}
+	if(config.verbose>=1 || inclustct%1000==0) cout << "Fitting cluster " << inclustct << " of " << inclustnum << " minus " << rejnum << " outliers: ";
+	chisq = Hergetfit_vstar(geodist1, geodist2, simplex_scale, config.simptype, ftol, 1, ptnum, observerpos, obsMJD, obsRA, obsDec, sigastrom, fitRA, fitDec, resid, orbit, config.verbose);
+	if(chisq>=LARGERR3) {
+	  cerr << "WARNING: Hergetfit_vstar() returned error code on input " << geodist1 << ", " << geodist2 << "\n";
+	}
+	// orbit vector contains: semimajor axis [0], eccentricity [1],
+	// mjd at epoch [2], the state vectors [3-8], and the number of
+	// orbit evaluations (~iterations) required to reach convergence [9].
       
-	  chisq /= double(ptnum); // Now it's the reduced chi square value
-	  astromrms = sqrt(chisq); // This gives the actual astrometric RMS in arcseconds if all the
-	  if(config.verbose>=1 || inclustct%1000==0) cout << " astromrms = " << astromrms << " arcsec, dup=" << istimedup << "\n";
-	  // entries in sigastrom are 1.0. Otherwise it's a measure of the
-	  // RMS in units of the typical uncertainty.
+	chisq /= double(ptnum); // Now it's the reduced chi square value
+	astromrms = sqrt(chisq); // This gives the actual astrometric RMS in arcseconds if all the
+ 	                         // entries in sigastrom are 1.0. Otherwise it's a measure of the
+	                         // RMS in units of the typical uncertainty.
+	if(config.verbose>=1 || inclustct%1000==0) cout << " astromrms = " << astromrms << " arcsec, dup=" << istimedup << "\n";
 	  
-	  // Check if the astrometric RMS has dropped to the acceptable range,
-	  // and no time-duplicates remain.
-	  if(astromrms <= config.max_astrom_rms && istimedup==0) {
-	    if(config.verbose>=1 || inclustct%1000==0) cout << "astromrms success: " << astromrms << " <= " << config.max_astrom_rms << ", dup=" << istimedup << "\n";
-	    // CLUSTER HAS BEEN SUCCESSFULLY PURIFIED.
-	    // The cluster is good and should be written out.
-	    // Revise onecluster to reflect the deleted points
-	    onecluster.timespan = obsMJD[ptnum-1]-obsMJD[0];
-	    onecluster.uniquepoints = ptnum;
-	    onecluster.obsnights = obsnights;
-	    // Recalculate clustermetric
-	    clustmetric = intpowD(double(onecluster.uniquepoints),config.ptpow)*intpowD(double(onecluster.obsnights),config.nightpow)*intpowD(onecluster.timespan,config.timepow);	  
-	    // Include the astrometric RMS value in the cluster metric and the RMS vector
-	    onecluster.astromRMS = astromrms; // rmsvec[3]: astrometric rms in arcsec.
-	    onecluster.metric = clustmetric/intpowD(astromrms,config.rmspow); // Under the default value rmspow=2, this is equivalent
-	                                                                      // to dividing by the chi-square value rather than just
-	                                                                      // the astrometric RMS, which has the desireable effect of
-	                                                                      // prioritizing low astrometric error even more.
-	    onecluster.orbit_a = orbit[0]/AU_KM;
-	    onecluster.orbit_e = orbit[1];
-	    onecluster.orbit_MJD = orbit[2];
-	    onecluster.orbitX = orbit[3];
-	    onecluster.orbitY = orbit[4];
-	    onecluster.orbitZ = orbit[5];
-	    onecluster.orbitVX = orbit[6];
-	    onecluster.orbitVY = orbit[7];
-	    onecluster.orbitVZ = orbit[8];
-	    onecluster.orbit_eval_count = long(round(orbit[9]));
-	    // Push new cluster on to holding vector holdclust
-	    holdclust.push_back(onecluster);
-	    clustindmat.push_back(clustind);
-	    break; // Break out of point-culling while loop, since we have
-	           // successfully purified the cluster.
-	  } // Closes successful purification case.
-	  if((config.verbose>0 || inclustct%1000==0) && (rejnum>=rejmax || ptnum<=config.minpointnum)) cout << "Cluster became too small: REJECTED.\n";
-	} // Closes point-culling while loop.
-	// Close else if case that astrometric RMS was too high, the cluster needed purifying.
-      } else if (ptnum<=config.minpointnum) {
-	if(config.verbose>0 || inclustct%1000==0) cout << "Cluster is too small: REJECTED.\n";
-      }
-    } // Closes initial if case that physical RMS is too high, cluster is rejected immediately.
+	// Check if the astrometric RMS has dropped to the acceptable range,
+	// and no time-duplicates remain.
+	if(astromrms <= config.max_astrom_rms && istimedup==0) {
+	  if(config.verbose>=1 || inclustct%1000==0) cout << "astromrms success: " << astromrms << " <= " << config.max_astrom_rms << ", dup=" << istimedup << "\n";
+	  // CLUSTER HAS BEEN SUCCESSFULLY PURIFIED.
+	  // The cluster is good and should be written out.
+	  // Revise onecluster to reflect the deleted points
+	  onecluster.timespan = obsMJD[ptnum-1]-obsMJD[0];
+	  onecluster.uniquepoints = ptnum;
+	  onecluster.obsnights = obsnights;
+	  // Recalculate clustermetric
+	  clustmetric = intpowD(double(onecluster.uniquepoints),config.ptpow)*intpowD(double(onecluster.obsnights),config.nightpow)*intpowD(onecluster.timespan,config.timepow);	  
+	  // Include the astrometric RMS value in the cluster metric and the RMS vector
+	  onecluster.astromRMS = astromrms; // rmsvec[3]: astrometric rms in arcsec.
+	  onecluster.metric = clustmetric/intpowD(astromrms,config.rmspow); // Under the default value rmspow=2, this is equivalent
+	                                                                    // to dividing by the chi-square value rather than just
+	                                                                    // the astrometric RMS, which has the desireable effect of
+	                                                                    // prioritizing low astrometric error even more.
+	  onecluster.orbit_a = orbit[0]/AU_KM;
+	  onecluster.orbit_e = orbit[1];
+	  onecluster.orbit_MJD = orbit[2];
+	  onecluster.orbitX = orbit[3];
+	  onecluster.orbitY = orbit[4];
+	  onecluster.orbitZ = orbit[5];
+	  onecluster.orbitVX = orbit[6];
+	  onecluster.orbitVY = orbit[7];
+	  onecluster.orbitVZ = orbit[8];
+	  onecluster.orbit_eval_count = long(round(orbit[9]));
+	  // Push new cluster on to holding vector holdclust
+	  holdclust.push_back(onecluster);
+	  clustindmat.push_back(clustind);
+	  break; // Break out of point-culling while loop, since we have
+	         // successfully purified the cluster.
+	} // Closes successful purification case.
+	if((config.verbose>0 || inclustct%1000==0) && (rejnum>=rejmax || ptnum<=config.minpointnum)) cout << "Cluster became too small: REJECTED.\n";
+      } // Closes point-culling while loop.
+    } // Close else if case that astrometric RMS was too high, the cluster needed purifying.
   } // Closes loop on input cluster arrays.
 
   clusternum = holdclust.size();
