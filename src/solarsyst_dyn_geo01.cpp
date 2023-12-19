@@ -23929,11 +23929,16 @@ int link_planarity(const vector <hlimage> &image_log, const vector <hldet> &detv
 	    // The second geometrical case is better.
 	    // Copy the corresponding vector as the primary ouput.
 	    clusterdets = clusterdets2;
-	  }
-	  if(config.verbose>=1 || inclustct%1000==0) cout << "Planarity success: cluster " << inclustct << " of " << inclustnum << "\n";
+	    if(config.verbose>=1 || inclustct%1000==0) cout << "Case 2 planarity success: OOP RMS = " << normout2 << " for cluster " << inclustct << " of " << inclustnum << "\n";
+	  } else if(config.verbose>=1 || inclustct%1000==0) cout << "Planarity success: OOP RMS = " << normout1 << " for cluster " << inclustct << " of " << inclustnum << "\n";
 	  badcluster=0;
 	  break; // Exit the while loop.
 	}
+      }
+      if(normout1>config.max_oop && (bothcases==0 || normout2>config.max_oop)) {
+	// We exited the while loop without successfully purifying the cluster.
+	if(config.verbose>=1 || inclustct%1000==0) cout << "Planarity check failed to purify cluster " << inclustct << " of " << inclustnum << "\n";
+	badcluster=1;
       }
     }
     if(badcluster==1) continue; // Skip further analysis of this cluster, which became invalid under the planarity check.
