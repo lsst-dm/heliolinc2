@@ -23942,7 +23942,7 @@ int link_planarity(const vector <hlimage> &image_log, const vector <hldet> &detv
       }
     }
     if(badcluster==1) continue; // Skip further analysis of this cluster, which became invalid under the planarity check.
-    
+  
     // If we get here, this cluster passed the planarity check in a valid state.
     // Proceed with the orbit-fitting
     // Begin analysis by loading new clustind vector.
@@ -24045,6 +24045,9 @@ int link_planarity(const vector <hlimage> &image_log, const vector <hldet> &detv
     // If good, just write it out.
     if(astromrms <= config.max_astrom_rms && istimedup==0) {
       // CLUSTER IS GOOD
+      onecluster.timespan = obsMJD[ptnum-1]-obsMJD[0];
+      onecluster.uniquepoints = ptnum;
+      onecluster.obsnights = obsnights;
       // Recalculate clustermetric
       clustmetric = intpowD(double(onecluster.uniquepoints),config.ptpow)*intpowD(double(onecluster.obsnights),config.nightpow)*intpowD(onecluster.timespan,config.timepow);	  
       // Include the astrometric RMS value in the cluster metric and the RMS vector
