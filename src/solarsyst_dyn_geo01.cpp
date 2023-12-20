@@ -23240,6 +23240,7 @@ int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec,
       // If good, just write it out.
       if(astromrms <= config.max_astrom_rms && istimedup==0) {
 	// CLUSTER IS GOOD
+	if(config.verbose>=1 || inclustct%1000==0) cout << "Writing out good cluster " << inclustct << "\n";
 	// Recalculate clustermetric
 	clustmetric = intpowD(double(onecluster.uniquepoints),config.ptpow)*intpowD(double(onecluster.obsnights),config.nightpow)*intpowD(onecluster.timespan,config.timepow);	  
 	// Include the astrometric RMS value in the cluster metric and the RMS vector
@@ -23263,6 +23264,7 @@ int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec,
 	clustindmat.push_back(clustind);
       } else if((astromrms>config.max_astrom_rms || istimedup>0) && ptnum>config.minpointnum) {
 	// CLUSTER IS NOT GOOD, BUT MIGHT BE FIXABLE
+	if(config.verbose>=1 || inclustct%1000==0) cout << "Trying to purify cluster " << inclustct << " with " << ptnum << " points\n";
 	// Iteratively remove astrometric outliers, or remove time duplicates
 	// Setup for the main while loop:
 	rejnum = 0;
@@ -23409,7 +23411,7 @@ int link_purify(const vector <hlimage> &image_log, const vector <hldet> &detvec,
 	  // Check if the astrometric RMS has dropped to the acceptable range,
 	  // and no time-duplicates remain.
 	  if(astromrms <= config.max_astrom_rms && istimedup==0) {
-	    if(config.verbose>=1 || inclustct%1000==0) cout << "astromrms success: " << astromrms << " <= " << config.max_astrom_rms << ", dup=" << istimedup << "\n";
+	    if(config.verbose>=1 || inclustct%1000==0) cout << "astromrms success: " << astromrms << " <= " << config.max_astrom_rms << ", dup=" << istimedup << ": writing out purified cluster " << inclustct << "\n";
 	    // CLUSTER HAS BEEN SUCCESSFULLY PURIFIED.
 	    // The cluster is good and should be written out.
 	    // Revise onecluster to reflect the deleted points

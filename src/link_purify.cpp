@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
     } else if(string(argv[i]) == "-rejfrac" || string(argv[i]) == "-maxrej" || string(argv[i]) == "-maxrejfrac" || string(argv[i]) == "-rlev" || string(argv[i]) == "-rlev" || string(argv[i]) == "-max_rej_frac" || string(argv[i]) == "--rejfrac" ) {
       if(i+1 < argc) {
 	//There is still something to read;
-	config.rejfrac=stol(argv[++i]);
+	config.rejfrac=stod(argv[++i]);
 	default_simptype=0;
 	i++;
       }
