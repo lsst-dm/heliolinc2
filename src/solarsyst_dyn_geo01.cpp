@@ -20774,6 +20774,7 @@ int form_clusters_kd3(const vector <point6ix2> &allstatevecs, const vector <hlde
   long kdroot=0;
   long splitpoint=0;
   int gridpoint_clusternum=0;
+  int geobin_clusternum=0;
   KD_point6ix2 kdpoint = KD_point6ix2(stateveci,-1,-1,1,-1);
   vector <KD_point6ix2> kdvec;
   vector <KD6i_clust> kdclust;
@@ -20832,6 +20833,7 @@ int form_clusters_kd3(const vector <point6ix2> &allstatevecs, const vector <hlde
     georadmax = georadcen*geologstep;
     // Load new array of state vectors, limited to those in the current geocentric bin
     binstatevecs={};
+    geobin_clusternum=0;
     for(long i=0; i<long(allstatevecs.size()); i++) {
       // Reverse integerization of the state vector.
       // This is only possible to a crude approximation, of course.
@@ -21019,11 +21021,12 @@ int form_clusters_kd3(const vector <point6ix2> &allstatevecs, const vector <hlde
 	  outclust.push_back(onecluster);
 	  realclusternum++;
 	  gridpoint_clusternum++;
+	  geobin_clusternum++;
 	}
       }
     }
     // Move on to the next bin in geocentric distance
-    cout << "Final analysis of geobin " << geobinct << " identified " << gridpoint_clusternum << " distinct candidate linkages\n";
+    cout << "Final analysis of geobin " << geobinct << " identified " << geobin_clusternum << " distinct candidate linkages. Current total is " << gridpoint_clusternum << "\n";
     geobinct++;
   }
   return(0);
