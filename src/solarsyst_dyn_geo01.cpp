@@ -20903,7 +20903,7 @@ int form_clusters_kd3(const vector <point6ix2> &allstatevecs, const vector <hlde
       for(clusterct2=0; clusterct2<long(kdclust.size()); clusterct2++) {
 	if(clusterct2>0 && hashvec[clusterct2].lelem == hashvec[clusterct2-1].lelem) {
 	  // This cluster is a duplicate of the previous one: skip it
-	  continue;
+	  // continue;
 	}
 	// If we get here, the cluster is NOT a duplicate, and so we analyze it.
 	clusterct = hashvec[clusterct2].index;
