@@ -20519,6 +20519,7 @@ int form_clusters_kd2(const vector <point6ix2> &allstatevecs, const vector <hlde
   long kdroot=0;
   long splitpoint=0;
   int gridpoint_clusternum=0;
+  int geobin_clusternum=0;
   KD_point6ix2 kdpoint = KD_point6ix2(stateveci,-1,-1,1,-1);
   vector <KD_point6ix2> kdvec;
   vector <KD6i_clust> kdclust;
@@ -20576,6 +20577,7 @@ int form_clusters_kd2(const vector <point6ix2> &allstatevecs, const vector <hlde
     georadmax = georadcen*geologstep;
     // Load new array of state vectors, limited to those in the current geocentric bin
     binstatevecs={};
+    geobin_clusternum=0;
     for(long i=0; i<long(allstatevecs.size()); i++) {
       // Reverse integerization of the state vector.
       // This is only possible to a crude approximation, of course.
@@ -20603,7 +20605,7 @@ int form_clusters_kd2(const vector <point6ix2> &allstatevecs, const vector <hlde
 
       kdclust={};
       long clusternum = KDRclust_6i01(kdvec, cluster_radius*(georadcen/REF_GEODIST)/INTEGERIZING_SCALEFAC, dbscan_npt, INTEGERIZING_SCALEFAC, kdclust, verbose);
-      if(verbose>=1) cout << "DBSCAN_6i01 finished, with " << clusternum << " = " << kdclust.size() << " clusters found\n";
+      cout << "KDRclust_6i01 finished in geobin " << georadct << ", with " << clusternum << " = " << kdclust.size() << " clusters found\n";
       if(clusternum<0) return(8);
       for(clusterct=0; clusterct<long(kdclust.size()); clusterct++) {
 	// Scale cluster RMS down to reference geocentric distance
@@ -20744,13 +20746,15 @@ int form_clusters_kd2(const vector <point6ix2> &allstatevecs, const vector <hlde
 	  pointind_mat.insert(pointind_mat.begin()+orderplace,pointind);
 	  realclusternum++;
 	  gridpoint_clusternum++;
+	  geobin_clusternum++;
 	}
       }
     }
+    cout << "Final analysis of geobin " << geobinct << " identified " << geobin_clusternum << " distinct candidate linkages. Current total is " << gridpoint_clusternum << "\n";
     // Move on to the next bin in geocentric distance
     geobinct++;
   }
-  if(verbose>=0) cout << "Identified " << gridpoint_clusternum << " candidate linkages\n";
+  if(verbose>=0) cout << "Across all geobins, identified " << gridpoint_clusternum << " total linkages\n";
   return(0);
 }
 
@@ -20903,7 +20907,7 @@ int form_clusters_kd3(const vector <point6ix2> &allstatevecs, const vector <hlde
       for(clusterct2=0; clusterct2<long(kdclust.size()); clusterct2++) {
 	if(clusterct2>0 && hashvec[clusterct2].lelem == hashvec[clusterct2-1].lelem) {
 	  // This cluster is a duplicate of the previous one: skip it
-	  // continue;
+	  continue;
 	}
 	// If we get here, the cluster is NOT a duplicate, and so we analyze it.
 	clusterct = hashvec[clusterct2].index;
