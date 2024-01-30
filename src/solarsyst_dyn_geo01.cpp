@@ -21029,6 +21029,7 @@ int form_clusters_kd3(const vector <point6ix2> &allstatevecs, const vector <hlde
     cout << "Final analysis of geobin " << geobinct << " identified " << geobin_clusternum << " distinct candidate linkages. Current total is " << gridpoint_clusternum << "\n";
     geobinct++;
   }
+  if(verbose>=0) cout << "Across all geobins, identified " << gridpoint_clusternum << " total linkages\n";
   return(0);
 }
 
