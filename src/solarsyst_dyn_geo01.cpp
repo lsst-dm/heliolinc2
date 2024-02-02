@@ -21307,7 +21307,7 @@ int form_clusters_kd4(const vector <point6ix2> &allstatevecs, const vector <hlde
     longpd_index lpi = longpd_index(0,0,0);
     vector <longpd_index> lpdvec;
     long hashval=0;
-    for(long i=0; i<=long(outclust2.size()); i++) {
+    for(long i=0; i<long(outclust2.size()); i++) {
       vector <long> pointind = pointind_mat[i];
       lpi.index = i;
       hashval=blend_vector(pointind);
@@ -21319,7 +21319,7 @@ int form_clusters_kd4(const vector <point6ix2> &allstatevecs, const vector <hlde
       // New vector has the right size. Sort it.
       sort(lpdvec.begin(), lpdvec.end(), lower_longpd_index());
       long newclusterct=0;
-      for(long i=0; i<=long(outclust2.size()); i++) {
+      for(long i=0; i<long(outclust2.size()); i++) {
 	long clustct = lpdvec[i].index;
 	onecluster = outclust2[clustct];
 	onecluster.clusternum = realclusternum;
