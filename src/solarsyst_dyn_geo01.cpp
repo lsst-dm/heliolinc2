@@ -21082,8 +21082,6 @@ int form_clusters_kd4(const vector <point6ix2> &allstatevecs, const vector <hlde
   int georadct,georadnum;
   georadct=georadnum=0;
   double georadcen = mingeodist*intpowD(geologstep,georadct);
-  longpd_index lpi = longpd_index(0,0,0);
-  vector <longpd_index> lpdvec;
   vector <hlclust> outclust2;
   vector <vector <long>> pointind_mat;
   
@@ -21102,6 +21100,8 @@ int form_clusters_kd4(const vector <point6ix2> &allstatevecs, const vector <hlde
   } else georadnum = ceil(dgnum)+1;
 
   georadct = 0;
+  pointind_mat = {};
+  outclust2 = {};
   while(georadcen<=maxgeodist && georadct<=georadnum) {
     georadct++;
     georadcen = mingeodist*intpowD(geologstep,georadct-1);
@@ -21177,6 +21177,7 @@ int form_clusters_kd4(const vector <point6ix2> &allstatevecs, const vector <hlde
 	hashvec.push_back(li01);
       }
       sort(hashvec.begin(), hashvec.end(), lower_long_index());
+
       // SECOND LOOP OVER CLUSTERS: FULL ANALYSIS
       for(clusterct2=0; clusterct2<long(kdclust.size()); clusterct2++) {
 	if(clusterct2>0 && hashvec[clusterct2].lelem == hashvec[clusterct2-1].lelem) {
@@ -21222,12 +21223,7 @@ int form_clusters_kd4(const vector <point6ix2> &allstatevecs, const vector <hlde
 	for(long i=long(pointind.size()-1); i>0; i--) {
 	  if(pointind[i]==pointind[i-1]) pointind.erase(pointind.begin()+i);
 	}
-	
-	uniquepoints = pointind.size();
-	hashval=blend_vector(pointind);
-	lpi.lelem = hashval;
-	lpi.index = clusterct;
-
+	uniquepoints = pointind.size();      
 	// Load vector of detection MJD's
 	vector <double> clustmjd;
 	for(long i=0; i<long(pointind.size()); i++) {
@@ -21268,9 +21264,6 @@ int form_clusters_kd4(const vector <point6ix2> &allstatevecs, const vector <hlde
 	  // Calculate values for the statistics in the output array (class hlclust) that have
 	  // not been caculated already.
 	  clustmetric = double(pointind.size())*double(obsnights)*timespan/kdclust[clusterct].rmsvec[8];
-	  lpi.delem = clustmetric;
-	  lpdvec.push_back(lpi);
-
 	  // Note contents of rmsvec: [0] xrms, [1] yrms, [2] zrms, [3] vxrms, [4] vyrms, [5] vzrms,
 	  // [6] overall position rms, [7] overall velocity rms, [8] overall rms
 	  posRMS = kdclust[clusterct].rmsvec[6];
@@ -21309,49 +21302,57 @@ int form_clusters_kd4(const vector <point6ix2> &allstatevecs, const vector <hlde
 
   // Final loop over all clusters, to remove duplicates
   // that were in different geocentric bins.
-  long newclusterct=0;
-  if(outclust2.size()==lpdvec.size() && outclust2.size()==pointind_mat.size()) {
-    // Loading of hash vector makes sense. Sort it.
-    sort(lpdvec.begin(), lpdvec.end(), lower_longpd_index());
-    long clustct = lpdvec[0].index;
-    onecluster = outclust2[clustct];
-    onecluster.clusternum = realclusternum;
-    if(verbose >= 1) cout << "Loading good cluster " << realclusternum << " with timespan " << onecluster.timespan << " and obsnights " << onecluster.obsnights << "\n";
-    outclust.push_back(onecluster);
-    // Write all individual detections in this cluster to the clust2det array
-    for(long j=0; j<long(pointind_mat[clustct].size()); j++) {
-      c2d = longpair(realclusternum,pointind_mat[clustct][j]);
-      clust2det.push_back(c2d);
+  if(outclust2.size()==pointind_mat.size()) {
+    // Vector sizes make sense. Load the new hash vector
+    longpd_index lpi = longpd_index(0,0,0);
+    vector <longpd_index> lpdvec;
+    long hashval=0;
+    for(long i=0; i<=long(outclust2.size()); i++) {
+      vector <long> pointind = pointind_mat[i];
+      lpi.index = i;
+      hashval=blend_vector(pointind);
+      lpi.lelem = hashval;
+      lpi.delem = outclust2[i].metric;
+      lpdvec.push_back(lpi);
     }
-    realclusternum++;
-    newclusterct++;
-    
-    for(long i=1; i<long(outclust2.size()); i++) {
-      if(lpdvec[i].lelem != lpdvec[i-1].lelem) {
-	clustct = lpdvec[i].index;
+    if(outclust2.size()==lpdvec.size()) {
+      // New vector has the right size. Sort it.
+      sort(lpdvec.begin(), lpdvec.end(), lower_longpd_index());
+      long newclusterct=0;
+      for(long i=0; i<=long(outclust2.size()); i++) {
+	long clustct = lpdvec[i].index;
 	onecluster = outclust2[clustct];
 	onecluster.clusternum = realclusternum;
-	if(verbose >= 1) cout << "Loading good cluster " << realclusternum << " with timespan " << onecluster.timespan << " and obsnights " << onecluster.obsnights << "\n";
-	outclust.push_back(onecluster);
-	// Write all individual detections in this cluster to the clust2det array
-	for(long j=0; j<long(pointind_mat[clustct].size()); j++) {
-	  c2d = longpair(realclusternum,pointind_mat[clustct][j]);
-	  clust2det.push_back(c2d);
+	vector <long> pointind = pointind_mat[clustct];
+	if(i==0 || lpdvec[i].lelem != lpdvec[i-1].lelem) {
+	  // This cluster is not a duplicate. Write it to
+	  // the output vectors.
+	  if(verbose >= 1) cout << "Loading good cluster " << realclusternum << " with timespan " << onecluster.timespan << " and obsnights " << onecluster.obsnights << "\n";
+	  outclust.push_back(onecluster);
+	  // Write all individual detections in this cluster to the clust2det array
+	  for(long j=0; j<long(pointind.size()); j++) {
+	    c2d = longpair(realclusternum,pointind[j]);
+	    clust2det.push_back(c2d);
+	  }
+	  realclusternum++;
+	  newclusterct++;
 	}
-	realclusternum++;
-	newclusterct++;
       }
+      if(verbose>=0) cout << "Final deduplicated total is " << newclusterct << " distinguishable linkages\n";
+      return(0);
+    } else {
+      cerr << "ERROR: the lengths of the vectors outclust2 and lpvec are not the same!\n";
+      cerr << outclust2.size() << " vs. " << lpdvec.size() << "\n";
+      return(9);
     }
-    if(verbose>=0) cout << "Final deduplicated total is " << newclusterct << " distinguishable linkages\n";
-    return(0);
   } else {
-    cerr << "ERROR: length " << lpdvec.size() << " of hash record lpdvec does not match length " << outclust2.size() << " of outclust2 vector\n";
-    cerr << "AND/OR: length " << lpdvec.size() << " of hash record lpdvec does not match length " << pointind_mat.size() << " of pointind_mat vector\n";
-    return(9);
+    cerr << "ERROR: the lengths of the vectors outclust2 and pointind_mat are not the same!\n";
+    cerr << outclust2.size() << " vs. " << pointind_mat.size() << "\n";
+    return(10);
   }
-  return(0);
+  cerr << "ERROR: form_clusters_kd4 has reached a case that should not be\nreachable under the design logic.\n";
+  return(11);
 }
-
 
 // heliolinc_alg: April 11, 2023: dummy wrapper for heliolinc,
 // calls all important algorithmic stuff.
