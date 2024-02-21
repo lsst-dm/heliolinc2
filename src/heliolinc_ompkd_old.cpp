@@ -247,7 +247,7 @@ int main(int argc, char *argv[])
 	i++;
       }
       else {
-	cerr << "Input pair file keyword supplied with no corresponding argument\n";
+	cerr << "Input tracklet file keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
@@ -258,7 +258,7 @@ int main(int argc, char *argv[])
 	i++;
       }
       else {
-	cerr << "Input pair file keyword supplied with no corresponding argument\n";
+	cerr << "Input tracklet-to-detection file keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
@@ -622,7 +622,7 @@ int main(int argc, char *argv[])
   }
   cout << "Read " << trk2det.size() << " data lines from trk2det file " << trk2detfile << "\n";
   
-  status=heliolinc_alg_ompkd4(image_log, detvec, tracklets, trk2det, radhyp, earthpos, config, outclust, clust2det);
+  status=heliolinc_alg_ompkd(image_log, detvec, tracklets, trk2det, radhyp, earthpos, config, outclust, clust2det);
   if(status!=0) {
     cerr << "ERROR: heliolinc_alg failed with status " << status << "\n";
     return(status);

@@ -274,7 +274,7 @@ public:
 };
 
 class hlimage{ // Astronomical image with MJD of mid-exposure, boresight RA and Dec,
-               // observatory code, and observer X, Y, Z, VX, VY, VZ
+               // observatory code, and observer X, Y, Z, VX, VY, VZ, and exposure time in seconds
 public:
   double MJD;
   double RA;
@@ -288,7 +288,8 @@ public:
   double VZ;
   long startind;
   long endind;
-  hlimage(double mjd, double ra, double dec, const string &obscode, double x, double y, double z, double vx, double vy, double vz, long startind, long endind) :MJD(mjd), RA(ra), Dec(dec), X(x), Y(y), Z(z), VX(vx), VY(vy), VZ(vz), startind(startind), endind(endind) {
+  double exptime; // Exposure time in seconds
+  hlimage(double mjd, double ra, double dec, const string &obscode, double x, double y, double z, double vx, double vy, double vz, long startind, long endind, double exptime) :MJD(mjd), RA(ra), Dec(dec), X(x), Y(y), Z(z), VX(vx), VY(vy), VZ(vz), startind(startind), endind(endind), exptime(exptime) {
     // Copy input value for obscode, making sure it's not too long
     assert(obscode.size() < sizeof(this->obscode));
     std::strncpy(this->obscode, obscode.c_str(), sizeof(this->obscode));
@@ -308,6 +309,10 @@ struct MakeTrackletsConfig {
   double mintime = 1.0 / SOLARDAY; // Minimum inter-image time interval, in days.
   double imagerad = 2.0;        // radius from image center to most distant corner (deg)
   double maxgcr = 0.5;          // Default maximum Great Circle Residual allowed for a valid tracklet
+  double exptime = 30.0;        // Defulat exposure time in seconds.
+  double siglenscale = 0.5;     // Default scaling from trail length to its uncertainty
+  double sigpascale = 1.0;      // Default size in arcseconds used to estimate trail
+                                // PA uncertainty, using sigPA = DEGPRAD*sigpascale/trail_len
   int forcerun = 0; // Pushes through all but the immediately fatal errors.
   int verbose = 0;  // Prints monitoring output
 };
@@ -1630,9 +1635,12 @@ int load_image_table(vector <hlimage> &img_log, const vector <hldet> &detvec, co
 int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double imagetimetol, int forcerun);
 int load_image_indices2(vector <hlimage> &img_log, vector <hldet> &detvec, double imagetimetol, int forcerun);
 int find_pairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <hldet> &pairdets, vector <vector <long>> &indvecs, vector <longpair> &pairvec, double mintime, double maxtime, double imrad, double maxvel, int verbose);
+int find_trailpairs(vector <hldet> &detvec, const vector <hlimage> &img_log, vector <hldet> &pairdets, vector <vector <long>> &indvecs, vector <longpair> &pairvec, double mintime, double maxtime, double imrad, double maxvel, double siglenscale, double sigpascale, int verbose);
 int merge_pairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs, const vector <longpair> &pairvec, vector <tracklet> &tracklets, vector <longpair> &trk2det, int mintrkpts, double maxgcr, double minarc, double minvel, double maxvel, int verbose);
+int merge_trailpairs(const vector <hldet> &pairdets, vector <vector <long>> &indvecs, const vector <longpair> &pairvec, vector <tracklet> &tracklets, vector <longpair> &trk2det, int mintrkpts, double maxgcr, double minarc, double minvel, double maxvel, int verbose);
 int record_pairs(vector <hldet> &detvec, vector <hldet> &detvec_fixed, vector <tracklet> &tracklets, vector <longpair> &trk2det, int verbose);
 int make_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrackletsConfig config, vector <hldet> &pairdets,vector <tracklet> &tracklets, vector <longpair> &trk2det);
+int make_trailed_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrackletsConfig config, vector <hldet> &pairdets,vector <tracklet> &tracklets, vector <longpair> &trk2det);
 int remake_tracklets(vector <hldet> &detvec, vector <hldet> &detvec_fixed, vector <hlimage> &image_log,vector <tracklet> &tracklets, vector <longpair> &trk2det, int verbose);
 int trk2statevec(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar);
 int trk2statevec_fgfunc(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar, double max_v_inf);
