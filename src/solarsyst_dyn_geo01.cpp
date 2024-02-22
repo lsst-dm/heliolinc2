@@ -17525,13 +17525,16 @@ int load_image_table(vector <hlimage> &img_log, const vector <hldet> &detvec, co
 // load_image_indices: March 23, 2023: Load the starting and
 // ending indices in an image table of the form used in the
 // python-wrapped version of make_tracklets. 
+
+#define CHECKAHEADNUM 10
+
 int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double imagetimetol, int forcerun)
 {
   long imnum = img_log.size();
   long detnum = detvec.size();
   long imct,detct,startind,endind,i;
   imct = detct = startind = endind = i = 0;
-
+  
   // Load indices in detvec. This is incidental to the main
   // purpose of load_image_indices(), but it's necessary and
   // this is a convenient place to do it. 
@@ -17539,6 +17542,7 @@ int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double
   
   detct=0;
   for(imct=0;imct<imnum;imct++) {
+    int foundahead=0;
     if(detct<detnum && fabs(detvec[detct].MJD-img_log[imct].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3)==0) {
       // This should be the first detection on image imct.
       img_log[imct].startind = detct;
@@ -17565,7 +17569,21 @@ int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double
       // The next detection is before this image in the ordered sequence, either
       // before it in time OR overlapping in time but before it in the alphabetical listing of obscodes.
       // Therefore, this detection must not appear on any image in the sequence.
-      if(forcerun) {
+      foundahead=0;
+      if(fabs(detvec[detct].MJD-img_log[imct].MJD) <= imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[imct].obscode,3) < 0) {
+	// Before assuming the detection really doesn't match any image, check ahead to
+	// see if an image later in the input list might match. This can happen with
+	// observations from multiple observatories, if two images are taken from different
+	// observatories within imagetimetol of one another.
+	for(long j=1; j<=CHECKAHEADNUM; j++) {
+	  long k = imct+j;
+	  if(detct<detnum && k<imnum && fabs(detvec[detct].MJD-img_log[k].MJD)<=imagetimetol && stringnmatch01(detvec[detct].obscode,img_log[k].obscode,3)==0) {
+	    // This detection is on image k: not missing after all
+	    foundahead=1; // This will cause us to skip to the next image.
+	  }
+	}
+      }
+      if(forcerun && !foundahead) {
 	// With forcerun, we allow detections that aren't on any image,
 	// even though the caller really should have made sure this couldn't happen.
 	while(detct<detnum && (detvec[detct].MJD < img_log[imct].MJD-imagetimetol ||
@@ -17592,7 +17610,7 @@ int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double
 	  // End special case that we advanced through a series of bad detections
 	  // to arrive at a good detection.
 	}
-      } else {
+      } else if(!foundahead) {
 	// forcerun is not on, meaning that it's not acceptable
 	// for the image catalog not to span all the detections.
 	cerr << "ERROR in load_image_indices: detection " << detct << " not on any image!\n";
@@ -17634,6 +17652,7 @@ int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double
   }
   return(0);
 }
+#undef CHECKAHEADNUM
 
 // load_image_indices2: May 11, 2023: Exactly like load_image_indices,
 // but does not reset detvec.index.
