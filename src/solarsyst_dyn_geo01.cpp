@@ -17311,7 +17311,12 @@ int load_image_table(vector <hlimage> &img_log, const vector <hldet> &detvec, co
   // We make a copy of the input image log and then wipe the original,
   // because we are going to reload the original only with images that
   // match detections in the detection catalog: we won't track images
-  // that had no detections.
+  // that had no detections. REPEALED!!
+  // ABOVE WAS REPEALED ON FEB 2022, 2024: FROM NOW ON, DO TRACK IMAGES WITH NO DETECTIONS.
+  // The reason we do this is because merging different make_tracklets
+  // output files requires that the image catalogs should be identical:
+  // hence, we need to be able to put in an image catalog and guarantee that
+  // the output catalog will contain the same number of images.
   
   point3d p3 = point3d(0,0,0);
   point3d p3avg = point3d(0,0,0);
@@ -17340,6 +17345,7 @@ int load_image_table(vector <hlimage> &img_log, const vector <hldet> &detvec, co
     // on each image, and load these values into imglog02.
     detct=0;
     for(imct=0;imct<long(img_log_tmp.size());imct++) {
+      img_log_tmp[imct].startind = img_log_tmp[imct].endind = 0;
       while(detct<long(detvec.size()) && detvec[detct].MJD < img_log_tmp[imct].MJD-IMAGETIMETOL/SOLARDAY) detct++; //Not on any image
       if(detct<long(detvec.size()) && fabs(detvec[detct].MJD-img_log_tmp[imct].MJD)<=IMAGETIMETOL/SOLARDAY && stringnmatch01(detvec[detct].obscode,img_log_tmp[imct].obscode,3)==0) {
 	// This should be the first detection on image imct.
@@ -17351,6 +17357,25 @@ int load_image_table(vector <hlimage> &img_log, const vector <hldet> &detvec, co
       if(img_log_tmp[imct].startind >= 0 && img_log_tmp[imct].endind > 0) {
 	// This image is good: calculate the observer's position and velocity
 	// Look up observatory coordinates for this image.
+	status = obscode_lookup(observatory_list,img_log_tmp[imct].obscode,obslon,plxcos,plxsin);
+	if(status>0) {
+	  cerr << "ERROR: obscode_lookup failed for observatory code " << img_log[imct].obscode << "\n";
+	  return(3);
+	}
+	// Calculate observer's exact heliocentric position and velocity.
+	observer_baryvel01(img_log_tmp[imct].MJD, 5, obslon, plxcos, plxsin, EarthMJD, Earthpos, Earthvel, obspos, obsvel);
+	img_log_tmp[imct].X = obspos.x;
+	img_log_tmp[imct].Y = obspos.y;
+	img_log_tmp[imct].Z = obspos.z;
+	img_log_tmp[imct].VX = obsvel.x;
+	img_log_tmp[imct].VY = obsvel.y;
+	img_log_tmp[imct].VZ = obsvel.z;
+      
+	// Load the image to the output vector
+	img_log.push_back(img_log_tmp[imct]);
+      } else {
+	// There are no detections on this image, but we load it to output anyway.
+	// This was a change made February 22, 2024.
 	status = obscode_lookup(observatory_list,img_log_tmp[imct].obscode,obslon,plxcos,plxsin);
 	if(status>0) {
 	  cerr << "ERROR: obscode_lookup failed for observatory code " << img_log[imct].obscode << "\n";
