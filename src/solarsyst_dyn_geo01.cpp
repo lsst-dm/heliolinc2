@@ -17571,6 +17571,11 @@ int load_image_indices(vector <hlimage> &img_log, vector <hldet> &detvec, double
 	// forcerun is not on, meaning that it's not acceptable
 	// for the image catalog not to span all the detections.
 	cerr << "ERROR in load_image_indices: detection " << detct << " not on any image!\n";
+	cout << fixed << setprecision(10) << detvec[detct].MJD << " " << detvec[detct].RA << " " << detvec[detct].Dec << " "<< detvec[detct].obscode << "\n";
+	cout << "Nearby entries from image catalog:\n";
+	cout << fixed << setprecision(10) << imct-1 << ": " << img_log[imct-1].MJD << " " << img_log[imct-1].RA << " " << img_log[imct-1].Dec << " " << img_log[imct-1].obscode << "\n";
+	cout << fixed << setprecision(10) << imct << ": " << img_log[imct].MJD << " " << img_log[imct].RA << " " << img_log[imct].Dec << " " << img_log[imct].obscode << "\n";
+	cout << fixed << setprecision(10) << imct+1 << ": " << img_log[imct+1].MJD << " " << img_log[imct+1].RA << " " << img_log[imct+1].Dec << " " << img_log[imct+1].obscode << "\n";
 	return(1);
       }
     } else if(detct<detnum) {
