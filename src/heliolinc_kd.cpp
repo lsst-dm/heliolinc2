@@ -1,9 +1,3 @@
-// June 30, 2023: attempts to parallelize the heliocentric
-// hypothesis loop.
-//
-// September 14, 2022: created on this date by copying
-// an earlier prototype file called projectpairs06d.cpp.
-//
 // Implements in C++ (with some modifications) the Heliolinc3D
 // algorithm developed by Siegfried Eggl, which in turn was based
 // on the original HelioLinC algorithm developed by Matthew Holman
@@ -85,6 +79,10 @@
 //
 //
 // DEVELOPMENT NOTES IN REVERSE CHRONOLOGICAL ORDER:
+//
+//
+// Feb 22, 2024: Uses a simple KD range query rather than the DBSCAN
+// algorithm, because the latter has problematic side effects.
 //
 // June 22, 2022: besides the viewing geometries
 // handled by all earlier versions, also handles the previously-ignored
@@ -178,9 +176,9 @@
 
 static void show_usage()
 {
-  cerr << "Usage: heliolinc_ompkd -imgs imfile -pairdets paired detection file -tracklets tracklet file -trk2det tracklet-to-detection file -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad clustrad -npt dbscan_npt -minobsnights minobsnights -mintimespan mintimespan -mingeodist minimum_geocentric_distance -maxgeodist maximum_geocentric_distance -geologstep logarithmic_step_size_for_geocentric_distance_bins -mingeoobs min_geocentric_dist_at_observation(AU) -minimpactpar min_impact_parameter(km) -useunivar 1_for_univar_0_for_fgfunc -vinf max_v_inf  -outsum summary_file -clust2det clust2detfile -verbose verbosity\n";
+  cerr << "Usage: heliolinc_kd -imgs imfile -pairdets paired detection file -tracklets tracklet file -trk2det tracklet-to-detection file -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad clustrad -npt dbscan_npt -minobsnights minobsnights -mintimespan mintimespan -mingeodist minimum_geocentric_distance -maxgeodist maximum_geocentric_distance -geologstep logarithmic_step_size_for_geocentric_distance_bins -mingeoobs min_geocentric_dist_at_observation(AU) -minimpactpar min_impact_parameter(km) -useunivar 1_for_univar_0_for_fgfunc -vinf max_v_inf  -outsum summary_file -clust2det clust2detfile -verbose verbosity\n";
   cerr << "\nor, at minimum:\n\n";
-  cerr << "heliolinc_ompkd -dets detfile -trk2det tracklet-to-detection file -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file\n";
+  cerr << "heliolinc_kd -dets detfile -trk2det tracklet-to-detection file -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file\n";
   cerr << "\nNote that the minimum invocation leaves some things set to defaults\n";
   cerr << "that you may well wish to specify: in particular, the output file names\n";
   
@@ -622,9 +620,9 @@ int main(int argc, char *argv[])
   }
   cout << "Read " << trk2det.size() << " data lines from trk2det file " << trk2detfile << "\n";
   
-  status=heliolinc_alg_ompkd4(image_log, detvec, tracklets, trk2det, radhyp, earthpos, config, outclust, clust2det);
+  status=heliolinc_alg_kd(image_log, detvec, tracklets, trk2det, radhyp, earthpos, config, outclust, clust2det);
   if(status!=0) {
-    cerr << "ERROR: heliolinc_alg failed with status " << status << "\n";
+    cerr << "ERROR: heliolinc_alg_kd failed with status " << status << "\n";
     return(status);
   } 
   
