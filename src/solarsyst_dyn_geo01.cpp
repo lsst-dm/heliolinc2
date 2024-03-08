@@ -17120,26 +17120,6 @@ int read_image_file2(string inimfile, vector <hlimage> &img_log)
 
 #define DEBUGB 0
 #define DEBUG 0
-#define INTEGERIZING_SCALEFAC 100.0l // We divide state vectors by this value to integerize
-                                     // them. Given a standard integer with a range
-                                     // of +/- 2^31 = 2.15e9, this gives the state vectors
-                                     // a range of +/- 2.15e11 km = 1400 AU, which is
-                                     // comfortably larger than the solar system.
-#define BINSEARCHMAX 100
-#define REF_GEODIST 1.0 // Value of geocentric distance to which the user-defined
-                             // clustering radius is normalized (AU). In general, the
-                             // clustering radius is scaled linearly with geocentric distance.
-#define NIGHTSTEP 0.3 // Minimum interval in days between successive points
-                           // in a tracklet, to enable them to be counted as being
-                           // on separate nights.
-#define EPH_INTERP_POLYORDER 5 // Order of polynomial for interpolating JPL ephemerides.
-#define TIMECONVSCALE 4.0l // The characteristic timescale used to convert velocities
-                           // to distance units is equal to the full temporal span
-                           // divided by TIMECONVSCALE.
-#define FTOL_HERGET_SIMPLEX 1e-5l
-#define MAX_SHUTTER_CORR 10.0 // Implied shutter corrections larger than this value,
-                              // in seconds, are implausible and will cause link_refine_Herget
-                              // to exit with an error.
 
 // load_image_table: March 14, 2023: Construct an
 // image table in the form of a vector of type img_log03.
@@ -19840,6 +19820,259 @@ int trk2statevec_fgfunc(const vector <hlimage> &image_log, const vector <trackle
   return(0);
 }
 
+// trk2statevec_clusterprobe: February 26, 2024:
+// Convert tracklets to statevectors, but not for regular
+// processing by heliolinc: instead, for detailed examination
+// of cluster properties in clusterprobe.cpp. The properties
+// to be examined relate to the optimal clustering radius
+// and sampling interval for heliocentric hypotheses.
+int trk2statevec_clusterprobe(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6dx2> &allstatevecs, double mjdref)
+{
+  allstatevecs={};
+  long imnum = image_log.size();
+  long imct=0;
+  long pairnum = tracklets.size();
+  long pairct=0;
+  int badpoint=0;
+  int status1=0;
+  int status2=0;
+  int solnct=0;
+  double mjdavg=0l;
+  vector <double> heliodistvec;
+  double delta1 = 0.0l;
+  double RA,Dec;
+  long i1,i2;
+  i1=i2=0;
+  point6dx2 statevec1 = point6dx2(0l,0l,0l,0l,0l,0l,0,0);
+  point3d observerpos1 = point3d(0l,0l,0l);
+  point3d observerpos2 = point3d(0l,0l,0l);
+  point3d targpos1 = point3d(0l,0l,0l);
+  point3d targpos2 = point3d(0l,0l,0l);
+  point3d targvel1 = point3d(0l,0l,0l);
+  point3d targvel2 = point3d(0l,0l,0l);
+  point3d unitbary = point3d(0l,0l,0l);
+  vector <point3d> targposvec1;
+  vector <point3d> targposvec2;
+  vector <double> deltavec1;
+  vector <double> deltavec2;
+  double timediff=0l;
+ 
+  // Calculate approximate heliocentric distances from the
+  // input quadratic approximation.
+  heliodistvec={};
+  for(imct=0;imct<imnum;imct++) {
+    delta1 = image_log[imct].MJD - mjdref;
+      heliodistvec.push_back(heliodist + heliovel*delta1 + 0.5*helioacc*delta1*delta1);
+      if(heliodistvec[imct]<=0.0l) {
+	badpoint=1;
+	return(1);
+      }
+  }
+  if(badpoint==0 && long(heliodistvec.size())!=imnum) {
+    cerr << "ERROR: number of heliocentric distance values does\n";
+    cerr << "not match the number of input images!\n";
+    return(2);
+  }
+  for(pairct=0; pairct<pairnum; pairct++) {
+    badpoint=0;
+    // Obtain indices to the image_log and heliocentric distance vectors.
+    i1=tracklets[pairct].Img1;
+    i2=tracklets[pairct].Img2;
+    // Project the first point
+    RA = tracklets[pairct].RA1;
+    Dec = tracklets[pairct].Dec1;
+    celestial_to_stateunit(RA,Dec,unitbary);
+    observerpos1 = point3d(image_log[i1].X,image_log[i1].Y,image_log[i1].Z);
+    targposvec1={};
+    deltavec1={};
+    status1 = helioproj02(unitbary,observerpos1, heliodistvec[i1], deltavec1, targposvec1);
+    RA = tracklets[pairct].RA2;
+    Dec = tracklets[pairct].Dec2;
+    celestial_to_stateunit(RA,Dec,unitbary);
+    observerpos2 = point3d(image_log[i2].X,image_log[i2].Y,image_log[i2].Z);
+    targposvec2={};
+    deltavec2={};
+    status2 = helioproj02(unitbary, observerpos2, heliodistvec[i2], deltavec2, targposvec2);
+    if(status1 > 0 && status2 > 0 && badpoint==0) {
+      // Calculate time difference between the observations
+      timediff = (image_log[i2].MJD - image_log[i1].MJD)*SOLARDAY;
+      // Did helioproj find two solutions in both cases, or only one?
+      solnct=0;
+      // Calculate the object's v_inf relative to the sun.
+      targpos1 = targposvec1[solnct];
+      targpos2 = targposvec2[solnct];
+	  
+      targvel1.x = (targpos2.x - targpos1.x)/timediff;
+      targvel1.y = (targpos2.y - targpos1.y)/timediff;
+      targvel1.z = (targpos2.z - targpos1.z)/timediff;
+
+      targpos1.x = 0.5L*targpos2.x + 0.5L*targpos1.x;
+      targpos1.y = 0.5L*targpos2.y + 0.5L*targpos1.y;
+      targpos1.z = 0.5L*targpos2.z + 0.5L*targpos1.z;
+
+      targpos1 = targposvec1[solnct];
+      targpos2 = targposvec2[solnct];
+	  
+      targvel1.x = (targpos2.x - targpos1.x)/timediff;
+      targvel1.y = (targpos2.y - targpos1.y)/timediff;
+      targvel1.z = (targpos2.z - targpos1.z)/timediff;
+
+      targpos1.x = 0.5L*targpos2.x + 0.5L*targpos1.x;
+      targpos1.y = 0.5L*targpos2.y + 0.5L*targpos1.y;
+      targpos1.z = 0.5L*targpos2.z + 0.5L*targpos1.z;
+      
+      // Integrate orbit to the reference time.
+      mjdavg = 0.5l*image_log[i1].MJD + 0.5l*image_log[i2].MJD;
+      status1 = Kepler_fg_func_int(GMSUN_KM3_SEC2,mjdavg,targpos1,targvel1,mjdref,targpos2,targvel2);
+      if(status1 == 0 && badpoint==0) {
+	statevec1 = point6dx2(targpos2.x,targpos2.y,targpos2.z,chartimescale*targvel2.x,chartimescale*targvel2.y,chartimescale*targvel2.z,pairct,0);
+	// Note that the multiplication by chartimescale converts velocities in km/sec
+	// to units of km, for apples-to-apples comparison with the positions.
+	allstatevecs.push_back(statevec1);
+      } else {
+	// Kepler integration encountered unphysical situation.
+	continue;
+      }
+    } else {
+      badpoint=1;
+      // Heliocentric projection found no physical solution.
+      continue;
+    }
+  }
+  return(0);
+}
+
+// trk2statevec_clusterprobe_innea: February 26, 2024:
+// Like trk2statevec_clusterprobe, but handles the near-earth
+// geometry for objects inside Earth's orbit.
+// Convert tracklets to statevectors, but not for regular
+// processing by heliolinc: instead, for detailed examination
+// of cluster properties in clusterprobe.cpp. The properties
+// to be examined relate to the optimal clustering radius
+// and sampling interval for heliocentric hypotheses.
+int trk2statevec_clusterprobe_innea(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6dx2> &allstatevecs, double mjdref)
+{
+  allstatevecs={};
+  long imnum = image_log.size();
+  long imct=0;
+  long pairnum = tracklets.size();
+  long pairct=0;
+  int badpoint=0;
+  int status1=0;
+  int status2=0;
+  int num_dist_solutions=0;
+  int solnct=0;
+  double mjdavg=0l;
+  vector <double> heliodistvec;
+  double delta1 = 0.0l;
+  double RA,Dec;
+  long i1,i2;
+  i1=i2=0;
+  point6dx2 statevec1 = point6dx2(0l,0l,0l,0l,0l,0l,0,0);
+  point3d observerpos1 = point3d(0l,0l,0l);
+  point3d observerpos2 = point3d(0l,0l,0l);
+  point3d targpos1 = point3d(0l,0l,0l);
+  point3d targpos2 = point3d(0l,0l,0l);
+  point3d targvel1 = point3d(0l,0l,0l);
+  point3d targvel2 = point3d(0l,0l,0l);
+  point3d unitbary = point3d(0l,0l,0l);
+  vector <point3d> targposvec1;
+  vector <point3d> targposvec2;
+  vector <double> deltavec1;
+  vector <double> deltavec2;
+  double timediff=0l;
+ 
+  // Calculate approximate heliocentric distances from the
+  // input quadratic approximation.
+  heliodistvec={};
+  for(imct=0;imct<imnum;imct++) {
+    delta1 = image_log[imct].MJD - mjdref;
+      heliodistvec.push_back(heliodist + heliovel*delta1 + 0.5*helioacc*delta1*delta1);
+      if(heliodistvec[imct]<=0.0l) {
+	badpoint=1;
+	return(1);
+      }
+  }
+  if(badpoint==0 && long(heliodistvec.size())!=imnum) {
+    cerr << "ERROR: number of heliocentric distance values does\n";
+    cerr << "not match the number of input images!\n";
+    return(2);
+  }
+  for(pairct=0; pairct<pairnum; pairct++) {
+    badpoint=0;
+    // Obtain indices to the image_log and heliocentric distance vectors.
+    i1=tracklets[pairct].Img1;
+    i2=tracklets[pairct].Img2;
+    // Project the first point
+    RA = tracklets[pairct].RA1;
+    Dec = tracklets[pairct].Dec1;
+    celestial_to_stateunit(RA,Dec,unitbary);
+    observerpos1 = point3d(image_log[i1].X,image_log[i1].Y,image_log[i1].Z);
+    targposvec1={};
+    deltavec1={};
+    status1 = helioproj02(unitbary,observerpos1, heliodistvec[i1], deltavec1, targposvec1);
+    RA = tracklets[pairct].RA2;
+    Dec = tracklets[pairct].Dec2;
+    celestial_to_stateunit(RA,Dec,unitbary);
+    observerpos2 = point3d(image_log[i2].X,image_log[i2].Y,image_log[i2].Z);
+    targposvec2={};
+    deltavec2={};
+    status2 = helioproj02(unitbary, observerpos2, heliodistvec[i2], deltavec2, targposvec2);
+    if(status1 > 0 && status2 > 0 && badpoint==0) {
+      // Calculate time difference between the observations
+      timediff = (image_log[i2].MJD - image_log[i1].MJD)*SOLARDAY;
+      // Did helioproj find two solutions in both cases, or only one?
+      num_dist_solutions = status1;
+      if(num_dist_solutions > status2) num_dist_solutions = status2;
+      // Loop over solutions (num_dist_solutions can only be 1 or 2).
+      if(num_dist_solutions==2) solnct=1;
+      else solnct=0;
+      // Calculate the object's v_inf relative to the sun.
+      targpos1 = targposvec1[solnct];
+      targpos2 = targposvec2[solnct];
+	  
+      targvel1.x = (targpos2.x - targpos1.x)/timediff;
+      targvel1.y = (targpos2.y - targpos1.y)/timediff;
+      targvel1.z = (targpos2.z - targpos1.z)/timediff;
+
+      targpos1.x = 0.5L*targpos2.x + 0.5L*targpos1.x;
+      targpos1.y = 0.5L*targpos2.y + 0.5L*targpos1.y;
+      targpos1.z = 0.5L*targpos2.z + 0.5L*targpos1.z;
+
+      targpos1 = targposvec1[solnct];
+      targpos2 = targposvec2[solnct];
+	  
+      targvel1.x = (targpos2.x - targpos1.x)/timediff;
+      targvel1.y = (targpos2.y - targpos1.y)/timediff;
+      targvel1.z = (targpos2.z - targpos1.z)/timediff;
+
+      targpos1.x = 0.5L*targpos2.x + 0.5L*targpos1.x;
+      targpos1.y = 0.5L*targpos2.y + 0.5L*targpos1.y;
+      targpos1.z = 0.5L*targpos2.z + 0.5L*targpos1.z;
+      
+      // Integrate orbit to the reference time.
+      mjdavg = 0.5l*image_log[i1].MJD + 0.5l*image_log[i2].MJD;
+      status1 = Kepler_fg_func_int(GMSUN_KM3_SEC2,mjdavg,targpos1,targvel1,mjdref,targpos2,targvel2);
+      if(status1 == 0 && badpoint==0) {
+	statevec1 = point6dx2(targpos2.x,targpos2.y,targpos2.z,chartimescale*targvel2.x,chartimescale*targvel2.y,chartimescale*targvel2.z,pairct,0);
+	// Note that the multiplication by chartimescale converts velocities in km/sec
+	// to units of km, for apples-to-apples comparison with the positions.
+	allstatevecs.push_back(statevec1);
+      } else {
+	// Kepler integration encountered unphysical situation.
+	continue;
+      }
+    } else {
+      badpoint=1;
+      // Heliocentric projection found no physical solution.
+      continue;
+    }
+  }
+  return(0);
+}
+
+
+
 // trk2statevec_univar: September 05, 2023
 int trk2statevec_univar(const vector <hlimage> &image_log, const vector <tracklet> &tracklets, double heliodist, double heliovel, double helioacc, double chartimescale, vector <point6ix2> &allstatevecs, double mjdref, double mingeoobs, double minimpactpar, double max_v_inf)
 {
@@ -21971,7 +22204,11 @@ int form_clusters_kd3(const vector <point6ix2> &allstatevecs, const vector <hlde
 // in that it eliminates duplicate clusters across
 // geocentric bins, while form_clusters_kd3 could only
 // eliminate duplicates within the same bin.
-int form_clusters_kd4(const vector <point6ix2> &allstatevecs, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const point3d &Earthrefpos, double heliodist, double heliovel, double helioacc, double chartimescale, vector <hlclust> &outclust, vector <longpair> &clust2det, long &realclusternum, double cluster_radius, double dbscan_npt, double mingeodist, double geologstep, double maxgeodist, int mintimespan, int minobsnights, int verbose)
+// March 08, 2024: added clustchangerad parameter: a
+// geocentric distance in AU within which the clustering
+// radius will no longer change with geocentric distance.
+// Original behavior is recovered for clustchangerad = 0.0;
+int form_clusters_kd4(const vector <point6ix2> &allstatevecs, const vector <hldet> &detvec, const vector <tracklet> &tracklets, const vector <longpair> &trk2det, const point3d &Earthrefpos, double heliodist, double heliovel, double helioacc, double chartimescale, vector <hlclust> &outclust, vector <longpair> &clust2det, long &realclusternum, double cluster_radius, double clustchangerad, double dbscan_npt, double mingeodist, double geologstep, double maxgeodist, int mintimespan, int minobsnights, int verbose)
 {
   long detnum = detvec.size();
   double georadmin=0l;
@@ -22011,6 +22248,7 @@ int form_clusters_kd4(const vector <point6ix2> &allstatevecs, const vector <hlde
   double georadcen = mingeodist*intpowD(geologstep,georadct);
   vector <hlclust> outclust2;
   vector <vector <long>> pointind_mat;
+  double clustrad=0.0l;
   
   // Loop over geocentric bins, selecting the subset of state-vectors
   // in each bin, and running DBSCAN only on those, with clustering radius
@@ -22063,7 +22301,17 @@ int form_clusters_kd4(const vector <point6ix2> &allstatevecs, const vector <hlde
       if(verbose>=1) cout << "Created a KD tree with " << kdvec.size() << " branches\n";
 
       vector <KD6i_clust> kdclust;
-      long clusternum = KDRclust_6i01(kdvec, cluster_radius*(georadcen/REF_GEODIST)/INTEGERIZING_SCALEFAC, dbscan_npt, INTEGERIZING_SCALEFAC, kdclust, verbose);
+      if(georadcen >= clustchangerad) {
+	// cluster radius scales linearly with geocentric distance.
+	clustrad = cluster_radius*(georadcen/REF_GEODIST);
+      }
+      else {
+	// cluster radius remains fixed at the minimum value,
+	// in order to make sure it does not get excessively small
+	// for very small geocentric radii.
+	clustrad = cluster_radius*(clustchangerad/REF_GEODIST);
+      }
+      long clusternum = KDRclust_6i01(kdvec, clustrad/INTEGERIZING_SCALEFAC, dbscan_npt, INTEGERIZING_SCALEFAC, kdclust, verbose);
       cout << "KDRclust_6i01 finished clustering geobin " << georadct << ", with " << clusternum << " = " << kdclust.size() << " clusters found\n";
       if(clusternum<0) return(8);
       
@@ -22119,7 +22367,8 @@ int form_clusters_kd4(const vector <point6ix2> &allstatevecs, const vector <hlde
 	for(long i=0; i<9; i++) {
 	  if(DEBUG >= 2) cout << "scaling rmsvec point " << i << " out of " << kdclust[clusterct].rmsvec.size() << "\n";
 	  if(DEBUG >= 2) cout << "RMS = " << kdclust[clusterct].rmsvec[i];
-	  kdclust[clusterct].rmsvec[i] *= REF_GEODIST/georadcen;
+	  if(georadcen >= clustchangerad) kdclust[clusterct].rmsvec[i] *= REF_GEODIST/georadcen;
+	  else kdclust[clusterct].rmsvec[i] *= REF_GEODIST/clustchangerad;
 	  if(DEBUG >= 2) cout << ", scales to " << kdclust[clusterct].rmsvec[i] << "\n";
 	}
 	// Note that RMS is scaled down for more distant clusters, to
@@ -23760,8 +24009,9 @@ int heliolinc_alg_ompkd4(const vector <hlimage> &image_log, const vector <hldet>
   // Echo config struct
   cout << "Configuration parameters:\n";
   cout << "MJD of reference time: " << config.MJDref << "\n";
-  cout << "DBSCAN clustering radius: " << config.clustrad << " km\n";
-  cout << "DBSCAN npt: " << config.dbscan_npt << "\n";
+  cout << "K-D tree clustering radius: " << config.clustrad << " km\n";
+  cout << "Geocentric distance within which cluster radius has a fixed min. value: " << config.clustchangerad << " AU\n";
+  cout << "Min points per cluster: " << config.dbscan_npt << "\n";
   cout << "Min number of distinct observing nights for a valid linkage: " << config.minobsnights << "\n";
   cout << "Min time span for a valid linkage: " << config.mintimespan << " days\n";
   cout << "Min geocentric distance (center of innermost bin): " << config.mingeodist << " AU\n";
@@ -23872,7 +24122,7 @@ int heliolinc_alg_ompkd4(const vector <hlimage> &image_log, const vector <hldet>
 	// trk2statevec probably ran OK, and some clusters possible.
 	if(config.verbose>=0) cout << pairnum << " input pairs/tracklets led to " << allstatevecs.size() << " physically reasonable state vectors\n";
 
-	status = form_clusters_kd4(allstatevecs, detvec, tracklets, trk2det, Earthrefpos, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, outclust_mat[ithread], clust2det_mat[ithread], gridpoint_clusternum, config.clustrad, config.dbscan_npt, config.mingeodist, config.geologstep, config.maxgeodist, config.mintimespan, config.minobsnights, config.verbose);
+	status = form_clusters_kd4(allstatevecs, detvec, tracklets, trk2det, Earthrefpos, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, outclust_mat[ithread], clust2det_mat[ithread], gridpoint_clusternum, config.clustrad, config.clustchangerad, config.dbscan_npt, config.mingeodist, config.geologstep, config.maxgeodist, config.mintimespan, config.minobsnights, config.verbose);
 	if(status!=0) {
 	  cerr << "ERROR: form_clusters exited with error code " << status << "\n";
 	}
@@ -24004,7 +24254,7 @@ int heliolinc_alg_kd(const vector <hlimage> &image_log, const vector <hldet> &de
     if(allstatevecs.size()<=1) continue; // No clusters possible, skip to the next step.
     if(config.verbose>=0) cout << pairnum << " input pairs/tracklets led to " << allstatevecs.size() << " physically reasonable state vectors\n";
 
-    status = form_clusters_kd4(allstatevecs, detvec, tracklets, trk2det, Earthrefpos, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, outclust, clust2det, realclusternum, config.clustrad, config.dbscan_npt, config.mingeodist, config.geologstep, config.maxgeodist, config.mintimespan, config.minobsnights, config.verbose);
+    status = form_clusters_kd4(allstatevecs, detvec, tracklets, trk2det, Earthrefpos, heliodist[accelct], heliovel[accelct], helioacc[accelct], chartimescale, outclust, clust2det, realclusternum, config.clustrad, config.clustchangerad, config.dbscan_npt, config.mingeodist, config.geologstep, config.maxgeodist, config.mintimespan, config.minobsnights, config.verbose);
     if(status!=0) {
       cerr << "ERROR: form_clusters_kd4 exited with error code " << status << "\n";
     }
@@ -26667,6 +26917,7 @@ int link_refine_Herget_omp(const vector <hlimage> &image_log, const vector <hlde
   return(0);
 }
 
+#undef ESCAPE_SCALE
 
 // link_refine_Herget_omp2: July 06, 2023:
 // Algorithmic portion to be called by wrappers,
@@ -27592,15 +27843,6 @@ int link_refine_Herget_omp4(const vector <hlimage> &image_log, const vector <hld
 
 #undef DEBUGB
 #undef DEBUG
-#undef INTEGERIZING_SCALEFAC
-#undef BINSEARCHMAX
-#undef REF_GEODIST
-#undef NIGHTSTEP
-#undef EPH_INTERP_POLYORDER
-#undef TIMECONVSCALE
-#undef TIMECONVSCALE
-#undef FTOL_HERGET_SIMPLEX
-#undef ESCAPE_SCALE
 
 // parse_clust2det: April 26, 2023:
 // Use the clust2det mapping vector produced by heliolinc or

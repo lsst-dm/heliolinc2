@@ -1,46 +1,40 @@
-// November 01, 2023: calc_accel_mat03t:
-// Like calc_accel_mat03, but uses different conventions for acceleration
-// and velocity sampling: specifically, all constant multipliers are dropped
-// for simplicity. Given the same undersampling factor, the velocity
-// sampling will be 2x finer and the acceleration will be 8x finer.
-// October 27, 2023: calc_accel_mat03:
-// Uses the insight of calc_accel_mat02b that acceleration sampling
-// can be inferred from velocity sampling, but does not use the analogous
-// inference from distance to velocity. Velocity sampling is therefore
-// decoupled from distance sampling, and now instead is coupled to the
-// clustering radius, which is now a parameter.
-//Also takes the total time spanned
-// by the data as the timescale input, as opposed to the use in calc_accel_mat02b
-// of a 'characteristic time' somewhat confusingly defined as 1/4 the total timespan.
+// March 07, 2024: calc_heliohypmat.cpp
+// Like the calc_accel_mat programs, but uses a very different approach
+// to the problem of calculating a hypothesis matrix for heliolinc.
+// Works from empirical power laws.
 
 #include "solarsyst_dyn_geo01.h"
 #include "cmath"
 
-#define FIXRANGE 0.05l // Distance from Earth, in AU, at which sampling
+#define FIXRANGE 0.10l // Distance from Earth, in AU, at which sampling
                       // intervals are no longer scaled with geocentric distance
-#define STEPMAX 100000000
+#define STEPMAX 10000000
 #define ESCSCALE 0.99l // Velocities nominally equal to the escape velocity will
                       // be scaled by this factor, to ensure that the orbits
                       // remain formally bound.
 
 static void show_usage()
 {
-  cerr << "Usage: calc_accel_mat03 -mindist minimum distance (AU) -maxdist maximum distance (AU) -distfracstep \ndistances sampling interval as a fraction of geodist -clustrad clustering radius (km) -velscale undersampling factor for velocity -accelscale undersampling factor for acceleration -totaltimespan total time spanned by the data (days) -outfile output file\n";
-  cerr << "\n\nDespite lack of valid inputs, we still run with reasonable defaults for everything:\n\n";
+  cerr << "Usage: calc_heliohypmat -mindist minimum distance (AU) -maxdist maximum distance (AU) -distconst -distpwr -velconst -velpwr -accconst -accpwr -accchangerad -clustchangerad -outfile output file\n";
+
 }
 
 int main(int argc, char *argv[])
 {
   double mindist = 1.0l + FIXRANGE;
   double maxdist = 100.0l;
-  double distfracstep = 0.1l;
-  double diststep = 0.01;
-  double velstep = 20.0l;
-  double vel_undersamp = 1.0l;
-  double acc_undersamp = 1.0l;
-  double clustrad = 100000.0l;
-  double totaltime = 16.0l;
-  string outfile = "camout02.csv";
+  double diststep = 1.0l;
+  double velstep = 1.0e-2;
+  double distconst = 0.258336;
+  double distpwr = 1.369798;
+  double velconst = 2.713272e-3;
+  double velpwr = 0.704204;
+  double accconst = 7.180432e-7;
+  double accpwr = 0.0778692;
+  double accchangerad = 1.5; // geocentric distance beyond which the
+                             // acceleration sampling no longer varies.
+  double clustchangerad = 0.5; // geocentric distance within which the
+                              // clustering radius no longer changes.
   long i=0;
   long stepct=0;
   int verbose=0;
@@ -52,7 +46,8 @@ int main(int argc, char *argv[])
   double accelstep,minacc,maxacc,vtan,xi;
   accelstep = minacc = maxacc = vtan = xi = 0.0l;
   long accelnum,accelct,velnum,velct;
-
+  string outfile;
+  
   if(argc<3) show_usage();
   
   i=1;
@@ -80,58 +75,91 @@ int main(int argc, char *argv[])
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-distfracstep" || string(argv[i]) == "-fracstep" || string(argv[i]) == "-diststep" || string(argv[i]) == "-dfs" || string(argv[i]) == "--distfracstep" ) {
+    } else if(string(argv[i]) == "-distconst" || string(argv[i]) == "-distconst" || string(argv[i]) == "-distconst" || string(argv[i]) == "-distconst" || string(argv[i]) == "--distconst" ) {
       if(i+1 < argc) {
 	//There is still something to read;
-	distfracstep = stod(argv[++i]);
+	distconst = stod(argv[++i]);
 	i++;
       }
       else {
-	cerr << "Fractional distance step keyword supplied with no corresponding argument\n";
+	cerr << "Constant coefficient for distance power law keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-clustrad" || string(argv[i]) == "-cr" || string(argv[i]) == "-crad" || string(argv[i]) == "-cluster" || string(argv[i]) == "--clustrad" || string(argv[i]) == "--clusterradius" || string(argv[i]) == "--clusterrad") {
+    } else if(string(argv[i]) == "-distpwr" || string(argv[i]) == "-distpwr" || string(argv[i]) == "-distpwr" || string(argv[i]) == "-distpwr" || string(argv[i]) == "--distpwr" || string(argv[i]) == "--distpwr" || string(argv[i]) == "--distpwr") {
       if(i+1 < argc) {
 	//There is still something to read;
-	clustrad=stod(argv[++i]);
+	distpwr=stod(argv[++i]);
 	i++;
       }
       else {
-	cerr << "Clustering radius keyword supplied with no corresponding argument\n";
+	cerr << "Exponent for distance power law keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-velscale" || string(argv[i]) == "-velunder" || string(argv[i]) == "-velfac" || string(argv[i]) == "-vs" || string(argv[i]) == "-vf" ) {
+    } else if(string(argv[i]) == "-velconst" || string(argv[i]) == "-velconst" || string(argv[i]) == "-velconst" || string(argv[i]) == "-velconst" || string(argv[i]) == "-velconst" ) {
       if(i+1 < argc) {
 	//There is still something to read;
-	vel_undersamp = stod(argv[++i]);
+	velconst = stod(argv[++i]);
 	i++;
       }
       else {
-	cerr << "Velocity undersampling keyword supplied with no corresponding argument\n";
+	cerr << "Constant coefficient for velocity power law keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-accelscale" || string(argv[i]) == "-accelunder" || string(argv[i]) == "-accelfac" || string(argv[i]) == "-accscale" || string(argv[i]) == "-accunder" || string(argv[i]) == "-accfac" || string(argv[i]) == "-acscale" || string(argv[i]) == "-acunder" || string(argv[i]) == "-acfac" || string(argv[i]) == "-as" || string(argv[i]) == "-af" ) {
+    } else if(string(argv[i]) == "-velpwr" || string(argv[i]) == "-velpwr" || string(argv[i]) == "-velpwr") {
       if(i+1 < argc) {
 	//There is still something to read;
-	acc_undersamp = stod(argv[++i]);
+	velpwr = stod(argv[++i]); // The total time spanned by the data.
 	i++;
       }
       else {
-	cerr << "Acceleration undersampling keyword supplied with no corresponding argument\n";
+	cerr << "Exponent for velocity power law keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
-    } else if(string(argv[i]) == "-totaltimespan" || string(argv[i]) == "-totaltime" || string(argv[i]) == "-timespan") {
+    } else if(string(argv[i]) == "-accconst" || string(argv[i]) == "-accconst" || string(argv[i]) == "-accconst" || string(argv[i]) == "-accconst" || string(argv[i]) == "-accconst" ) {
       if(i+1 < argc) {
 	//There is still something to read;
-	totaltime = stod(argv[++i]); // The total time spanned by the data.
+	accconst = stod(argv[++i]);
 	i++;
       }
       else {
-	cerr << "Total time span keyword supplied with no corresponding argument\n";
+	cerr << "Constant coefficient for acceleration power law keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-accpwr" || string(argv[i]) == "-accpwr" || string(argv[i]) == "-accpwr") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	accpwr = stod(argv[++i]); 
+	i++;
+      }
+      else {
+	cerr << "Exponent for acceleration power law keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-accchangerad" || string(argv[i]) == "-accchangerad" || string(argv[i]) == "-accchangerad") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	accchangerad = stod(argv[++i]); 
+	i++;
+      }
+      else {
+	cerr << "Transition distance for acceleration power law keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-clustchangerad" || string(argv[i]) == "-clustchangerad" || string(argv[i]) == "-clustchangerad") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	clustchangerad = stod(argv[++i]); 
+	i++;
+      }
+      else {
+	cerr << "Transition distance for cluster scaling keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
@@ -164,10 +192,6 @@ int main(int argc, char *argv[])
   }
 
   cout << "Distances will be probed from " << mindist << " to " << maxdist << "AU\n";
-  cout << "With a sampling equal to " << distfracstep << " of the minimum inferred geocentric distance\n";
-  cout << "Total time span is " << totaltime << " days\n";
-  cout << "Clustering radius is " << clustrad << " km\n";
-  cout << "Velocity undersampling factor is " << vel_undersamp << "\n";
   cout << "Output file to be written is called " << outfile << "\n";
 
   // Catch required parameters if missing
@@ -177,14 +201,6 @@ int main(int argc, char *argv[])
     return(1);
   } else if(maxdist<=0.0l || maxdist<=mindist) {
     cout << "\nERROR: maximum distnace must be strictly greater than minimum distance\n";
-    show_usage();
-    return(1);
-  } else if(distfracstep<=0.0l) {
-    cout << "\nERROR: Fractional distance step must be strictly positive \n";
-    show_usage();
-    return(1);
-  } else if(totaltime<=0.0l) {
-    cout << "\nERROR: Total time span must be strictly positive \n";
     show_usage();
     return(1);
   } else if(outfile.size()<=0) {
@@ -198,14 +214,28 @@ int main(int argc, char *argv[])
   dist = mindist;
   while(dist<=maxdist && stepct<=STEPMAX) {
     geodist = fabs(dist-1.0l);
-    if(geodist<FIXRANGE) geodist = FIXRANGE;
-    diststep = distfracstep*geodist; // AU
+    diststep = distconst*pow(geodist,distpwr); // AU
     distkm = dist*AU_KM;
-    vesc = sqrt(2.0l*GMSUN_KM3_SEC2/distkm); // km/sec
-    velstep = vel_undersamp*clustrad*geodist/totaltime/SOLARDAY; // km/sec
+    vesc = sqrt(2.0l*GMSUN_KM3_SEC2/distkm)*SOLARDAY/AU_KM; // AU/day
+    velstep = velconst*pow(geodist,velpwr); // AU/day
     g0 = GMSUN_KM3_SEC2/distkm/distkm; // Solar gravity in km/sec^2
-    accelstep = acc_undersamp*velstep/totaltime/SOLARDAY; 
-    if(verbose>=1) cout << "Distance is " << dist << " AU = " << distkm << " km, vesc = " << vesc << " km/sec, velstep = " << velstep << "km/sec, gt = " << g0*totaltime*SOLARDAY << "\n";
+    if(geodist<accchangerad) {
+      accelstep = accconst*pow(geodist,accpwr); // km/sec^2
+    } else {
+      accelstep = accconst*pow(accchangerad,accpwr);
+    }
+    // Scale all the steps according to the clustering radius
+    if(geodist<clustchangerad) {
+      diststep *= clustchangerad;
+      velstep *= clustchangerad;
+      accelstep *= clustchangerad;
+    } else {
+      diststep *= geodist;
+      velstep *= geodist;
+      accelstep *= geodist;
+    }
+      
+    if(verbose>=1) cout << "Distance is " << dist << " AU = " << distkm << " km, vesc = " << vesc*AU_KM/SOLARDAY << " km/sec, velstep = " << velstep*AU_KM/SOLARDAY << "km/sec, accelstep = " << accelstep << " km/sec^2, GMsun = " << g0 << " km/sec^2\n";
     velnum = ceil(2.0l*vesc/velstep);
     if(velnum<=1) {
       // Velocity step is so large, we'll only probe radial velocity=0
@@ -238,9 +268,9 @@ int main(int argc, char *argv[])
       // step size, but optimally sample the full range with the specified number of steps.
       // Now for the loop, probing everything except the endpoints
       for(velct=0;velct<velnum;velct++) {
-	velkm = -vesc + (double(velct)+0.5)*2.0l*vesc/double(velnum);
-	velAU = velkm*SOLARDAY/AU_KM;
-	xi = velkm/vesc;
+	velAU = -vesc + (double(velct)+0.5)*2.0l*vesc/double(velnum);
+	velkm = velAU*AU_KM/SOLARDAY;
+	xi = velAU/vesc;
 	maxacc = g0;
 	minacc = g0*(1.0l - 2.0l*sqrt(1.0l - xi*xi));
 	if(verbose>=1) cout << "vel = " << velAU << " accelstep = " << accelstep << ", range is " << minacc << " to " << maxacc << "\n";

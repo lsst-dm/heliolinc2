@@ -176,7 +176,7 @@
 
 static void show_usage()
 {
-  cerr << "Usage: heliolinc_kd -imgs imfile -pairdets paired detection file -tracklets tracklet file -trk2det tracklet-to-detection file -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad clustrad -npt dbscan_npt -minobsnights minobsnights -mintimespan mintimespan -mingeodist minimum_geocentric_distance -maxgeodist maximum_geocentric_distance -geologstep logarithmic_step_size_for_geocentric_distance_bins -mingeoobs min_geocentric_dist_at_observation(AU) -minimpactpar min_impact_parameter(km) -useunivar 1_for_univar_0_for_fgfunc -vinf max_v_inf  -outsum summary_file -clust2det clust2detfile -verbose verbosity\n";
+  cerr << "Usage: heliolinc_kd -imgs imfile -pairdets paired detection file -tracklets tracklet file -trk2det tracklet-to-detection file -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file -clustrad clustrad -clustchangerad min_distance_for_cluster_scaling -npt dbscan_npt -minobsnights minobsnights -mintimespan mintimespan -mingeodist minimum_geocentric_distance -maxgeodist maximum_geocentric_distance -geologstep logarithmic_step_size_for_geocentric_distance_bins -mingeoobs min_geocentric_dist_at_observation(AU) -minimpactpar min_impact_parameter(km) -useunivar 1_for_univar_0_for_fgfunc -vinf max_v_inf  -outsum summary_file -clust2det clust2detfile -verbose verbosity\n";
   cerr << "\nor, at minimum:\n\n";
   cerr << "heliolinc_kd -dets detfile -trk2det tracklet-to-detection file -mjd mjdref -obspos observer_position_file -heliodist heliocentric_dist_vel_acc_file\n";
   cerr << "\nNote that the minimum invocation leaves some things set to defaults\n";
@@ -199,13 +199,15 @@ int main(int argc, char *argv[])
   string imfile,pairdetfile,trackletfile,trk2detfile,planetfile,accelfile;
   string sumfile = "sumfile_test.csv";
   string clust2detfile = "clust2detfile_test.csv";
-  int default_clustrad, default_npt, default_minobsnights;
+  int default_clustrad, default_clustchangerad, default_npt, default_minobsnights;
   int default_mintimespan, default_mingeodist, default_maxgeodist;
   int default_geologstep,default_clust2detfile,default_sumfile;
   int default_mingeoobs, default_minimpactpar;
   int default_use_univar, default_max_v_inf;
-  default_clustrad = default_npt = default_minobsnights = default_mintimespan = 1;
-  default_mingeodist = default_maxgeodist = default_geologstep = default_clust2detfile = default_sumfile = 1;
+  default_clustrad = default_clustchangerad = default_npt = default_minobsnights = 1;
+  default_mintimespan = 1;
+  default_mingeodist = default_maxgeodist = default_geologstep = 1;
+  default_clust2detfile = default_sumfile = 1;
   default_mingeoobs = default_minimpactpar = 1;
   default_use_univar = default_max_v_inf = 1;
   ofstream outstream1;
@@ -302,6 +304,18 @@ int main(int argc, char *argv[])
       }
       else {
 	cerr << "Clustering radius keyword supplied with no corresponding argument\n";
+	show_usage();
+	return(1);
+      }
+    } else if(string(argv[i]) == "-clustchangerad" || string(argv[i]) == "-clustchangerad" || string(argv[i]) == "-clustchangerad") {
+      if(i+1 < argc) {
+	//There is still something to read;
+	config.clustchangerad = stod(argv[++i]); 
+	default_clustchangerad = 0;
+	i++;
+      }
+      else {
+	cerr << "Transition distance for cluster scaling keyword supplied with no corresponding argument\n";
 	show_usage();
 	return(1);
       }
@@ -542,6 +556,10 @@ int main(int argc, char *argv[])
 
   if(default_clustrad==1) cout << "Defaulting to cluster radius = " << config.clustrad << "km\n";
   else cout << "input clustering radius " << config.clustrad << "km\n";
+  if(default_clustchangerad==1) cout << "Defaulting to min. geocentric distance for cluster scaling = " << config.clustchangerad << "AU\n";
+  else cout << "Min. geocentric distance for cluster scaling is " << config.clustchangerad << "AU\n";
+  cout << "Minimum cluster radius, which will apply for all geocentric distances less\n";
+  cout << "than " << config.clustchangerad << "AU, is " << config.clustrad*config.clustchangerad/REF_GEODIST << "km\n";
   if(default_npt==1) cout << "Defaulting to DBSCAN npt (min. no. of tracklets in a linkage) = " << config.dbscan_npt << "\n";
   else cout << "input DBSCAN npt (min. no. of tracklets in a linkage) is " << config.dbscan_npt << "\n";
   if(default_minobsnights==1) cout << "Defaulting to minimum number of unique nights = " << config.minobsnights << "\n";
