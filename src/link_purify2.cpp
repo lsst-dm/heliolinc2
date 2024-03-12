@@ -399,7 +399,7 @@ int main(int argc, char *argv[])
   cout << "Finished creating master cluster summary vector with length " << clustvecmain.size() << ",\n";
   cout << "and master cluster-to-detection vector with length " << clust2detmain.size() << "\n";
 
-  status = link_purify(image_log, detvec, clustvecmain, clust2detmain, config, outclust, outclust2det);
+  status = link_purify2(image_log, detvec, clustvecmain, clust2detmain, config, outclust, outclust2det);
   if(status!=0) {
     cerr << "ERROR: link_purify failed with status " << status << "\n";
     return(status);
