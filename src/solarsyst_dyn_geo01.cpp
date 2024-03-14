@@ -24261,6 +24261,16 @@ int heliolinc_alg_kd(const vector <hlimage> &image_log, const vector <hldet> &de
       cerr << "ERROR: form_clusters_kd4 exited with error code " << status << "\n";
     }
   }
+  
+  // De-duplicate the final output set
+  cout << "De-duplicating output set of " << outclust.size() << " candidate linkages\n";
+  vector <hlclust> outclust2;
+  vector  <longpair> outclust2det2;
+  link_dedup(outclust, clust2det, outclust2, outclust2det2);
+  outclust = outclust2;
+  clust2det = outclust2det2;
+  cout << "Final de-duplicating set contains " << outclust.size() << " linkages\n";
+
   return(0);    
 }
 
