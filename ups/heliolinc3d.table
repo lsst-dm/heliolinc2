@@ -1,0 +1,12 @@
+# List EUPS dependencies of this package here.
+# - Any package whose API is used directly should be listed explicitly.
+# - Common third-party packages can be assumed to be recursively included by
+#   the "base" package.
+setupRequired(pex_config)
+setupRequired(pipe_base)
+
+# The following is boilerplate for all packages.
+# See https://dmtn-001.lsst.io for details on LSST_LIBRARY_PATH.
+envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
+
+envPrepend(PATH, ${PRODUCT_DIR}/bin)
