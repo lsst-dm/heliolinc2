@@ -8,6 +8,8 @@ import heliohypy
 SSHORT = 'S20'
 SMIN = 'S5'
 
+__all__ = ["celeproj", "celedeproj", "make_image_table", "read_ObsCodes", "load_earth_ephemerides", "image_add_observerpos"]
+
 intype = np.dtype(list(dict(
     MJD=float,
     RA=float,

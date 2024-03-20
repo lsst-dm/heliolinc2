@@ -51,62 +51,44 @@ class LinkRefineConfig(lsst.pex.config.Config):
       default=0.0,
       doc="MJD or reference time. No sensible default is possible."
       )
-  clustrad = lsst.pex.config.Field(
-      dtype=float,
-      default=1.0e5
-      doc="Clustering radius for the DBSCAN algorithm, in km."
-      )
-  dbscan_npt = lsst.pex.config.Field(
-      dtype=int,
-      default=3,
-      doc="Number of points npt for the DBSCAN algorithm"
-      )
-  minobsnights = lsst.pex.config.Field(
-      dtype=int,
-      default=3,
-      doc="Minimum number of distinct observing nights for a valid linkage"
-      )
-  mintimespan = lsst.pex.config.Field(
-      dtype=float,
-      default=1.0,
-      doc="Minimum timespan for a valid linkage, in days"
-      )
-  mingeodist = lsst.pex.config.Field(
-      dtype=float,
-      default=0.10;
-      doc="Geocentric distance (AU) at the center of the innermost distance bin"
-      )
-  maxgeodist = lsst.pex.config.Field(
-      dtype=float,
-      default=100.0
-      doc="Minimum value in AU for the center of the outermost distance bin"
-      )
-  geologstep = lsst.pex.config.Field(
-      dtype=float,
-      default=1.5,
-      doc="Factor by which distance increases from one bin to the next"
-      )
-  mingeoobs = lsst.pex.config.Field(
-      dtype=float,
-      default=0.0,
-      doc="Minimum inferred geocentric distance for a valid tracklet"
-      )
-  minimpactpar = lsst.pex.config.Field(
-      dtype=float,
-      default=0.0,
-      doc="Minimum inferred impact parameter (w.r.t Earth) for a valid tracklet"
-      )
-  use_univar = lsst.pex.config.Field(
+  simptype = lsst.pex.config.Field(
       dtype=int,
       default=0,
-      doc="Use the universal variable formulation of the Kepler equations, "
-          "rather than the default fg function formulation"
+      doc="Defines how simplex is constructed in the 2-D parameter space "
+      "of geocentric distance at first detection (geodist1) and the last "
+      "detection (geodist2). simptype=0 uses multiplicative scaling to "
+      "create an approximately equilateral triangle. simptype=1 creates a "
+      "simplex elongated along the direction defined by geodist1=geodist2. "
+      "simptype=2 uses subtraction to create a precisely equilateral triangle."
       )
-  max_v_inf = lsst.pex.config.Field(
+  ptpow = lsst.pex.config.Field(
+      dtype=int,
+      default=1,
+      doc="Power to which we raise the number of unique detections, "
+      "when calculating the cluster quality metric."
+      )
+  nightpow = lsst.pex.config.Field(
+      dtype=int,
+      default=1,
+      doc="Power to which we raise the number of distinct observing nights, "
+      "when calculating the cluster quality metric."
+      )
+  timepow = lsst.pex.config.Field(
+      dtype=int,
+      default=0,
+      doc="Power to which we raise the total temporal span of the linkage, "
+      "when calculating the cluster quality metric."
+      )
+  rmspow = lsst.pex.config.Field(
+      dtype=int,
+      default=2,
+      doc="Power to which we raise the RMS astrometric residual "
+      "when calculating the cluster quality metric."
+      )
+  maxrms = lsst.pex.config.Field(
       dtype=float,
-      default=0.0,
-      doc="Maximum value of v_infinity relative to the sun "
-      "(must be greater than zero to probe interstellar orbits)"
+      default=1.0e5
+      doc="Maximum scaled RMS in km for a viable cluster, in km."
       )
   verbose = lsst.pex.config.Field(
       dtype=int,
