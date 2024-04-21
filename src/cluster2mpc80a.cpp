@@ -429,8 +429,8 @@ int main(int argc, char *argv[])
 		outstream1 << year << " ";
 		if(month<10) outstream1 << "0";
 		outstream1 << month << " ";
-		if(day<10.0l) outstream1  << fixed << setprecision(6) << "0";
-		outstream1  << fixed << setprecision(6) << day;
+		// Use setfill and setw for zero-padding.
+		outstream1 << setfill('0') << setw(9) << fixed << setprecision(6) << day;
 		// Convert RA, Dec from decimal degrees to sexagesimal format.
 		rahr = int(detvec[i1].RA/15.0l);
 		ramin = int(detvec[i1].RA*4.0l - double(rahr)*60.0l);
@@ -451,14 +451,12 @@ int main(int argc, char *argv[])
 	      outstream1 << rahr << " ";
 	      if(ramin<10) outstream1 << "0";
 	      outstream1 << ramin << " ";
-	      if(rasec<10.0l) outstream1 << "0";
-	      outstream1 << fixed << setprecision(3) << rasec << signstring;
+	      outstream1 << setfill('0') << setw(6) << fixed << setprecision(3) << rasec << signstring;
 	      if(decdeg<10) outstream1 << "0";
 	      outstream1 << decdeg << " ";
 	      if(decmin<10) outstream1 << "0";
 	      outstream1 << decmin << " ";
-	      if(decsec<10.0l) outstream1 << "0";
-	      outstream1 << fixed << setprecision(2) << decsec << "         ";
+	      outstream1 << setfill('0') << setw(5) << fixed << setprecision(2) << decsec << "         ";
 	      // Write out magnitude and band.
 	      outstream1 << fixed << setprecision(1) << detvec[i1].mag << " " << detvec[i1].band;
 	      // Add correct number of spaces after band.
